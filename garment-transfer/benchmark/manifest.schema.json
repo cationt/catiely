@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "garment-transfer/benchmark/manifest.schema.json",
+  "title": "Caso de benchmark de garment transfer (A + B -> O)",
+  "description": "Um registro por caso. Imagens NÃO são redistribuídas quando a licença não permite: o manifesto guarda URL de origem, licença, hash e as transformações aplicadas (crop/resize) para reprodução legal.",
+  "type": "object",
+  "required": ["case_id", "split", "level", "A", "B", "spec", "coverage", "expected"],
+  "properties": {
+    "case_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "split": {"type": "string", "enum": ["dev", "regression", "final_test"]},
+    "level": {"type": "string", "enum": ["EASY", "MEDIUM", "HARD", "EXTREME"]},
+    "A": {"$ref": "#/$defs/image_source"},
+    "B": {"$ref": "#/$defs/image_source"},
+    "extra_refs": {"type": "array", "items": {"allOf": [{"$ref": "#/$defs/image_source"}, {"properties": {"role": {"enum": ["back", "detail", "alt_view", "other_donor"]}}}]}},
+    "spec": {
+      "type": "object",
+      "description": "Especificação S (ver docs/00_formulacao_contrato.md §1.3)",
+      "required": ["mode", "garments"],
+      "properties": {
+        "target_person": {"type": ["object", "null"], "properties": {"bbox_xywh_norm": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4}}},
+        "garments": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["category"], "properties": {
+          "category": {"enum": ["top", "cropped_top", "shirt", "long_sleeve_top", "jacket", "coat", "dress_tight", "dress_loose", "skirt_mini", "skirt_midi", "skirt_maxi", "shorts", "pants", "jumpsuit", "set_two_piece", "other"]},
+          "bbox_xywh_norm_in_B": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4}
+        }}},
+        "mode": {"enum": ["replace", "add", "add_over_layer"]},
+        "remove_from_A": {"type": "array", "items": {"type": "string"}},
+        "keep_from_A": {"type": "array", "items": {"type": "string"}},
+        "layering": {"type": "object", "properties": {"tuck": {"enum": ["in", "out", "unknown"]}, "closure": {"enum": ["closed", "open", "partial", "unknown"]}, "sleeves": {"enum": ["down", "rolled", "unknown"]}}},
+        "notes": {"type": "string"}
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "description": "Eixos da matriz de cobertura (docs/benchmark/coverage_matrix.md)",
+      "required": ["pose", "perspective", "category", "construction", "material", "occlusion", "reference_modality", "operation"],
+      "properties": {
+        "pose": {"enum": ["standing_frontal", "standing_3q", "standing_profile", "walking", "sitting", "crouching", "kneeling", "reclining", "lying", "legs_crossed", "legs_apart", "arms_over_garment", "arms_raised", "twisted_torso"]},
+        "perspective": {"enum": ["eye_level", "low_angle", "high_angle", "foreshortened_limb", "wide_angle_distortion", "close_up"]},
+        "category": {"type": "string"},
+        "construction": {"type": "array", "items": {"enum": ["straps_thin", "straps_wide", "strapless", "asymmetric", "slit", "open_front", "buttons", "zipper", "pockets", "pleats", "ruffles", "layered_panels", "cutout", "collar", "hood", "belt", "tie", "none_special"]}},
+        "material": {"type": "array", "items": {"enum": ["matte_cotton", "denim", "knit", "satin_shiny", "leather", "sheer_non_explicit", "lace", "sequins", "fur_faux", "print_large", "print_small", "logo_text", "stripes_checks", "solid"]}},
+        "occlusion": {"type": "array", "items": {"enum": ["none", "hands_on_garment", "arms_crossing", "hair_over_garment", "object_in_front", "other_person", "self_occlusion_legs", "furniture", "bag_strap"]}},
+        "reference_modality": {"enum": ["worn_other_person", "worn_same_person_other_photo", "catalog_ghost", "flat_lay", "hanger", "mannequin"]},
+        "reference_pose_delta": {"enum": ["similar", "moderate", "very_different"]},
+        "operation": {"enum": ["replace", "add_over_skin", "add_over_background", "add_over_layer", "replace_and_expose_skin"]},
+        "fit_intent": {"enum": ["tight", "regular", "loose", "oversized", "unknown"]}
+      }
+    },
+    "expected": {
+      "type": "object",
+      "description": "O que o QA deve cobrar neste caso; atributos ocultos ficam como 'not_assessable'.",
+      "properties": {
+        "garment_attributes": {"type": "array", "items": {"type": "object", "required": ["name", "state"], "properties": {
+          "name": {"type": "string"}, "value": {"type": "string"},
+          "state": {"enum": ["observed", "inferred", "unknown", "not_assessable"]},
+          "expected_visible_in_O": {"enum": ["yes", "no", "partial", "unknown"]}
+        }}},
+        "c1_regions": {"type": "array", "items": {"enum": ["face", "hair", "hands", "feet", "background", "other_people", "accessories", "shoes", "held_objects", "kept_garments"]}},
+        "has_ground_truth": {"type": "boolean"},
+        "ground_truth": {"anyOf": [{"$ref": "#/$defs/image_source"}, {"type": "null"}]},
+        "ground_truth_residuals": {"type": "string", "description": "diferenças residuais de pose/iluminação/alinhamento entre GT e A, quando GT existe"},
+        "negative_control": {"enum": ["none", "same_garment_noop", "wrong_category_should_fail", "B_identity_leak_probe"]}
+      }
+    },
+    "provenance": {"type": "object", "properties": {"added_by": {"type": "string"}, "added_on": {"type": "string", "format": "date"}, "person_group_id": {"type": "string", "description": "id anônimo da pessoa para evitar vazamento entre splits"}, "garment_group_id": {"type": "string"}, "source_group_id": {"type": "string"}}}
+  },
+  "$defs": {
+    "image_source": {
+      "type": "object",
+      "required": ["source_type", "license", "sha256"],
+      "properties": {
+        "source_type": {"enum": ["url", "local_redistributable", "local_private", "synthetic"]},
+        "url": {"type": "string"},
+        "local_path": {"type": "string"},
+        "license": {"type": "string", "description": "ex.: CC0-1.0, CC-BY-4.0, Unsplash-License (sem redistribuição em dataset), Pexels-License, self-captured-consent, synthetic-generated"},
+        "redistributable_in_repo": {"type": "boolean"},
+        "attribution": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "original_size_wh": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2},
+        "prep": {"type": "object", "description": "transformações determinísticas para reproduzir a imagem usada", "properties": {"crop_xywh": {"type": "array", "items": {"type": "integer"}}, "resize_long_side": {"type": "integer"}, "resample": {"enum": ["lanczos", "bicubic", "area"]}, "color_profile": {"type": "string"}}},
+        "consent_adult_non_explicit": {"type": "boolean"}
+      }
+    }
+  }
+}
