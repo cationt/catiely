@@ -1,0 +1,4 @@
+text, captions, subtitles, scoreboard, stadium screen, jumbotron, broadcast graphics, lower thirds, VAR graphics, replay wipe, logos, watermarks, club crests, sponsor logos, brand names, advertising boards, banners, fan signs, flags with text, shirt numbers, real players, celebrity faces, extra ball, duplicated ball, deformed hands, extra fingers, deformed feet, warped limbs, kit color change, face change, morphing, lip-sync, talking faces, red card, cartoon, anime, low quality, daytime, empty stadium
+
+# Acrescentar apenas na parte 2 (Prompt B e Prompt C):
+, crowd of players inside the penalty area, defensive wall, second ball
