@@ -144,14 +144,14 @@ Escala: ●●● forte com evidência · ●● plausível/parcial · ● fraco
 
 | Candidata | Preservação A (nativa) | Fidelidade construção B | Topologia (alças/fendas/fechos) | Pose difícil | Perspectiva | Tecido/drape | Oclusão/mãos | Ref. vestida | Multi-ref | Add (pele/fundo) | Replace limpo | Texto/logo |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| FLUX.2 klein 4B (F1) | ● (regenera) | ●● `R` | ? | ? | ? | ●● `I` | ? | ●● (via refs) | ●●● `P` | ●●● | ●● | ? |
-| FLUX.2 klein 9B (F1, NC) | ● | ●●● `R` (GEditBench v2) | ? | ? | ? | ●● | ? | ●● | ●●● | ●●● | ●● | ●● |
-| Qwen-Image-Edit-2511 (F1) | ● (~1–8 px drift `R`) | ●●● `R` | ? | ? | ? | ●● | ? | ●● | ●●● (3 sockets `P`) | ●●● | ●● | ●●● `R` |
+| FLUX.2 klein 4B (F1) | ● (regenera) | ●● `R` | ? | ? | ? | ●● `I` | ? | ●● (via refs) | ●●● `P` | **?** (sem barreira de mecanismo, sem evidência; `I`) | ●● | ? |
+| FLUX.2 klein 9B (F1, NC) | ● | ●●● `R` (GEditBench v2) | ? | ? | ? | ●● | ? | ●● | ●●● | **?** | ●● | ●● |
+| Qwen-Image-Edit-2511 (F1) | ● (~1–8 px drift `R`) | ●●● `R` | ? | ? | ? | ●● | ? | ●● | ●●● (limite oficial não documentado) | **?/●** (único dado: histórico no alvo — cria roupa com denoise global ≥ 0,7, acoplado a drift; eixo espacial não testado) | ●● | ●●● `R` |
 | Qwen-Image-2.1 (F1, NC) | ●● (máscara local `P`; ~0.1 px `R`) | ●●● | ? | ? | ? | ●● | ? | ●● | ●●● (10) | ●●● | ●● | ●●● |
 | CatVTON (F2, NC) | ●● (fora da máscara c/ paste-back) | ●● `P` | ● | ● `R` | ● | ●● | ● `R` | ● (alegado) | ○ | ● (só na máscara) | ●●● | ● |
 | Leffa (F2) | ●● | ●●● `P` (flow loss) | ●● | ? | ● | ●● | ● | ○ | ○ | ● | ●●● | ●● |
 | FitDiT (F2, NC) | ●● | ●●● `P` | ●● | ? | ● | ●● | ●● (2.º VTBench) | ○ | ○ | ●● (máscara dilatada) | ●●● | ●● |
-| FASHN VTON 1.5 (F3) | ● (drift corporal admitido `R`) | ●●● `R` (18M pares) | ●● | ? | ? | ●● | ? | ●●● `P` | ○ | ●●● `R` | ●● (resíduos admitidos) | ● (576×864) |
+| FASHN VTON 1.5 (F3) | **?** (drift corporal = hipótese nossa; autor afirma "preserves body features") | ●●● `R` (18M pares) | ●● | ? | ? | ●● | ? (sem canal para oclusores) | ●●● `P` | ○ | **?** (adição não bloqueada no código, não documentada; dois modos: seg-free e mascarado) | ●● (resíduos só em fontes secundárias) | ● (576×864) |
 | OmniTry (F3, NC pesos) | ● | ●● | ? | ? | ? | ●● | ? | ? | ○ | ●●● | ●● | ? |
 | RefTon (F3/F1, NC) | ● | ●● | ? | ? | ? | ●● | ? | ●●● `P` (aux) | ●● | ●● | ●● | ? |
 | TEMU-VTOFF → F2 (F4, NC) | herda | ●● (perde logos `R`) | ● (simetriza) | ●●● (remove pose de B) | — | herda | herda | ●●● | ●● | herda | herda | ● |
@@ -164,7 +164,7 @@ Leitura por eixo:
 - **Preservação de A:** nenhuma candidata é forte nativamente; F5 (warp) e a casca externa são os únicos mecanismos verificáveis. → A casca é obrigatória, independente do motor.
 - **Fidelidade/topologia de B:** F2 (Leffa/FitDiT) e F1 (QIE-2511/klein 9B) empatam em evidência fraca; F4 adiciona risco de simetrização; F5 transporta textura mas não constrói topologia.
 - **Pose difícil:** **nenhuma evidência para nenhuma candidata**. F4 reduz a dependência da pose de B; nada reduz a dificuldade da pose de A. É o eixo que o benchmark próprio precisa medir primeiro.
-- **Add (ocupar pele/fundo):** F1 e F3 (maskless) são as únicas naturais; F2 exige máscara ampliada (conflito com preservação).
+- **Add (ocupar pele/fundo) — rev. 2026-10-08:** a nota máxima para F1/F3 era **inferência de mecanismo** ("regenera tudo, logo pode ocupar qualquer região"), não evidência; o único dado empírico (sweep no alvo) mostra que essa liberdade **global** não produz a peça sem reconstruir A. Inversamente, **inpainting por máscara que cobre a pele (F2) é o mecanismo mais direto de nascimento da peça** (tarefa nativa: o agnostic de treino já apaga pele/braços; o AutoMasker do CatVTON mascara torso/braços) — a barreira real de F2 é referência plana (try-off) e regeneração de mãos dentro da máscara, mitigável excluindo `FRONT_OCCLUDERS` (política a testar). Capacidade bruta de adição de **todas** as famílias é desconhecida → Prototype 0.
 - **Ref. vestida:** F3 (FASHN), F4 (try-off) e F5 (parsing) têm controle estrutural; F1 depende de prompt (risco de vazamento).
 
 **Trocas sem solução identificada:** (i) máscara justa vs. volume novo (F2); (ii) regeneração global vs. preservação (F1/F3); (iii) canonicalizar perde detalhe vs. direto vaza B (F4 vs F1/F3); (iv) warp preserva textura mas não topologia nem caimento (F5).

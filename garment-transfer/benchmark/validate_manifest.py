@@ -27,6 +27,15 @@ for key in ("person_group_id", "garment_group_id", "source_group_id"):
         if len(splits) > 1:
             errors += 1
             print(f"VAZAMENTO {key}={g} aparece em splits {sorted(splits)}")
+# consistência z-order: toda relação front_certain precisa de máscara; front_occluders_mask presente se houver front_certain
+for r in rows:
+    fa = r.get("expected", {}).get("frozen_annotation", {})
+    fc = [z for z in fa.get("z_order", []) if z.get("relation") == "front_certain"]
+    if fc and not fa.get("front_occluders_mask"):
+        errors += 1; print(f"{r['case_id']}: há elementos front_certain mas front_occluders_mask é null (front_occluders_mask deve ser a união das máscaras front_certain)")
+    for z in fa.get("z_order", []):
+        if z.get("relation") == "front_certain" and not z.get("mask"):
+            errors += 1; print(f"{r['case_id']}: elemento {z.get('element')} front_certain sem máscara")
 ids = [r["case_id"] for r in rows]
 if len(ids) != len(set(ids)):
     errors += 1; print("case_id duplicado")

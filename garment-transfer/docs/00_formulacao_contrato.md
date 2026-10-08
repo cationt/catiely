@@ -159,6 +159,22 @@ Correspondência C1–C5 ↔ campos: C1 ≡ `PROTECTED` + invariantes; C2 ≡ te
 - A auditoria julga **invariantes e envelope**, nunca "a área prevista". `UNCERTAIN` é a única zona em que a existência de tecido é decidida pelo motor; ali só se audita "não inventou terceira coisa" e "não distorceu o corpo".
 - Isto é a **hipótese estrutural H0** (`06` §3), não um requisito: o Prototype 0 pode derrubá-la.
 
+### 4.5 Contrato de oclusão e visibilidade (novo, 2026-10-08 — `06` L4)
+
+Para cada **elemento** de `A` (lista fechada no schema: `hand_L/R`, `forearm_L/R`, `upper_arm_L/R`, `hair_front/back`, `neck`, `torso_front_skin`, `held_object`, `bag_strap`, `furniture`, `kept_garment_*`), registrar antes da geração: máscara 2D, relação com a roupa nova e base da decisão.
+
+| Relação | Significado | Auditoria |
+|---|---|---|
+| `front_certain` | elemento oclui o corpo coberto e é mais próximo da câmera (observado em `A`): mão, antebraço cruzado, objeto segurado, móvel à frente | **eliminatória**: tecido sobre o elemento em `O′` ≤ 2 %; máscara do elemento re-segmentada em `O′` com IoU ≥ 0,9; keypoints da mão sem deslocamento; sem membro duplicado |
+| `behind_must_cover` | a peça **deve** cobrir (torso frontal para um top) | cobertura ≥ 0,9 em `O′` |
+| `behind_may_cover` | cobertura depende de atributo observado em `B` (braço superior vs comprimento da manga) | reportado; fronteira auditada só com GT |
+| `split_by_garment_edge` | parte à frente / parte coberta; a fronteira (bainha da manga sob a mão) cai na banda `UNCERTAIN` | regra de consistência: cada pixel é tecido **ou** idêntico a `A` |
+| `uncertain` | indecidível a priori (cabelo vs gola/capuz; cós vs bainha por `layering`; mão no quadril vs aba) | **não eliminatória**; resolvida por `S` ou por padrão (D5/D6) e registrada como `inferido`; se o estimador automático não resolver com confiança → `occlusion_unresolved` (INCONCLUSIVO) |
+
+Dois mecanismos **obrigatórios e distintos**: **ordem na entrada** (o oclusor `front_certain` permanece **visível** no contexto que o motor vê — nunca apagado/cinza — e é excluído da região editável) e **ordem na saída** (composição determinística). A composição é necessária, mas **não é o mecanismo de ordem**: uma rota só passa se `O′` já respeitar a ordem; caso contrário o resultado é recorte (`occluder_cutout`) ou membro duplicado (`duplicate_limb`).
+
+Pixels `split`/`uncertain` são a única exceção legítima à regra "uma classe por pixel"; neles vale a regra de consistência, não uma classe fixa. Cabelo sobre tecido novo exige **des-composição** (α **e** cor de primeiro plano F estimadas de `A`; recompor `O = α·F + (1−α)·O′`) — alpha simples sobre tecido escuro produz halo da cor antiga (`hair_halo`).
+
 ## 5. Informação ausente, fit e identificabilidade
 
 ### 5.1 Estados por atributo
@@ -224,12 +240,14 @@ Comparação entre candidatos: **eliminatórias primeiro** (§6.2), depois **dom
 | `garment_remnants` | Resíduos da roupa antiga de `A` (cor, gola, bainha) em regiões que deveriam ser C2/C4. |
 | `budget_exceeded` | `t_total > 3 600 s` ou OOM não recuperado. |
 | `unauthorized_change` | Alteração em C1 além da tolerância do contrato (`exact`/`near_exact`). |
+| `bad_occlusion` / `visibility_violation` | Tecido sobre elemento `front_certain` em `O′`, ou máscara do oclusor alterada (IoU < 0,9), ou elemento `behind_must_cover` não coberto (rev. 2026-10-08). |
+| `duplicate_limb` | Mais mãos/antebraços detectados em `O′` do que em `A` (membro alucinado dentro da região editável + oclusor colado). |
 
 Qualquer falha crítica → candidato eliminado. Nenhum candidato sobrevivente → **"sem solução validada para este caso"**. Não reduzir silenciosamente a exigência, a categoria ou a dificuldade.
 
 ### 6.3 Falhas não eliminatórias (comparadas em Pareto)
 
-`missing_strap` (quando visibilidade esperada), `wrong_hem`, `wrong_waistband`, `material_mismatch`, `detail_loss`, `print_distortion`, `unrealistic_drape`, `bad_contact_shadow`, `hard_edge_artifact`, `texture_oversmoothing`, `color_shift_beyond_lighting`. Cada uma com localização e severidade.
+`occluder_cutout` (recorte sem tecido na coroa do oclusor), `hair_halo` (cromaticidade do fundo antigo na banda C5), `composition_seam` acima do critério, `missing_strap` (quando visibilidade esperada), `wrong_hem`, `wrong_waistband`, `material_mismatch`, `detail_loss`, `print_distortion`, `unrealistic_drape`, `bad_contact_shadow`, `hard_edge_artifact`, `texture_oversmoothing`, `color_shift_beyond_lighting`. Cada uma com localização e severidade.
 
 ### 6.4 Prioridade
 
@@ -281,7 +299,7 @@ Reprodução: seed registrada; **igualdade de seed não implica igualdade bit a 
 |---|---|---|
 | `PASS` | Todos os critérios **aplicáveis** satisfeitos, evidências e limitações registradas. | Exportar `O` + `R`. |
 | `FAIL` | Falha crítica detectada (§6.2) ou orçamento excedido, com causa e localização. | Retry/rota alternativa se houver orçamento; senão rejeição. |
-| `INCONCLUSIVO` | Evidência insuficiente para requisito crítico (detector sem confiança, atributo irresolúvel). | **Nunca** promover a `PASS`. Em modo automático: abster-se ou tentar ação elegível no orçamento. Em modo assistido: `REVIEW`. |
+| `INCONCLUSIVO` | Evidência insuficiente para requisito crítico (detector sem confiança, atributo irresolúvel, `occlusion_unresolved` quando o estimador de camadas não decide a relação de um elemento). | **Nunca** promover a `PASS`. Em modo automático: abster-se ou tentar ação elegível no orçamento. Em modo assistido: `REVIEW`. |
 
 ### 9.2 Princípios dos detectores
 

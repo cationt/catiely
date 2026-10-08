@@ -575,7 +575,8 @@
                 "required": [
                   "element",
                   "relation",
-                  "basis"
+                  "basis",
+                  "mask"
                 ],
                 "properties": {
                   "element": {
@@ -601,9 +602,12 @@
                   "relation": {
                     "enum": [
                       "front_certain",
-                      "behind_certain",
+                      "behind_must_cover",
+                      "behind_may_cover",
+                      "split_by_garment_edge",
                       "uncertain"
-                    ]
+                    ],
+                    "description": "front_certain: elemento fica à frente da roupa nova (eliminatório); behind_must_cover: a peça DEVE cobrir (torso frontal para top); behind_may_cover: cobertura depende de atributo de B (braço superior vs manga); split_by_garment_edge: parte à frente/parte coberta, fronteira na banda UNCERTAIN (bainha da manga sob a mão); uncertain: indecidível a priori (cabelo vs gola, cós vs bainha)."
                   },
                   "basis": {
                     "enum": [
@@ -615,6 +619,20 @@
                   },
                   "note": {
                     "type": "string"
+                  },
+                  "mask": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/image_source"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "máscara 2D do elemento (grade de A), anotada antes da geração; front_occluders_mask deve ser a união das máscaras front_certain."
+                  },
+                  "confidence": {
+                    "type": "number"
                   }
                 }
               }
@@ -649,6 +667,25 @@
                       "type": "string"
                     }
                   }
+                }
+              }
+            },
+            "layer_estimator_eval": {
+              "type": "object",
+              "description": "pré-requisito do Prototype 0: acerto do estimador automático (SAM 3 por pontos DWPose + MHR depth + MoGe) contra esta anotação, por elemento.",
+              "properties": {
+                "iou_by_element": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number"
+                  }
+                },
+                "relation_accuracy": {
+                  "type": "number"
+                },
+                "torso_skin_as_background_fraction": {
+                  "type": "number",
+                  "description": "fração do torso nu que o parser de vestuário rotula como background (diagnóstico de inadequação do parser para adição)."
                 }
               }
             }

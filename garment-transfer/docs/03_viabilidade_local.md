@@ -40,9 +40,25 @@ Sweep de denoise observado (mesma A/B):
 | 0.80 | idem | idem | mesmo problema estrutural |
 | 1.00 | reconstrução de pose/corpo/câmera **aumenta** | mais forte | — |
 
-**Interpretação (registrada como hipótese fundamentada, não como fato geral):** o denoise global acopla duas liberdades que o contrato exige separadas — a liberdade para *construir a roupa* (que precisa ser alta onde a peça nasce, inclusive sobre pele e fundo) e a liberdade para *reconstruir A* (que precisa ser ~zero). Um único escalar não pode satisfazer ambas: abaixo de ~0.7 a roupa não nasce; em ~0.7–0.8 nasce com geometria errada; em 1.0 A deriva. Consequências para a Fase 4/5: (a) qualquer rota baseada em regeneração global tem de ser testada com mecanismos que **separem espacialmente** essas liberdades (máscara/força por região, condicionamento de pose/profundidade de A, inpainting com referência, geração em camadas), não com um denoise global; (b) o custo de ~10–15 min/imagem em Q5 a ~0.5 MP sugere que, a 1 MP e com QA, QIE-2511 fica perto ou acima do teto de 1 500 s por candidato — **H4 continua decisiva**; (c) esta observação é a evidência mais direta de que "preservar A" e "criar roupa" não podem ser deixadas ao mesmo controle, o que motiva o Prototype 0 (ver `docs/06_RED_TEAM_REVISION.md`).
+**Classificação do experimento (rev. 2026-10-08, `06` L3):** o sweep variou apenas o **eixo temporal** (denoise global, img2img/SDEdit sobre A inteira); **não** testou o modo nativo do editor (denoise 1.0 com A como `reference_latent`) nem o **eixo espacial** (máscara de latente / força por pixel). Portanto mede a inadequação do img2img global, **não** a capacidade de QIE-2511. Abaixo de ~0,5 nenhum editor cria um objeto grande ausente de A (propriedade do SDEdit). Passos/CFG/LoRA/flags não foram registrados — repetir com registro.
+
+**Interpretação (registrada como hipótese fundamentada, não como fato geral):** o denoise global acopla duas liberdades que o contrato exige separadas — a liberdade para *construir a roupa* (que precisa ser alta onde a peça nasce, inclusive sobre pele e fundo) e a liberdade para *reconstruir A* (que precisa ser ~zero). Um único escalar não pode satisfazer ambas: abaixo de ~0.7 a roupa não nasce; em ~0.7–0.8 nasce com geometria errada; em 1.0 A deriva. Consequências para a Fase 4/5: (a) qualquer rota baseada em regeneração global tem de ser testada com mecanismos que **separem espacialmente** essas liberdades — por motor: R1/R2 → máscara de latente (dura) + DifferentialDiffusion (gradiente) + A como referência (**ControlNet para klein 4B e Edit-2511: inexistente, verificado em `comfy/controlnet.py`**; o ControlNet Fun/InstantX existe só para Qwen-Image base/2512/2.1 e perderia a referência B); R3 → pose nativa DWPose + modo mascarado (`--no-segmentation-free`); R4 → DensePose + máscara nossa menos oclusores. "Geração em camadas" (Qwen-Image-Layered) **não é mecanismo de adição** (é decomposição imagem→RGBA; prompt não controla camadas; VRAM não declarada) e sai da lista. Denoise global < 1,0 fica **proibido como rota** (só baseline E0); (b) o custo de ~10–15 min/imagem em Q5 a ~0.5 MP sugere que, a 1 MP e com QA, QIE-2511 fica perto ou acima do teto de 1 500 s por candidato — **H4 continua decisiva**; (c) esta observação é a evidência mais direta de que "preservar A" e "criar roupa" não podem ser deixadas ao mesmo controle, o que motiva o Prototype 0 (ver `docs/06_RED_TEAM_REVISION.md`).
 
 O que falta para promover a `MEDIDO NO HARDWARE-ALVO`: repetir com `measure_run.py` (frio/quente), `inventory_windows.ps1`, versão do ComfyUI/flags, pico de VRAM/commit, e as mesmas A/B usadas no Prototype 0.
+
+
+### 1c. Custo do mecanismo × motor (rev. 2026-10-08, nível `E`/`P`)
+
+| Mecanismo de separação espacial | Fator de custo | Aplicável a | Evidência |
+|---|---|---|---|
+| máscara de latente / `InpaintModelConditioning(noise_mask)` | ×1,0 | R1, R2, R4 | `P` (core, modelo-agnóstico) |
+| `DifferentialDiffusion` (gradiente por pixel) | ×1,0 | R1, R2 | `P` (core; experimental; destilados têm só 4 degraus) |
+| LanPaint (`NumSteps`) | ×NumSteps (README: 5 = 5× mais lento); GPL-3.0; "degraded performance on distillation models" | só R1 (klein) como ablação secundária; **não** em R2 | `P` |
+| two-pass (R3 grosseiro → R1 refino) | custo(R3) + custo(R1) | R8 | `E` |
+| ControlNet pose/depth | ×1,3–1,5 onde existir | **inexistente** para klein 4B e Edit-2511 | `P` (controlnet.py) |
+| Estimador de camadas (SAM 3 + DWPose + SAM 3D Body + MoGe) | custo fixo por solicitação; VRAM do SAM 3D Body **não declarada** | todas | `E` |
+
+Com R2 a 600–900 s por amostra a 0,5 MP (histórico), qualquer fator > 1 estoura 1 500 s/candidato; com klein 4B (segundos por amostra) cabem dezenas de seeds e máscaras. Para R2 no Prototype 0: só máscara + DifferentialDiffusion em 544×960, 1–2 seeds, sob H4.
 
 ## 2. Como o ComfyUI 2026 gerencia memória (muda as regras de viabilidade)
 

@@ -28,9 +28,16 @@ Métricas (por alvo):
   coverage_of_band_min              fração de BAND_MIN coberta por G → "a peça nasceu" (eixo A).
   excess_on_body / excess_on_background / excess_forbidden  tecido fora de BAND_MIN decomposto por componente (fração do tecido e px²).
   fabric_boundary_on_band_max_fraction  fração do perímetro de G coincidente com a borda do envelope → envelope apertado / tecido cortado.
-  front_occluder_pixel_identity      fração de FRONT_OCCLUDERS_CORE idêntica a A (|dif|≤tol) → z-order (eixo D).
-  garment_over_front_occluders       fração de FRONT_OCCLUDERS_CORE coberta por G → violação de z-order.
-  occluder_border_coherence_proxy    descontinuidade média de gradiente na coroa de w px ao redor dos oclusores (O vs A) → junção falsa.
+  garment_over_front_occluders       fração de FRONT_OCCLUDERS_CORE coberta por G → violação de z-order (eixo D; válida em O_engine e O_composed).
+  coverage_of_band_min_near_occluders fração de BAND_MIN na coroa (k px) ao redor dos oclusores coberta por G → tecido existe junto ao oclusor (detecta recorte local).
+  front_occluder_pixel_identity      fração de FRONT_OCCLUDERS_CORE idêntica a A (|dif|≤tol). ELIMINATÓRIA só em O_composed (ou em O_engine de rota com paste-back
+                                     nativo, flag --engine-is-paste-back); em O_engine de rotas que regeneram o quadro é apenas DIAGNÓSTICA (o round-trip do VAE
+                                     altera quase todos os pixels — lente 4, achado 3).
+  occluder_mask_iou                  (O_engine) IoU entre a máscara do oclusor re-segmentada em O_engine (--occluder-mask-engine, ex. SAM 3 por pontos DWPose) e FO → estrutural.
+  hand_keypoint_shift                (O_engine) deslocamento mediano normalizado dos keypoints de mão/antebraço (--keypoints-a/--keypoints-engine JSON) → mão intacta/movida.
+  duplicate_limb                     (O_engine) contagem de mãos/antebraços detectados > A (--keypoints-*: campo "counts") → membro duplicado (eliminatório).
+  band_min_change_magnitude          ΔE médio (Lab aprox.) entre A e O em BAND_MIN → evita falso "nascimento" (pele levemente alterada segmentada como tecido).
+  composition_seam                   (O_composed vs O_engine) |grad| médio da diferença na coroa de FO → o que a colagem introduziu.
   unchanged_in_band_without_garment  fração de (BAND_MAX_BODY ∪ FREE_SPACE) \ G \ franja idêntica a A → nada mudou onde não há tecido.
   uncovered_coverable_identity       fração de (BODY_COVERABLE \ G \ franja) idêntica a A → pele não coberta intacta.
   unexplained_change_in_uncertain    fração de UNCERTAIN que não é G nem idêntica a A → conteúdo inventado.
@@ -82,6 +89,39 @@ def boundary(mask):
     return mask & ~erode(mask, 1)
 
 
+def _srgb_to_lab(img):
+    x = img.astype(np.float32) / 255.0
+    x = np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4)
+    M = np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]], dtype=np.float32)
+    xyz = x @ M.T
+    xyz /= np.array([0.95047, 1.0, 1.08883], dtype=np.float32)
+    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16.0 / 116.0)
+    L = 116.0 * f[..., 1] - 16.0
+    a = 500.0 * (f[..., 0] - f[..., 1])
+    b = 200.0 * (f[..., 1] - f[..., 2])
+    return np.stack([L, a, b], axis=-1)
+
+
+def delta_e(A, O):
+    la, lo = _srgb_to_lab(A), _srgb_to_lab(O)
+    return np.sqrt(((la - lo) ** 2).sum(axis=-1))
+
+
+def keypoint_metrics(kp_a, kp_e, scale):
+    """kp_* = {"hands": [[x,y,score],...], "forearms": [...], "counts": {"hands": n, "forearms": n}}; scale = diagonal da caixa da pessoa em px."""
+    out = {}
+    for part in ("hands", "forearms"):
+        pa, pe = kp_a.get(part, []), kp_e.get(part, [])
+        n = min(len(pa), len(pe))
+        if n:
+            d = [float(np.hypot(pa[i][0] - pe[i][0], pa[i][1] - pe[i][1])) / max(scale, 1.0) for i in range(n) if pa[i][2] > 0.3 and pe[i][2] > 0.3]
+            if d:
+                out[f"{part}_keypoint_shift_median"] = float(np.median(d))
+    ca, ce = kp_a.get("counts", {}), kp_e.get("counts", {})
+    out["duplicate_limb"] = bool(any(ce.get(k, 0) > ca.get(k, 0) for k in ("hands", "forearms")))
+    return out
+
+
 def grad_mag(img):
     g = img.astype(np.float32).mean(axis=2)
     gx = np.zeros_like(g); gy = np.zeros_like(g)
@@ -101,6 +141,9 @@ def audit_target(A, O, G, M, args):
         res["coverage_of_band_min"] = float((G & BMIN).sum() / BMIN.sum())
         if res["coverage_of_band_min"] < args.min_coverage_band_min:
             res["causes"].append("garment_not_created:coverage_below_min")
+        res["band_min_change_magnitude"] = float(delta_e(A, O)[BMIN].mean())
+        if res["band_min_change_magnitude"] < args.min_band_min_delta_e:
+            res["causes"].append("garment_not_created:no_change_in_band_min")
     else:
         res["inconclusive"].append("band_min_missing")
     allowed_parts = [m for m in (BMIN, BMAXB, FS, UNC) if m is not None]
@@ -136,14 +179,22 @@ def audit_target(A, O, G, M, args):
     if FO is not None and FO.sum() > 0:
         res["front_occluder_pixel_identity"] = float(same[FO].mean())
         res["garment_over_front_occluders"] = float((G & FO).sum() / FO.sum())
-        if res["front_occluder_pixel_identity"] < args.min_occluder_identity:
+        if M.get("pixel_identity_is_eliminatory") and res["front_occluder_pixel_identity"] < args.min_occluder_identity:
             res["causes"].append("bad_occlusion:front_occluder_altered")
+        elif not M.get("pixel_identity_is_eliminatory"):
+            res["front_occluder_pixel_identity_note"] = "diagnóstico em O_engine de rota que regenera o quadro (VAE round-trip); eliminatória só em O_composed"
+        if M.get("OCC_ENGINE") is not None:
+            inter = (M["OCC_ENGINE"] & FO).sum(); union = (M["OCC_ENGINE"] | FO).sum()
+            res["occluder_mask_iou"] = float(inter / max(union, 1))
+            if res["occluder_mask_iou"] < args.min_occluder_mask_iou:
+                res["causes"].append("bad_occlusion:occluder_mask_iou_low")
         if res["garment_over_front_occluders"] > args.max_garment_over_occluders:
             res["causes"].append("bad_occlusion:garment_over_occluder")
         crown = dilate(FO, args.crown_px) & ~FO
-        if crown.sum() > 0:
-            gA, gO = grad_mag(A), grad_mag(O)
-            res["occluder_border_coherence_proxy"] = float(np.abs(gO[crown] - gA[crown]).mean())
+        if BMIN is not None and (crown & BMIN).sum() > 0:
+            res["coverage_of_band_min_near_occluders"] = float((G & crown & BMIN).sum() / (crown & BMIN).sum())
+            if res["coverage_of_band_min_near_occluders"] < args.min_coverage_near_occluders:
+                res["causes"].append("occluder_cutout:no_fabric_near_occluder")
     else:
         res["inconclusive"].append("front_occluders_missing")
 
@@ -179,6 +230,36 @@ def audit_target(A, O, G, M, args):
         if res["protected_pixel_identity"] < args.min_protected_identity:
             res["causes"].append("unauthorized_change:protected")
 
+    # por elemento (layer_graph)
+    if M.get("LAYERS"):
+        per = {}
+        for el in M["LAYERS"]:
+            em = el.get("mask_arr")
+            if em is None or em.sum() == 0:
+                continue
+            r = {"relation": el["relation"], "garment_over_element": float((G & em).sum() / em.sum())}
+            if el["relation"] == "front_certain" and r["garment_over_element"] > args.max_garment_over_occluders:
+                r["verdict"] = "FAIL:visibility_violation"; res["causes"].append(f"visibility_violation:{el['element']}")
+            elif el["relation"] == "behind_must_cover":
+                r["coverage"] = float((G & em).sum() / em.sum())
+                r["verdict"] = "PASS" if r["coverage"] >= args.min_coverage_band_min else "FAIL:not_covered"
+                if r["verdict"] != "PASS": res["causes"].append(f"garment_not_created:element_not_covered:{el['element']}")
+            elif el["relation"] in ("split_by_garment_edge", "behind_may_cover", "uncertain"):
+                r["verdict"] = "REPORT_ONLY"
+            else:
+                r["verdict"] = "PASS"
+            per[el["element"]] = r
+        res["per_element"] = per
+
+    if M.get("KP_A") and M.get("KP_E"):
+        res.update(keypoint_metrics(M["KP_A"], M["KP_E"], M.get("scale_px", 1.0)))
+        if res.get("duplicate_limb"):
+            res["causes"].append("duplicate_limb")
+        for part in ("hands", "forearms"):
+            v = res.get(f"{part}_keypoint_shift_median")
+            if v is not None and v > args.max_keypoint_shift:
+                res["causes"].append(f"body_reconstruction_probable:{part}_moved")
+
     if res["n_garment_pixels"] == 0:
         res["causes"].append("garment_not_created:empty_mask")
     res["verdict"] = "FAIL" if res["causes"] else ("INCONCLUSIVO" if res["inconclusive"] else "PASS")
@@ -195,6 +276,12 @@ def main():
     ap.add_argument("--protected"); ap.add_argument("--front-occluders")
     ap.add_argument("--band-min"); ap.add_argument("--band-max-body"); ap.add_argument("--free-space")
     ap.add_argument("--uncertain"); ap.add_argument("--body-coverable")
+    ap.add_argument("--occluder-mask-engine", help="máscara dos oclusores re-segmentada em O_engine (SAM 3 por pontos DWPose) → occluder_mask_iou")
+    ap.add_argument("--keypoints-a", help="JSON de keypoints de mãos/antebraços em A (DWPose) com counts")
+    ap.add_argument("--keypoints-engine", help="JSON de keypoints em O_engine")
+    ap.add_argument("--person-scale-px", type=float, default=None, help="diagonal da caixa da pessoa em A (normaliza deslocamentos)")
+    ap.add_argument("--layer-graph", help="JSON: [{element, relation, mask: path}] por elemento (relações: front_certain, behind_must_cover, behind_may_cover, split_by_garment_edge, uncertain)")
+    ap.add_argument("--engine-is-paste-back", action="store_true", help="rota F2 com paste-back nativo: identidade de pixel em FO é eliminatória também em O_engine")
     ap.add_argument("--contact-fringe-px", type=int, default=8)
     ap.add_argument("--crown-px", type=int, default=6)
     ap.add_argument("--tol", type=int, default=2)
@@ -206,6 +293,10 @@ def main():
     ap.add_argument("--min-unchanged-without-garment", type=float, default=0.98)
     ap.add_argument("--max-unexplained-uncertain", type=float, default=0.10)
     ap.add_argument("--min-protected-identity", type=float, default=1.0)
+    ap.add_argument("--min-coverage-near-occluders", type=float, default=0.90)
+    ap.add_argument("--min-occluder-mask-iou", type=float, default=0.90)
+    ap.add_argument("--max-keypoint-shift", type=float, default=0.02, help="fração da diagonal da pessoa; calibrar no controle negativo")
+    ap.add_argument("--min-band-min-delta-e", type=float, default=8.0, help="ΔE mínimo médio em BAND_MIN (calibrar: > p95 do controle noop)")
     ap.add_argument("--json-out")
     args = ap.parse_args()
 
@@ -215,19 +306,33 @@ def main():
          "BMAXB": load_bin(args.band_max_body, shape), "FS": load_bin(args.free_space, shape),
          "UNC": load_bin(args.uncertain, shape), "BC": load_bin(args.body_coverable, shape), "PR": load_bin(args.protected, shape)}
     out = {"thresholds": {k: getattr(args, k) for k in vars(args) if k.startswith(("min_", "max_", "tol", "contact", "crown"))}}
+    if args.layer_graph:
+        layers = json.load(open(args.layer_graph, encoding="utf-8"))
+        for el in layers:
+            el["mask_arr"] = load_bin(el.get("mask"), shape) if el.get("mask") else None
+        M["LAYERS"] = layers
+    if args.keypoints_a and args.keypoints_engine:
+        M["KP_A"] = json.load(open(args.keypoints_a, encoding="utf-8")); M["KP_E"] = json.load(open(args.keypoints_engine, encoding="utf-8"))
+        M["scale_px"] = args.person_scale_px or float(np.hypot(*shape))
 
     Oe = load_rgb(args.o_engine)
     if Oe.shape != A.shape:
         print(json.dumps({"verdict": "FAIL:canvas_mismatch", "target": "engine"})); sys.exit(1)
     Ge = load_bin(args.garment_mask, shape)
-    out["engine"] = audit_target(A, Oe, Ge, M, args)
+    Me = dict(M); Me["pixel_identity_is_eliminatory"] = bool(args.engine_is_paste_back); Me["OCC_ENGINE"] = load_bin(args.occluder_mask_engine, shape)
+    out["engine"] = audit_target(A, Oe, Ge, Me, args)
 
     if args.o_composed:
         Oc = load_rgb(args.o_composed)
         if Oc.shape != A.shape:
             print(json.dumps({"verdict": "FAIL:canvas_mismatch", "target": "composed"})); sys.exit(1)
         Gc = load_bin(args.garment_mask_composed, shape) if args.garment_mask_composed else Ge
-        out["composed"] = audit_target(A, Oc, Gc, M, args)
+        Mc = dict(M); Mc["pixel_identity_is_eliminatory"] = True; Mc.pop("KP_A", None); Mc.pop("KP_E", None)
+        out["composed"] = audit_target(A, Oc, Gc, Mc, args)
+        FO = M.get("FO")
+        if FO is not None and FO.sum() > 0:
+            crown = dilate(FO, args.crown_px) & ~FO
+            out["composed"]["composition_seam"] = float(np.abs(grad_mag(Oc) - grad_mag(Oe))[crown].mean())
 
     out["verdict_engine"] = out["engine"]["verdict"]
     out["verdict_composed"] = out.get("composed", {}).get("verdict")
