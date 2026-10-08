@@ -30,24 +30,24 @@
   "latent_tokens": 16384
  },
  {
-  "name": "FLUX.2 klein Base 4B bf16 + Easy-Insert LoRA + Qwen3-4B fp8 (50 passos; E4)",
+  "name": "FLUX.2 klein Base 4B bf16 + Easy-Insert LoRA, TE liberado após encode (15 passos × 2 passes CFG 4; 2 imagens de edição; E4; modo normal de tools/r1ei)",
   "params_b": 4.0,
   "precision": "bf16",
-  "te_params_b": 4.0,
+  "te_params_b": 0.0,
   "te_precision": "fp8",
   "hidden": 3072,
   "layers": 24,
-  "latent_tokens": 8192
+  "latent_tokens": 12288
  },
  {
-  "name": "FLUX.2 klein Base 4B fp8 + Easy-Insert LoRA (E4)",
+  "name": "FLUX.2 klein Base 4B fp8 (layerwise casting) + Easy-Insert LoRA, TE liberado (E4; modo fp8 de tools/r1ei)",
   "params_b": 4.0,
   "precision": "fp8",
-  "te_params_b": 4.0,
+  "te_params_b": 0.0,
   "te_precision": "fp8",
   "hidden": 3072,
   "layers": 24,
-  "latent_tokens": 8192
+  "latent_tokens": 12288
  },
  {
   "name": "FLUX.2 klein 9B fp8 + Qwen3-8B fp8",

@@ -1,0 +1,15 @@
+# R1-EI — FLUX.2-klein-base-4B + Easy-Insert (backend Diffusers, o mesmo da demo oficial do autor em HF Spaces)
+# Pins = upstream (Easy-Insert requirements.txt @ 82094484) + versões vigentes na data do release do Easy-Insert (2026-08-16),
+# para reproduzir o ambiente em que o autor publicou. torch/torchvision NÃO estão aqui: vêm do índice CUDA do PyTorch
+# (os wheels Windows do PyPI são CPU-only) — ver setup_r1ei.ps1.
+diffusers==0.39.0
+transformers==5.15.0
+accelerate==1.14.0
+peft==0.20.0
+safetensors==0.8.0
+sentencepiece==0.2.2
+huggingface_hub==1.27.0
+numpy==2.5.2
+Pillow==12.3.0
+psutil>=5.9
+pynvml>=11.5

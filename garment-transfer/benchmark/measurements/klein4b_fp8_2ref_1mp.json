@@ -1,0 +1,77 @@
+{
+ "record_version": 1,
+ "evidence_level": "MEDIDO NO HARDWARE-ALVO",
+ "candidate": "R1 — FLUX.2 klein 4B distilled fp8",
+ "config_label": "klein4b_fp8_2ref_1mp",
+ "config": {
+  "model": "FLUX.2 klein 4B distilled, fp8",
+  "references": "A + B (2 referências)",
+  "resolution": "~1 MP",
+  "steps": 4,
+  "runner": "ComfyUI externo (processo separado; tree_private_mb NÃO é a memória do motor)",
+  "harness": "tools/measure_run.py com commit real (psapi.GetPerformanceInfo)",
+  "budget_s": 3600
+ },
+ "hardware": {
+  "gpu": "RTX 5070 12 GB",
+  "ram_gb": 16,
+  "os": "Windows 11",
+  "pagefile": "disponível (commit limit > RAM)"
+ },
+ "runs": {
+  "cold": {
+   "n": 3,
+   "wall_s": [
+    34.82,
+    31.849,
+    31.818
+   ],
+   "median": {
+    "wall_s": 31.849,
+    "vram_used_mb": 11660.5,
+    "sys_ram_used_mb": 10671.8,
+    "swap_used_mb": 935.1,
+    "commit_total_mb": 29258.5
+   }
+  },
+  "warm": {
+   "n": 3,
+   "wall_s": [
+    9.072,
+    17.147,
+    31.257
+   ],
+   "median": {
+    "wall_s": 17.147,
+    "vram_used_mb": 11624.4,
+    "sys_ram_used_mb": 10884.4,
+    "swap_used_mb": 860.7,
+    "commit_total_mb": 29964.7
+   }
+  }
+ },
+ "all_runs": {
+  "exit_code": 0,
+  "deadline_hit": false,
+  "oom": false
+ },
+ "observations": [
+  "warm com variabilidade considerável (9.072 → 31.257 s): registrada como variabilidade de cache/residência do ComfyUI externo; o terceiro run NÃO foi descartado",
+  "pico de VRAM ≈ 11.6 GB de 12 GB: a rota roda, mas no limite da VRAM (sem folga para QA residente no mesmo processo)",
+  "commit charge ≈ 29–30 GB (sistema inteiro, inclui ComfyUI externo e demais processos): acima da RAM física; depende do pagefile",
+  "o run 20261008T071430Z_klein4b_official_ab_cold.json NÃO pertence a esta configuração e não entrou nas três repetições"
+ ],
+ "eligibility": {
+  "criterion": "docs/03 §8 item 6: frio ≤ 1 500 s/candidato @1024 com QA → elegível",
+  "cold_median_s": 31.849,
+  "verdict": "ELEGÍVEL por tempo (≈ 2 % do teto); VRAM NEAR_LIMIT; commit depende de pagefile"
+ },
+ "source_files": {
+  "location": "máquina-alvo: C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\runs\\ (JSONs do measure_run.py)",
+  "excluded": [
+   "20261008T071430Z_klein4b_official_ab_cold.json"
+  ],
+  "note": "os JSONs brutos não estão no repositório (contêm caminhos locais); este registro transcreve os sumários reportados pelo operador em 2026-10-08"
+ },
+ "reported_on": "2026-10-08"
+}
