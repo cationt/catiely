@@ -16,7 +16,8 @@ As rotas sob teste (R1, R2, …) são as da shortlist em `04_selecao_provisoria.
 | Orçamento por protótipo | Declarado por experimento. Protótipos não precisam caber em 3 600 s individualmente, mas o custo é registrado para a composição final. |
 | Hardware | Medições em outra máquina são `REPRODUZIDO EM OUTRO HARDWARE`; só a RTX 5070 do usuário produz `MEDIDO NO HARDWARE-ALVO`. |
 | Casos | Subconjunto do split `dev` (nunca `final_test`), com `expected` preenchido antes da geração. |
-| Avaliação | Automática (detectores da Fase 0 §9.3 instanciados) **e** inspeção humana registrada por caso (pelo agente/operador, declarada como tal; não inventar participantes). |
+| Avaliação | Automática (detectores da Fase 0 §9.3 instanciados, com **distribuição nula por rota** e controles do auditor aprovados) **e** inspeção humana **cega** registrada por caso: saídas renomeadas por hash (rota/seed ocultos), ordem aleatória, formulário fixo com perguntas sim/não/ambíguo por elemento (as mesmas do auditor), catch trials (A inalterada; falha sintética óbvia), avaliador e data registrados; concordância quando houver 2.º avaliador. Declarada como feita pelo operador; não inventar participantes. |
+| Pré-registro | `PREREG.md` por protótipo (modelo em `benchmark/proto0/PREREG_TEMPLATE.md`) commitado **antes** do primeiro run: hipóteses, casos (sha256), limiares com origem (nula/controles/inter-anotador), regra de agregação (mediana sobre seeds + pior seed), consequências; o auditor grava o hash do PREREG em cada JSON. Limiares são calibrados em **controles**, não nos casos julgados. |
 | Registro | `runs/<prototipo>/<rota>/<caso>/<seed>/` com `O`, intermediários, `R`, `timeline.json`, `manifest.json`. |
 
 ---

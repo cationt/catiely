@@ -16,8 +16,9 @@ Esses números (24 dev / ≥ 40 final) são **mínimos para organizar a investig
 
 ## Splits e anti-vazamento
 
-- `dev` (ajuste de thresholds/arquitetura), `regression` (congelado após Fase 5; roda a cada mudança), `final_test` (congelado antes da Fase 7; **nunca** usado para ajustar nada).
-- Vazamento controlado por `person_group_id`, `garment_group_id` e `source_group_id`: nenhum id aparece em mais de um split.
+- `proto0` (Prototype 0: adição × pose; calibra o **auditor** com controles e nula), `dev` (ajuste de arquitetura; thresholds calibrados em **controles**, não nos casos julgados), `regression` (congelado após Fase 5; **casos novos** — `person/garment/source_group_id` distintos de `dev` e `proto0`; roda a cada mudança), `final_test` (congelado antes da Fase 7; **nunca** usado para ajustar nada).
+- Vazamento controlado por `person_group_id`, `garment_group_id` e `source_group_id` (nenhum id em mais de um split) **e** por hash (sha256 e `phash` de A: duplicatas com ids diferentes são erro no validador). `provenance.likely_in_pretraining` registra exposição provável ao pré-treino dos motores (imagens de Commons/Pexels podem estar em FASHN 18M wild ou Qwen); `proto0`/`final_test` preferem `unlikely_self_captured`.
+- **Congelamento verificável:** `validate_manifest.py --check-files` (sha256 reais, sem placeholders), `freeze_commit`/`freeze_tag` anteriores ao primeiro run; o auditor confere os hashes.
 - Thresholds de QA são calibrados em `dev`, verificados em `regression`, reportados em `final_test`.
 
 ## Cobertura mínima por eixo (a atingir em `final_test`)
@@ -47,7 +48,9 @@ Esses números (24 dev / ≥ 40 final) são **mínimos para organizar a investig
 
 - **Redistribuição no repo** só para CC0/CC-BY (com atribuição) ou autoproduzidas com consentimento. Demais fontes: **apenas manifesto** (URL + sha256 + prep).
 - Datasets acadêmicos (VITON-HD, DressCode, DeepFashion) têm licenças de pesquisa que **proíbem redistribuição**; são usados localmente apenas para desenvolvimento quando a licença permitir, e **nunca** no `final_test` redistribuível. Detalhes e verificação de licenças: `docs/01_estado_da_arte.md` §Datasets.
-- Somente adultos, conteúdo não explícito, `consent_adult_non_explicit: true` obrigatório.
+- Somente adultos, conteúdo não explícito, `consent_adult_non_explicit: true` obrigatório; para `self-captured-consent`, `consent_record_id` (termo assinado) obrigatório.
+- **Sintéticos:** apenas autoproduzidos (ex.: Blender com assets CC0); humanos sintéticos prontos (BEDLAM, SynBody) são NC e não entram. Sintéticos servem para calibrar auditor/envelopes, nunca para alegar qualidade de rota.
+- Variantes não explícitas e igualmente diagnósticas para adição sobre pele + fundo + oclusor: `add_over_layer` (regata → camisa/jaqueta), manga longa sobre braço nu com foreshortening, saia sobre pernas; torso sem camiseta só com adulto consentido e registro.
 
 ## Como preencher
 

@@ -43,9 +43,20 @@ Métricas (por alvo):
   unexplained_change_in_uncertain    fração de UNCERTAIN que não é G nem idêntica a A → conteúdo inventado.
   protected_pixel_identity           C1 estrito.
 
-Veredito por alvo: PASS / FAIL (causas) / INCONCLUSIVO (referência congelada ausente). Limiares explícitos; defaults provisórios a calibrar.
+  changed_fraction_in_G              fração de G que difere de A (> τ) → evita PASS com G afirmando tecido onde nada mudou (G_without_change).
+  excess_forbidden_frac_of_forbidden excesso normalizado pela área PROIBIDA (complementa a normalização pela área do tecido).
+  fraction_excluded_by_fringe        quanto da banda a franja C3 exclui da checagem "nada mudou" (controle de diluição).
+
+Distribuição NULA (obrigatória antes de vereditos sobre O_engine): --a-ref = A após encode/decode do VAE da rota (denoise 0, mesma
+resolução/reprojeção); os limiares de identidade e --tol devem ser derivados dessa nula (p99.5) e do pipeline em same_garment_noop,
+nunca fixados a priori. Pré-checagem de consistência das máscaras congeladas → INCONCLUSIVO:annotation_inconsistent (não é culpa do motor).
+Saturação da borda do envelope é FLAG de revisão da anotação (annotation_review_required), não causa de FAIL.
+Congelamento verificável: --manifest + --case-id conferem sha256 das referências antes de auditar (divergência → FAIL:frozen_reference_mismatch);
+--prereg-sha grava o hash do PREREG.md no JSON. G_source é registrado em cada veredito.
+
+Veredito por alvo: PASS / FAIL (causas) / INCONCLUSIVO (referência ausente ou inconsistente). Limiares explícitos; defaults provisórios a calibrar.
 """
-import argparse, json, sys
+import argparse, json, sys, os
 import numpy as np
 from PIL import Image
 
@@ -129,9 +140,40 @@ def grad_mag(img):
     return gx + gy
 
 
+def check_mask_consistency(M):
+    """Pré-checagem das referências congeladas: inconsistência → INCONCLUSIVO:annotation_inconsistent (não é culpa do motor)."""
+    issues = []
+    FO, BMIN, BMAXB, FS, UNC, BC, PR = (M.get(k) for k in ("FO", "BMIN", "BMAXB", "FS", "UNC", "BC", "PR"))
+    if FO is not None:
+        for name, m in (("BAND_MIN", BMIN), ("BAND_MAX_BODY", BMAXB), ("FREE_SPACE", FS), ("UNCERTAIN", UNC)):
+            if m is not None and (m & FO).any():
+                issues.append(f"{name} ∩ FRONT_OCCLUDERS ≠ ∅ (oclusor frontal não pode ser região ocupável)")
+    if BMIN is not None and UNC is not None and (BMIN & UNC).any():
+        issues.append("BAND_MIN ∩ UNCERTAIN ≠ ∅")
+    if BMIN is not None and (BC is not None or FS is not None):
+        allowed = np.zeros_like(BMIN)
+        for m in (BC, FS, BMAXB):
+            if m is not None:
+                allowed |= m
+        if (BMIN & ~allowed).mean() > 0.02:
+            issues.append("BAND_MIN não contido em BODY_COVERABLE ∪ FREE_SPACE ∪ BAND_MAX_BODY (> 2 %)")
+    if PR is not None:
+        for name, m in (("BAND_MIN", BMIN), ("BAND_MAX_BODY", BMAXB), ("FREE_SPACE", FS), ("UNCERTAIN", UNC)):
+            if m is not None and (PR & m).any():
+                issues.append(f"PROTECTED ∩ {name} ≠ ∅")
+    return issues
+
+
 def audit_target(A, O, G, M, args):
-    same = (np.abs(A - O).max(axis=2) <= args.tol)
-    res = {"n_garment_pixels": int(G.sum()), "causes": [], "inconclusive": []}
+    A_ref = M.get("A_REF", A)  # referência nula (ex.: VAE round-trip de A) para O_engine; A original para O_composed
+    same = (np.abs(A_ref - O).max(axis=2) <= args.tol)
+    res = {"n_garment_pixels": int(G.sum()), "causes": [], "inconclusive": [], "flags": [], "reference_quality": {}}
+    res["G_source"] = M.get("G_SOURCE", "unspecified")
+    res["identity_reference"] = "vae_roundtrip_A" if "A_REF" in M else "A"
+    mc = check_mask_consistency(M)
+    if mc:
+        res["reference_quality"]["annotation_inconsistent"] = mc
+        res["inconclusive"].append("annotation_inconsistent")
     n_g = max(int(G.sum()), 1)
     FO, BMIN, BMAXB, FS, UNC, BC, PR = (M.get(k) for k in ("FO", "BMIN", "BMAXB", "FS", "UNC", "BC", "PR"))
     fringe = dilate(G, args.contact_fringe_px) & ~G if args.contact_fringe_px > 0 else np.zeros_like(G)
@@ -141,9 +183,13 @@ def audit_target(A, O, G, M, args):
         res["coverage_of_band_min"] = float((G & BMIN).sum() / BMIN.sum())
         if res["coverage_of_band_min"] < args.min_coverage_band_min:
             res["causes"].append("garment_not_created:coverage_below_min")
-        res["band_min_change_magnitude"] = float(delta_e(A, O)[BMIN].mean())
+        res["band_min_change_magnitude"] = float(delta_e(A_ref, O)[BMIN].mean())
         if res["band_min_change_magnitude"] < args.min_band_min_delta_e:
             res["causes"].append("garment_not_created:no_change_in_band_min")
+    if G.sum() > 0:
+        res["changed_fraction_in_G"] = float((~same)[G].mean())
+        if res["changed_fraction_in_G"] < args.min_changed_fraction_in_g and not M.get("noop_mode"):
+            res["causes"].append("garment_not_created:G_without_change")
     else:
         res["inconclusive"].append("band_min_missing")
     allowed_parts = [m for m in (BMIN, BMAXB, FS, UNC) if m is not None]
@@ -171,7 +217,10 @@ def audit_target(A, O, G, M, args):
             gb &= ~dilate(FO, 2)
         res["fabric_boundary_on_band_max_fraction"] = float((gb & env_boundary).sum() / max(int(gb.sum()), 1))
         if res["fabric_boundary_on_band_max_fraction"] > args.max_boundary_saturation:
-            res["causes"].append("envelope_too_tight_probable")
+            res["flags"].append("annotation_review_required:envelope_too_tight_probable")  # propriedade da anotação, não do motor
+            res["inconclusive"].append("envelope_too_tight_probable")
+        forb = ~allowed
+        res["excess_forbidden_frac_of_forbidden"] = float((G & forb).sum() / max(int(forb.sum()), 1))
     else:
         res["inconclusive"].append("band_max_missing")
 
@@ -199,6 +248,12 @@ def audit_target(A, O, G, M, args):
         res["inconclusive"].append("front_occluders_missing")
 
     # eixo E — nada mudou onde não há tecido
+    if (BMAXB is not None or FS is not None):
+        tot = np.zeros_like(G)
+        for m in (BMAXB, FS):
+            if m is not None:
+                tot |= m
+        res["fraction_excluded_by_fringe"] = float((fringe & tot).sum() / max(int(tot.sum()), 1))
     band_wo = None
     for m in (BMAXB, FS):
         if m is not None:
@@ -262,7 +317,10 @@ def audit_target(A, O, G, M, args):
 
     if res["n_garment_pixels"] == 0:
         res["causes"].append("garment_not_created:empty_mask")
-    res["verdict"] = "FAIL" if res["causes"] else ("INCONCLUSIVO" if res["inconclusive"] else "PASS")
+    if "annotation_inconsistent" in res["inconclusive"]:
+        res["verdict"] = "INCONCLUSIVO"  # precedência: referência inconsistente invalida PASS e FAIL (métricas ficam só como diagnóstico)
+    else:
+        res["verdict"] = "FAIL" if res["causes"] else ("INCONCLUSIVO" if res["inconclusive"] else "PASS")
     return res
 
 
@@ -282,6 +340,12 @@ def main():
     ap.add_argument("--person-scale-px", type=float, default=None, help="diagonal da caixa da pessoa em A (normaliza deslocamentos)")
     ap.add_argument("--layer-graph", help="JSON: [{element, relation, mask: path}] por elemento (relações: front_certain, behind_must_cover, behind_may_cover, split_by_garment_edge, uncertain)")
     ap.add_argument("--engine-is-paste-back", action="store_true", help="rota F2 com paste-back nativo: identidade de pixel em FO é eliminatória também em O_engine")
+    ap.add_argument("--a-ref", help="referência NULA para O_engine: A após encode/decode do VAE da rota (denoise 0, mesma resolução/reprojeção). Isola a edição do piso do VAE. O_composed usa sempre A.")
+    ap.add_argument("--g-source", default="unspecified", help="origem de G: sam3_text | sam3_points | human | other (nunca a máscara do motor)")
+    ap.add_argument("--noop-mode", action="store_true", help="caso same_garment_noop: desliga 'G_without_change'")
+    ap.add_argument("--manifest", help="manifest.jsonl para verificar sha256 das referências congeladas (com --case-id)")
+    ap.add_argument("--case-id")
+    ap.add_argument("--prereg-sha", help="sha256 do PREREG.md commitado antes do run (gravado no JSON)")
     ap.add_argument("--contact-fringe-px", type=int, default=8)
     ap.add_argument("--crown-px", type=int, default=6)
     ap.add_argument("--tol", type=int, default=2)
@@ -297,15 +361,44 @@ def main():
     ap.add_argument("--min-occluder-mask-iou", type=float, default=0.90)
     ap.add_argument("--max-keypoint-shift", type=float, default=0.02, help="fração da diagonal da pessoa; calibrar no controle negativo")
     ap.add_argument("--min-band-min-delta-e", type=float, default=8.0, help="ΔE mínimo médio em BAND_MIN (calibrar: > p95 do controle noop)")
+    ap.add_argument("--min-changed-fraction-in-g", type=float, default=0.90, help="fração de G que deve diferir de A (> τ_null) em modo add")
     ap.add_argument("--json-out")
     args = ap.parse_args()
 
     A = load_rgb(args.a)
     shape = A.shape[:2]
+    frozen_check = None
+    if args.manifest and args.case_id:
+        import hashlib
+        rows = [json.loads(l) for l in open(args.manifest, encoding="utf-8") if l.strip()]
+        row = next((r for r in rows if r["case_id"] == args.case_id), None)
+        frozen_check = {"case_found": row is not None, "mismatches": [], "freeze_tag": None, "freeze_commit": None}
+        if row:
+            fa = row.get("expected", {}).get("frozen_annotation", {})
+            frozen_check["freeze_tag"] = fa.get("freeze_tag"); frozen_check["freeze_commit"] = fa.get("freeze_commit")
+            def walk(o):
+                if isinstance(o, dict):
+                    if "sha256" in o and o.get("local_path"):
+                        yield o
+                    for v in o.values(): yield from walk(v)
+                elif isinstance(o, list):
+                    for v in o: yield from walk(v)
+            repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            for sres in walk(fa):
+                fp = os.path.join(repo_root, sres["local_path"])
+                if not os.path.exists(fp):
+                    frozen_check["mismatches"].append(f"ausente:{sres['local_path']}")
+                elif hashlib.sha256(open(fp, "rb").read()).hexdigest() != sres["sha256"]:
+                    frozen_check["mismatches"].append(f"sha256:{sres['local_path']}")
     M = {"FO": load_bin(args.front_occluders, shape), "BMIN": load_bin(args.band_min, shape),
          "BMAXB": load_bin(args.band_max_body, shape), "FS": load_bin(args.free_space, shape),
          "UNC": load_bin(args.uncertain, shape), "BC": load_bin(args.body_coverable, shape), "PR": load_bin(args.protected, shape)}
-    out = {"thresholds": {k: getattr(args, k) for k in vars(args) if k.startswith(("min_", "max_", "tol", "contact", "crown"))}}
+    out = {"thresholds": {k: getattr(args, k) for k in vars(args) if k.startswith(("min_", "max_", "tol", "contact", "crown"))},
+           "prereg_sha": args.prereg_sha, "frozen_reference_check": frozen_check}
+    if frozen_check and (not frozen_check["case_found"] or frozen_check["mismatches"]):
+        out["verdict_engine"] = out["verdict_composed"] = "FAIL:frozen_reference_mismatch"
+        print(json.dumps(out, indent=1)); sys.exit(1)
+    M["G_SOURCE"] = args.g_source; M["noop_mode"] = bool(args.noop_mode)
     if args.layer_graph:
         layers = json.load(open(args.layer_graph, encoding="utf-8"))
         for el in layers:
@@ -320,6 +413,11 @@ def main():
         print(json.dumps({"verdict": "FAIL:canvas_mismatch", "target": "engine"})); sys.exit(1)
     Ge = load_bin(args.garment_mask, shape)
     Me = dict(M); Me["pixel_identity_is_eliminatory"] = bool(args.engine_is_paste_back); Me["OCC_ENGINE"] = load_bin(args.occluder_mask_engine, shape)
+    if args.a_ref:
+        Aref = load_rgb(args.a_ref)
+        if Aref.shape != A.shape:
+            print(json.dumps({"verdict": "FAIL:canvas_mismatch", "target": "a_ref"})); sys.exit(1)
+        Me["A_REF"] = Aref
     out["engine"] = audit_target(A, Oe, Ge, Me, args)
 
     if args.o_composed:

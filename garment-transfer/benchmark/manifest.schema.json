@@ -356,7 +356,11 @@
                 "type": "string"
               },
               "value": {
-                "type": "string"
+                "type": "string",
+                "not": {
+                  "pattern": "(?i)\\bTBD\\b"
+                },
+                "description": "valor congelado ANTES da geração; 'TBD' é rejeitado."
               },
               "state": {
                 "enum": [
@@ -420,8 +424,14 @@
             "none",
             "same_garment_noop",
             "wrong_category_should_fail",
-            "B_identity_leak_probe"
-          ]
+            "B_identity_leak_probe",
+            "B_leak_specificity_probe",
+            "identity_output",
+            "known_drift_positive",
+            "fabric_over_occluder_synthetic",
+            "hand_removed_synthetic"
+          ],
+          "description": "none · same_garment_noop (A já veste a peça; calibra falso nascimento/resíduos) · wrong_category_should_fail · B_identity_leak_probe (doador muito distinto; sensibilidade) · B_leak_specificity_probe (doador parecido com A; especificidade) · identity_output (O := A; auditor DEVE falhar por não-criação) · known_drift_positive (saída de denoise global 1.0 do sweep histórico; auditor DEVE detectar reconstrução) · fabric_over_occluder_synthetic (colagem de tecido sobre a mão; DEVE falhar z-order) · hand_removed_synthetic (mão apagada/movida; DEVE falhar duplicate_limb/keypoints)"
         },
         "frozen_annotation": {
           "type": "object",
@@ -688,6 +698,25 @@
                   "description": "fração do torso nu que o parser de vestuário rotula como background (diagnóstico de inadequação do parser para adição)."
                 }
               }
+            },
+            "freeze_commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{7,40}$",
+              "description": "sha do commit em que as máscaras foram congeladas; deve ser ANTERIOR ao primeiro run."
+            },
+            "freeze_tag": {
+              "type": "string",
+              "description": "ex.: proto0-frozen-v1"
+            },
+            "annotator_id": {
+              "type": "string"
+            },
+            "inter_annotator_iou": {
+              "type": "object",
+              "description": "IoU entre dois anotadores (ou dois passes cegos) por máscara; a tolerância de qualquer métrica de ocupação nunca pode ser mais apertada que isto.",
+              "additionalProperties": {
+                "type": "number"
+              }
             }
           }
         },
@@ -696,9 +725,48 @@
             "none",
             "same_person_with_garment_photo",
             "synthetic_render",
-            "self_captured_pair"
+            "self_captured_pair",
+            "synthetic_inverse"
           ],
-          "description": "tipo de referência não circular disponível."
+          "description": "tipo de referência não circular: self_captured_pair (tripé, mesma pessoa sem/com a peça), synthetic_inverse (foto real VESTIDA = GT; A-sem fabricada por inpainting da PEÇA — serve para ocupação/z-order, não para realismo de pele), synthetic_render, none."
+        },
+        "ground_truth_garment_mask": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/image_source"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "G*: máscara da peça anotada NA FOTO GT antes da geração (referência de ocupação real)."
+        },
+        "gt_alignment": {
+          "type": "object",
+          "properties": {
+            "method": {
+              "enum": [
+                "none",
+                "landmarks_affine",
+                "landmarks_tps"
+              ]
+            },
+            "residual_px_norm": {
+              "type": "number",
+              "description": "mediana do deslocamento DWPose A↔GT normalizado pela diagonal da pessoa"
+            },
+            "illumination_delta": {
+              "type": "number",
+              "description": "Δ cromaticidade média em região difusa comum (A vs GT)"
+            }
+          }
+        },
+        "gt_noise_floor": {
+          "type": "object",
+          "description": "piso de ruído A vs GT fora de (G* ∪ franja): toda métrica O vs GT é reportada como métrica − piso.",
+          "additionalProperties": {
+            "type": "number"
+          }
         }
       }
     },
@@ -721,6 +789,18 @@
         },
         "source_group_id": {
           "type": "string"
+        },
+        "likely_in_pretraining": {
+          "enum": [
+            "unknown",
+            "likely",
+            "unlikely_self_captured"
+          ],
+          "description": "imagens de Commons/Pexels podem estar no treino dos motores (FASHN 18M wild; Qwen); proto0/final_test preferem unlikely_self_captured."
+        },
+        "phash": {
+          "type": "string",
+          "description": "hash perceptual (dHash 64 bits hex) de A, para detecção de duplicatas entre splits."
         }
       }
     }
@@ -800,8 +880,57 @@
           "type": "boolean",
           "const": true,
           "description": "Obrigatório e deve ser true: adulto, conteúdo não explícito, consentimento/licença compatível."
+        },
+        "consent_record_id": {
+          "type": "string",
+          "description": "identificador/sha256 do termo de consentimento quando license = self-captured-consent."
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "spec": {
+            "properties": {
+              "mode": {
+                "enum": [
+                  "add",
+                  "add_over_layer"
+                ]
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "expected": {
+            "properties": {
+              "frozen_annotation": {
+                "required": [
+                  "plausible_occupancy_band",
+                  "z_order"
+                ],
+                "properties": {
+                  "plausible_occupancy_band": {
+                    "required": [
+                      "min_mask"
+                    ]
+                  }
+                }
+              }
+            },
+            "required": [
+              "frozen_annotation"
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

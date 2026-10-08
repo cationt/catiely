@@ -53,7 +53,9 @@ O que falta para promover a `MEDIDO NO HARDWARE-ALVO`: repetir com `measure_run.
 |---|---|---|---|
 | máscara de latente / `InpaintModelConditioning(noise_mask)` | ×1,0 | R1, R2, R4 | `P` (core, modelo-agnóstico) |
 | `DifferentialDiffusion` (gradiente por pixel) | ×1,0 | R1, R2 | `P` (core; experimental; destilados têm só 4 degraus) |
-| LanPaint (`NumSteps`) | ×NumSteps (README: 5 = 5× mais lento); GPL-3.0; "degraded performance on distillation models" | só R1 (klein) como ablação secundária; **não** em R2 | `P` |
+| LanPaint (`NumSteps`) | ×NumSteps (README: 5 = 5× mais lento); GPL-3.0; **máscara binária obrigatória** (incompatível com R(p) graduado); "degraded performance on distillation models" | só R1 (klein) como ablação secundária, NumSteps 2; **não** em R2 (×5 sobre 10–15 min excede 3 600 s) | `P` |
+| Scaffold em pixel + Easy-Insert (klein-base-4B, 15 passos NV; modo "8 GB" lento) | ×(15/4) vs klein destilado | R1-EI (E4) | `P` (repo) / `NV` (tempo) |
+| Insert Anything (Fill+Redux Nunchaku "10 GB") | NC; comparador em 2 casos | — | `P` |
 | two-pass (R3 grosseiro → R1 refino) | custo(R3) + custo(R1) | R8 | `E` |
 | ControlNet pose/depth | ×1,3–1,5 onde existir | **inexistente** para klein 4B e Edit-2511 | `P` (controlnet.py) |
 | Estimador de camadas (SAM 3 + DWPose + SAM 3D Body + MoGe) | custo fixo por solicitação; VRAM do SAM 3D Body **não declarada** | todas | `E` |
@@ -95,6 +97,8 @@ Gerado por `tools/memory_budget.py --config tools/budget_configs.json --markdown
 | FLUX.2 klein 4B bf16 + Qwen3-4B fp8 | 7.5 | 3.7 | 7.9–8.4–11.2 | 12.0–15.2 | NEAR_LIMIT | 11.7 | NEAR_LIMIT |
 | FLUX.2 klein 4B fp8 + Qwen3-4B fp8 | 3.7 | 3.7 | 4.2–4.7–7.5 | 8.2–11.5 | FITS_RESIDENT | 7.8 | CLEARLY_FITS |
 | FLUX.2 klein 4B fp8 + 3 refs (tokens x4) | 3.7 | 3.7 | 5.6–7.5–18.7 | 9.6–22.8 | NEAR_LIMIT | 7.8 | CLEARLY_FITS |
+| FLUX.2 klein Base 4B bf16 + Easy-Insert LoRA + Qwen3-4B fp8 (50 passos; E4) | 7.5 | 3.7 | 8.4–9.3–15.0 | 12.4–19.0 | NEAR_LIMIT | 11.7 | NEAR_LIMIT |
+| FLUX.2 klein Base 4B fp8 + Easy-Insert LoRA (E4) | 3.7 | 3.7 | 4.7–5.6–11.2 | 8.7–15.3 | NEAR_LIMIT | 7.8 | CLEARLY_FITS |
 | FLUX.2 klein 9B fp8 + Qwen3-8B fp8 | 8.4 | 7.5 | 9.2–10.0–14.9 | 17.0–22.6 | NEAR_LIMIT | 16.6 | CLEARLY_EXCEEDS |
 | FLUX.2 klein 9B Q4_K_M + Qwen3-8B Q4_K_M | 4.9 | 4.3 | 5.7–6.5–11.4 | 10.3–16.0 | NEAR_LIMIT | 9.6 | CLEARLY_FITS |
 | Qwen-Image-Edit-2511 fp8 + Qwen2.5-VL-7B fp8 | 18.6 | 6.5 | 19.7–20.7–26.9 | 26.5–33.7 | NEEDS_OFFLOAD | 26.4 | CLEARLY_EXCEEDS |
@@ -112,6 +116,7 @@ Gerado por `tools/memory_budget.py --config tools/budget_configs.json --markdown
 | FASHN VTON 1.5 pixel-space bf16 (~1B) + DWPose + parser | 1.9 | 0.0 | 2.6–3.4–8.0 | 2.9–8.3 | NEAR_LIMIT | 2.0 | CLEARLY_FITS |
 | TEMU-VTOFF SD3-M dual DiT fp16 + Qwen2.5-VL-7B Q4 (legenda) | 7.5 | 3.8 | 7.6–7.8–8.9 | 11.7–13.0 | NEAR_LIMIT | 11.8 | NEAR_LIMIT |
 | QA: Qwen3-VL-8B Q4_K_M (juiz local) | 4.3 | 0.0 | 4.7–5.1–7.6 | 5.0–7.9 | FITS_RESIDENT | 4.5 | CLEARLY_FITS |
+| Insert Anything: FLUX.1 Fill dev Nunchaku INT4/NVFP4 + Redux + T5 fp8 (comparador NC, '10 GB') | 6.3 | 4.4 | 7.4–8.6–15.5 | 12.1–20.2 | NEAR_LIMIT | 11.2 | CLEARLY_FITS |
 
 Leitura (rótulos de VRAM: `FITS_RESIDENT` = cabe residente com margem; `NEAR_LIMIT` = medir; `NEEDS_OFFLOAD` = roda **só** com offload/streaming via DynamicVRAM, portanto **mais lento, não inviável**):
 - **Residentes com folga:** klein 4B fp8 (1 ref), CatVTON, Leffa, juiz Qwen3-VL-8B Q4, componentes de percepção.
@@ -162,6 +167,10 @@ Com 3 600 s totais e QA/exportação reservados (~300 s: SAM 3 + DWPose + DINOv2
 | 2 candidatos + refino | 600 | 2 × 900 | 600 | 600 |
 
 O que decide qual divisão é possível é o tempo medido por passo com os pesos reais no DynamicVRAM; nenhuma rota entra na seleção final sem `measure_run.py` em estado **frio**.
+
+## 7b. Distribuição nula por rota (pré-requisito de qualquer veredito sobre `O′`; `06` F-33)
+
+Para cada rota e resolução interna: (a) `O_null1` = `A` após encode/decode do VAE da rota (denoise 0) e reprojeção ao canvas; (b) `O_null2` = pipeline completo em `same_garment_noop`. Medir |O_null − A| por zona (pele, fundo, oclusores) e publicar em `runs/proto0/null/`. τ_null = p99,5; limiares de identidade = (1 − fração acima de τ_null na nula) − margem; ΔE mínimo em BAND_MIN = p95 do no-op. O auditor compara `O′` com `VAE(A)` via `--a-ref` (isola a edição do piso do VAE) e `O` composto com `A`. Também imprimir, por motor/sampler/passos, os limiares do DifferentialDiffusion `(ts − ts_to)/(ts_from − ts_to)` para mapear R(p) → passo de liberação (em 4 passos há só 4 instantes).
 
 ## 8. Procedimento de medição reproduzível no alvo (a executar pelo operador)
 
