@@ -27,11 +27,14 @@ $out.pagefile_usage   = @(Get-CimInstance Win32_PageFileUsage   | ForEach-Object
 $cs = Get-CimInstance Win32_ComputerSystem
 $out.automatic_managed_pagefile = $cs.AutomaticManagedPagefile
 
-# Memoria comprometida agora (Performance Counters)
+# Memoria comprometida agora (fonte independente do idioma do Windows)
 try {
-  $out.committed_bytes_mb = [math]::Round((Get-Counter '\Memory\Committed Bytes').CounterSamples[0].CookedValue/1MB,1)
-  $out.commit_limit_mb    = [math]::Round((Get-Counter '\Memory\Commit Limit').CounterSamples[0].CookedValue/1MB,1)
-  $out.available_mb       = [math]::Round((Get-Counter '\Memory\Available MBytes').CounterSamples[0].CookedValue,1)
+  $mem = Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory -ErrorAction Stop
+  if ($null -eq $mem.CommittedBytes -or $null -eq $mem.CommitLimit -or $null -eq $mem.AvailableMBytes) { throw "campos de memoria ausentes" }
+  $out.committed_bytes_mb = [math]::Round(([double]$mem.CommittedBytes)/1MB,1)
+  $out.commit_limit_mb    = [math]::Round(([double]$mem.CommitLimit)/1MB,1)
+  $out.available_mb       = [math]::Round([double]$mem.AvailableMBytes,1)
+  $out.perf_counters_source = "Win32_PerfFormattedData_PerfOS_Memory"
 } catch { $out.perf_counters_error = "$_" }
 
 # Discos (tipo, espaco livre) - espaco para pesos (dezenas de GB) e pagefile
@@ -109,7 +112,7 @@ foreach ($base in @($env:LOCALAPPDATA, $env:USERPROFILE)) {
     }
   } catch {}
 }
-$out.comfy_candidates = @($candidates)
+$out.comfy_candidates = $candidates.ToArray()
 $found = $candidates | Where-Object { $_.exists } | Select-Object -First 1
 if ($found) {
   $out.comfy_used = $found
