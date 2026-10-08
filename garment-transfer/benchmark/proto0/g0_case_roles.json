@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "gate": "G0",
+  "frozen_before_first_run": true,
+  "core_cases": [
+    "proto0_easy_01",
+    "proto0_medium_01",
+    "proto0_hard_01",
+    "proto0_hard_02",
+    "proto0_hard_03",
+    "proto0_hard_05"
+  ],
+  "core_rule": {
+    "min_pass": 4,
+    "of": 6,
+    "levels_counted": ["EASY", "MEDIUM", "HARD"],
+    "aggregation": "mediana sobre seeds (>=2/3 seeds) decide o caso; pior seed reportada",
+    "seeds": [1, 2, 3]
+  },
+  "progression": {
+    "EASY->MEDIUM": {"cases": ["proto0_easy_01"], "min_cases": 1, "min_seeds_axis_A": 2, "of_seeds": 3},
+    "MEDIUM->HARD": {"cases": ["proto0_medium_01"], "min_cases": 1, "min_seeds_axis_A": 2, "of_seeds": 3},
+    "HARD->EXTREME": {"cases": ["proto0_hard_01", "proto0_hard_02", "proto0_hard_03", "proto0_hard_05"], "min_cases": 2, "min_seeds_axis_A": 2, "of_seeds": 3}
+  },
+  "roles": {
+    "proto0_easy_01": "gate_core",
+    "proto0_easy_01_pair_b": "attribution_fidelity",
+    "proto0_easy_02": "replication",
+    "proto0_medium_01": "gate_core",
+    "proto0_hard_01": "gate_core",
+    "proto0_hard_01_pair_b": "attribution_pose_delta",
+    "proto0_hard_02": "gate_core",
+    "proto0_hard_03": "gate_core",
+    "proto0_hard_04": "attribution_sleeve_pair",
+    "proto0_hard_05": "gate_core",
+    "proto0_extreme_01": "extreme_report_only",
+    "proto0_gt_pair_01": "ground_truth",
+    "proto0_gt_layer_01": "ground_truth",
+    "proto0_ctrl_noop_01": "auditor_control",
+    "proto0_ctrl_negative_synth_01": "auditor_control",
+    "proto0_ctrl_identity_output_01": "auditor_control",
+    "proto0_ctrl_known_drift_01": "auditor_control",
+    "proto0_ctrl_fabric_over_occluder_01": "auditor_control",
+    "proto0_ctrl_b_leak_specificity_01": "auditor_control"
+  },
+  "rationale": "Seis casos core escolhidos por independência: nenhum par compartilha a mesma imagem A (proto0_hard_04 usa a mesma A de proto0_hard_03, por isso é o par de atribuição de manga, julgado pelo auditor e reportado ao lado de hard_03, mas NÃO contado nos 6). Conjunto fixado ANTES de qualquer run; nada pode ser trocado depois de ver resultados — mudança exige PREREG v2 e justificativa no DECISION_LOG."
+}

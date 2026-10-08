@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "garment-transfer/benchmark/manifest.schema.json",
+  "$comment": "v6 — shares_A_with (reuso de máscaras só entre casos com a MESMA imagem A), split_must_cover_mask/split_must_stay_visible_mask obrigatórias em split_by_garment_edge, expected.b_garment_mask (máscara da peça em B), frozen_annotation.protected_mask (C1 estrito, <case>_PR.png), consent_record_id obrigatório quando license contém self-captured-consent. Papéis do gate G0 vivem em benchmark/proto0/g0_case_roles.json.",
   "title": "Caso de benchmark de garment transfer (A + B -> O)",
   "description": "Um registro por caso. Imagens NÃO são redistribuídas quando a licença não permite: o manifesto guarda URL de origem, licença, hash e as transformações aplicadas (crop/resize) para reprodução legal.",
   "type": "object",
@@ -444,6 +445,17 @@
               "type": "string",
               "format": "date"
             },
+            "protected_mask": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/image_source"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "PROTECTED: C1 estrito (rosto, fundo distante, objetos) — identidade EXATA em O_composed (tol 0); arquivo <case>_PR.png. Obrigatório em split=proto0 (o validador exige); o auditor resolve a máscara a partir do manifesto quando --protected não é passado e verifica o sha256 quando é."
+            },
             "front_occluders_mask": {
               "anyOf": [
                 {
@@ -643,6 +655,52 @@
                   },
                   "confidence": {
                     "type": "number"
+                  },
+                  "split_must_cover_mask": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/image_source"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "só para relation=split_by_garment_edge: parte do elemento que a peça DEVE cobrir (lado proximal, p.ex. braço superior sob a manga). Grade de A, anotada antes da geração."
+                  },
+                  "split_must_stay_visible_mask": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/image_source"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "só para relation=split_by_garment_edge: parte do elemento que DEVE permanecer visível e idêntica a A (lado distal, p.ex. braço abaixo da bainha). Zona de fronteira = elemento ∩ UNCERTAIN_OCCUPANCY: cada pixel é G ou idêntico a A."
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "relation": {
+                      "const": "split_by_garment_edge"
+                    }
+                  },
+                  "required": [
+                    "relation"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "split_must_cover_mask",
+                    "split_must_stay_visible_mask"
+                  ],
+                  "properties": {
+                    "split_must_cover_mask": {
+                      "$ref": "#/$defs/image_source"
+                    },
+                    "split_must_stay_visible_mask": {
+                      "$ref": "#/$defs/image_source"
+                    }
                   }
                 }
               }
@@ -767,6 +825,17 @@
           "additionalProperties": {
             "type": "number"
           }
+        },
+        "b_garment_mask": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/image_source"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "máscara humana congelada da peça de referência DENTRO de B (grade de B), anotada antes da geração; usada por tools/garment_fidelity_audit.py para comparar cromaticidade/textura de G em O′ com a peça em B. Não é derivada de nenhuma saída."
         }
       }
     },
@@ -801,6 +870,15 @@
         "phash": {
           "type": "string",
           "description": "hash perceptual (dHash 64 bits hex) de A, para detecção de duplicatas entre splits."
+        },
+        "shares_A_with": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]+$"
+          },
+          "uniqueItems": true,
+          "description": "casos que usam EXATAMENTE a mesma imagem A (mesmo arquivo/sha); só então máscaras congeladas podem ser compartilhadas. Deve ser o conjunto completo de casos com a mesma A, declarado em TODAS as linhas envolvidas (o validador exige reciprocidade)."
         }
       }
     }
@@ -883,8 +961,24 @@
         },
         "consent_record_id": {
           "type": "string",
-          "description": "identificador/sha256 do termo de consentimento quando license = self-captured-consent."
+          "description": "identificador/sha256 do termo de consentimento; OBRIGATÓRIO quando license contém 'self-captured-consent' (if/then). Valor contendo 'PLACEHOLDER' conta como placeholder no validador."
         }
+      },
+      "if": {
+        "properties": {
+          "license": {
+            "type": "string",
+            "pattern": "self-captured-consent"
+          }
+        },
+        "required": [
+          "license"
+        ]
+      },
+      "then": {
+        "required": [
+          "consent_record_id"
+        ]
       }
     }
   },
