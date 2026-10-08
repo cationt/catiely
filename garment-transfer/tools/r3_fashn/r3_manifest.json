@@ -1,0 +1,169 @@
+{
+ "route": "R3",
+ "description": "FASHN VTON v1.5 (maskless, pixel-space MMDiT 576×864) em dois modos: segfree (segmentation_free=True: parser executado, masking da pessoa DESABILITADO) e masked (segmentation_free=False: parser executado, masking da pessoa habilitado). Identidade e pins verificados em fonte primária em 2026-10-08.",
+ "verified_on": "2026-10-08",
+ "verified_from": "container (GitHub, Hugging Face API, PyPI acessíveis; pytorch.org e onnxruntime.ai bloqueados — docs do ORT lidos do branch gh-pages no GitHub; metadados dos wheels lidos diretamente do zip no PyPI)",
+ "code_repos": {
+  "vton": {
+   "github": "https://github.com/fashn-AI/fashn-vton-1.5",
+   "branch": "main",
+   "commit": "7c0f10af3f91ad4048fe9729c470a13ef905d25a",
+   "commit_date": "2026-02-01T23:30:28+01:00",
+   "commit_subject": "fix: update dependencies in pyproject.toml to use onnxruntime-gpu for GPU support and clarify installation instructions in README.md",
+   "note": "HEAD de main em 2026-10-08 == o SHA observado pelo operador (confirmado por git ls-remote; sem tags no repositório)",
+   "package": "fashn-vton 1.5.0 (NÃO existe no PyPI; instalado do clone pinado com pip --no-deps)",
+   "license": "Apache-2.0 (LICENSE; pyproject license = Apache-2.0)",
+   "paper": null,
+   "paper_note": "README: arXiv 'Coming Soon'; citação bochman2026fashnvton 'Paper coming soon'",
+   "files": {
+    "LICENSE": {"blob_oid": "2a35f0c24ccd9ce4e4031ab1ff835b4e7dd5b904", "sha256": "430abde5fab4be2da86ffcd6eb86892a01f94007c2e87ce4bb266fafbaa6f5ea", "size_bytes": 10835},
+    "README.md": {"blob_oid": "492d398d4c3024973ed22779adb6d50dad7c7730", "sha256": "a2d2c6f3e6915f3671fa7434c5bd27d6383716e2e643ba68d8198b1ead015225", "size_bytes": 4747},
+    "pyproject.toml": {"blob_oid": "80338675e2ef107e92cba49326320970dd457837", "sha256": "d722646d79dbb26204aa91bef858d8fe78de6e53f7ed9b8e97e32d0d52bf5f68", "size_bytes": 1864},
+    "examples/basic_inference.py": {"blob_oid": "b71711e5973d79e1bd18890e205ed71e25f6c877", "sha256": "2b5729ad110ecbcdf9c44831363f4030a2a98405fc936b05e4dfd27b46712d8b", "size_bytes": 4148},
+    "scripts/download_weights.py": {"blob_oid": "4acf26aa33b9d9ad77f107af301d8e4110e69f59", "sha256": "00f05cc12bdee83d42f28cbc2864858158418df4e3e2c936bbbc44903e336b28", "size_bytes": 2998},
+    "src/fashn_vton/__init__.py": {"blob_oid": "a3204a18eb0a8862dfc1101894be958bbed20acc", "sha256": "75131057d8cce7023bdd321093036bcd3c4b885b9050d90b72973c6079d5f92a", "size_bytes": 229},
+    "src/fashn_vton/pipeline.py": {"blob_oid": "16f69bafd24cd52c9e28d2a701a77b158a8b0108", "sha256": "7744d4d98b3e1e4a1c157472f73a22999b329d99775c6197ba6b0ca94ea2e95c", "size_bytes": 12773},
+    "src/fashn_vton/tryon_mmdit.py": {"blob_oid": "fab0ac39cd06ba547f3408e062ca9c5ee10b67ef", "sha256": "a8b491192a73a58725348bca3a910d77108bad7f4b330da9f4251f5bc02e9cd9", "size_bytes": 20861},
+    "src/fashn_vton/dwpose/__init__.py": {"blob_oid": "4566b7b2e130158e5aab505394ba628643e1d876", "sha256": "8f3f76ce5c6d5b3792bd373696aad8d1b6559b8d0a9c0091bcb4d049fcd3ef40", "size_bytes": 505},
+    "src/fashn_vton/dwpose/dwpose.py": {"blob_oid": "1e2c21a2249910c600099e50ce0a737aef94869d", "sha256": "756217b7094f7316e643274b63976c5735b1edebd11df62624be1e4594c4f335", "size_bytes": 4655},
+    "src/fashn_vton/dwpose/onnxdet.py": {"blob_oid": "e2b0abd330b868e682c8d10e5609465f56ed7ec8", "sha256": "0caa04ef1c80a951219c720727dcac5b9c013a2df3e70b4eb90359910a30e92f", "size_bytes": 4400},
+    "src/fashn_vton/dwpose/onnxpose.py": {"blob_oid": "a5c1ff245df8cf62ef31a8a892f6b07877189754", "sha256": "1ba2cb45fe1027a885a47c7860b461f073478e82a25beafe3f248e73eb9ec175", "size_bytes": 11453},
+    "src/fashn_vton/dwpose/utils.py": {"blob_oid": "31f3b2b2df1371d942bc7a51f39e9d0da449465c", "sha256": "c2d473508a32fe50550e480561723263f870e78c8626fa8c91f356cb1d8b3375", "size_bytes": 7106},
+    "src/fashn_vton/dwpose/wholebody.py": {"blob_oid": "0331a538a5683001d1f5f652939dd41a93cb568d", "sha256": "650bc6337f1ddfda759ce2d204e9a664a38f8809070c5cb256a96fa810da3980", "size_bytes": 2029},
+    "src/fashn_vton/preprocessing/__init__.py": {"blob_oid": "635d4ec524359caa9e33c839ec5c4dee245c92c4", "sha256": "69afe274f242f6b6b336c1c80141c0a1048ebb4ad427cfad2bd50a514507ae95", "size_bytes": 598},
+    "src/fashn_vton/preprocessing/agnostic.py": {"blob_oid": "09f864fae9d9d31931830a39684b8ae47b19503f", "sha256": "933b8ccdfb188c7e2f2fa7f7f31cce0d3457c56458c0ada2d9ad334bd5a2b4c8", "size_bytes": 7520},
+    "src/fashn_vton/preprocessing/masks.py": {"blob_oid": "43c4f6bb36c052d6c625b427879529b62c931743", "sha256": "59edb90f0f7d8808dfb31531eb285364cc08d4dbd50baec33072fd90519120cc", "size_bytes": 5109},
+    "src/fashn_vton/preprocessing/transforms.py": {"blob_oid": "b03aae3fa4737c6d463d50c1cd5799f54435c8d7", "sha256": "fa8ae13311bb11d0957696f3c8e6e2fef2ce2ae8710abbea27560474a388a9f6", "size_bytes": 7828},
+    "src/fashn_vton/utils/__init__.py": {"blob_oid": "2757c6693546e498c9c79d57e6bb2e4e78b2fd92", "sha256": "8c86bf2273b99b9a37b8b2e6501b8c2ee81a46e34488e16de057b445c839e602", "size_bytes": 1008},
+    "src/fashn_vton/utils/checkpoint.py": {"blob_oid": "7155575d96debb10c9f7725a9d5f277cc2ae80d7", "sha256": "9a0666d183cb216dc40edf4d2b20ebabcab9d59d94b78ccb348d3c8ff72dec7b", "size_bytes": 1486},
+    "src/fashn_vton/utils/common.py": {"blob_oid": "06f37164f33049debec40672519594026da29416", "sha256": "7b086724af95e3bf8fa6cb985ffba735d4a3c45b4f65a67931a24a2773db2369", "size_bytes": 884},
+    "src/fashn_vton/utils/keypoints.py": {"blob_oid": "0cc6d6913273a97f580e0d7eaf1217ab36b75218", "sha256": "f81a392de54d05b6fa094a439e97d7126c8d1bc8b4280b2d6ffd004712783db1", "size_bytes": 520},
+    "src/fashn_vton/utils/logger.py": {"blob_oid": "bb6418d38b802f119f0693b3683dcd850974c291", "sha256": "2097412c961ffa8c5dd062ee75361cc30cc87cb229c24b8dc7e18159e8795cfa", "size_bytes": 1559},
+    "src/fashn_vton/utils/sampling.py": {"blob_oid": "b42dee0ae298ee7e3e86b2d171c00576c8752a30", "sha256": "106d93eb07880368b0b01f47bbbee9be089ece8309a3a5b676025d42e3492d8d", "size_bytes": 1286},
+    "src/fashn_vton/utils/tensor.py": {"blob_oid": "046aab422edfe4a86edbf022e87453ffbc75ba36", "sha256": "bd4bd36fecede63156789215dd7c3abc01ce4507359f789d982a8e20f99bd05d", "size_bytes": 2042}
+   },
+   "package_files_prefix": "src/"
+  },
+  "human_parser": {
+   "github": "https://github.com/fashn-AI/fashn-human-parser",
+   "branch": "main",
+   "commit": "f2771f2fb8655349e87e2869bbde7ace0bd06f2c",
+   "commit_date": "2026-01-10T21:50:01+01:00",
+   "package": "fashn-human-parser 0.1.1 (PyPI)",
+   "pypi_wheel": {"filename": "fashn_human_parser-0.1.1-py3-none-any.whl", "size_bytes": 7764, "sha256": "3d84a1959148d29f169ed78aa46b9ae8562e7df3f22465cc8f599adc8fdc04b8", "upload_date": "2026-01-10", "content_note": "parser.py/labels.py/__init__.py do wheel são byte-idênticos aos blobs do commit f2771f2 (sha256 conferidos)"},
+   "license": "NÃO Apache: 'FASHN Human Parser License' — o pacote e o modelo (fine-tune do SegFormer-B4, nvidia/mit-b4) HERDAM a NVIDIA Source Code License do SegFormer (https://github.com/NVlabs/SegFormer/blob/master/LICENSE): uso não comercial / pesquisa e avaliação (§3.3). Model card HF: license: other, license_name: nvidia-segformer. Registrado como dependência de licença separada (S-01 do projeto).",
+   "files": {
+    "LICENSE": {"blob_oid": "be6259a8223c75bebe046ccbad5b7fc897f97bf4", "sha256": "873ccdc8a7d59a7919ad953a7d4fea8ad1948f67ff5d5ae1cc2418d51a281e86", "size_bytes": 458},
+    "README.md": {"blob_oid": "fd743406a220198ef5a2296f12bc10894cf23fd7", "sha256": "fa4a279452a148e269798b0171ab20521d1557d2dc4c8d19f9d181bfffde8432", "size_bytes": 4875},
+    "pyproject.toml": {"blob_oid": "f06cec74b25f590f5520f9bff46aa66eafc1934d", "sha256": "2378338719a527c6ede16bbbc47086c1790aab053034800d0eecbc9fc945d01b", "size_bytes": 1653},
+    "src/fashn_human_parser/__init__.py": {"blob_oid": "b6b1340086f88185097f00d9f026721036953b49", "sha256": "0f951dbb0e0426fb6c88aa2aaac6c3b9d6bf446a66216a16fc87da001c37dc84", "size_bytes": 450},
+    "src/fashn_human_parser/labels.py": {"blob_oid": "167a2958d2b53fc376528ceb5bcaa05f58d4922c", "sha256": "b7247afa1618dfc0115e0b75d2ed23829a1b6653578ad7045c0d342f0cb6318d", "size_bytes": 1006},
+    "src/fashn_human_parser/parser.py": {"blob_oid": "0aee11ff3e051b16ca65524abfe2e77d764e9eba", "sha256": "880bb36f980bc1d65d140cad2ceb5f1a7d227e72a0f483db9f6dedd3b1da3af6", "size_bytes": 7529}
+   },
+   "package_files_prefix": "src/"
+  }
+ },
+ "components": {
+  "tryon": {
+   "repo": "fashn-ai/fashn-vton-1.5",
+   "hub": "huggingface",
+   "revision": "7720683168567eb5a2a4c67f15116c6e29c83ded",
+   "last_modified": "2026-02-01T15:55:17Z",
+   "gated": false,
+   "license": "apache-2.0 (model card)",
+   "local_subdir": "",
+   "files": {
+    "model.safetensors": {"size_bytes": 1943668048, "sha256": "d6cd38286885bc29fa487ea9383f80ffeb95862e7747c630d42c5d3c05bdd35a"}
+   },
+   "other_files_not_needed": ["README.md (sha256 fad906be83915aec1c7c0bc153a62064817ab719b1eaa41159c32965fa75ac58)", ".gitattributes"],
+   "architecture": "TryOnModel MMDiT: hidden 1280, 10 heads, 8 double + 16 single blocks, 4 patch-mixer blocks, patch 12×12, input_shape (864, 576) = H×W, channels_in 3 (x_embedder 7 canais = ruído 3 + imagem 3 + pose 1; garment_embedder 4), categoria por nn.Embedding (tops=1, bottoms=2, one-pieces=3; 0 = nulo para CFG); ≈ 972 M parâmetros (model card); bf16 em Ampere+ (1,94 GB)"
+  },
+  "dwpose": {
+   "repo": "fashn-ai/DWPose",
+   "hub": "huggingface",
+   "revision": "548b5df25b84d9f4aac0611dfa1c2a7a12f15571",
+   "last_modified": "2026-01-18T19:47:46Z",
+   "gated": false,
+   "license": "apache-2.0 (DWPose IDEA-Research; YOLOX Megvii; redistribuído pela FASHN sem reivindicar autoria)",
+   "local_subdir": "dwpose",
+   "files": {
+    "yolox_l.onnx": {"size_bytes": 216746733, "sha256": "7860ae79de6c89a3c1eb72ae9a2756c0ccfbe04b7791bb5880afabd97855a411"},
+    "dw-ll_ucoco_384.onnx": {"size_bytes": 134399116, "sha256": "724f4ff2439ed61afb86fb8a1951ec39c6220682803b4a8bd4f598cd913b1843"}
+   },
+   "runtime": "onnxruntime InferenceSession com providers=['CUDAExecutionProvider'] (device_id) quando device cuda; CPUExecutionProvider caso contrário (wholebody.py); detector 640×640; pose 288×384 (input do dw-ll_ucoco_384, lido do modelo)"
+  },
+  "human_parser": {
+   "repo": "fashn-ai/fashn-human-parser",
+   "hub": "huggingface",
+   "revision": "1f80c34dbab321c5730dda5c3fea279fd3e97498",
+   "last_modified": "2026-01-10T20:50:06Z",
+   "gated": false,
+   "license": "other / nvidia-segformer (model card): herda a NVIDIA Source Code License do SegFormer — NÃO comercial",
+   "local_subdir": "fashn-human-parser",
+   "files": {
+    "config.json": {"size_bytes": 1654, "sha256": "87bd5b66419dbfa7c02cfbeb94e292454863b1606c5df29526b19a6c1de70d9f"},
+    "preprocessor_config.json": {"size_bytes": 340, "sha256": "54007eb4cedae02565c4f035750aeebe3ddc53d36ab575e8534615623e6b6225"},
+    "model.safetensors": {"size_bytes": 256146352, "sha256": "e43c8c8a9b04f28798f0a4630cf18caa2cdb27a0d454fae43a5716e6f7078244"}
+   },
+   "architecture": "SegformerForSemanticSegmentation (MIT-B4 encoder, depths [3,8,27,3], hidden [64,128,320,512], decoder 768; _name_or_path nvidia/mit-b4); 18 classes; entrada 384×576 (W×H) com INTER_AREA + normalização ImageNet (parser.py); logits upsampled bilinear ao tamanho original",
+   "loading_note": "o pipeline upstream chama FashnHumanParser(device) → from_pretrained('fashn-ai/fashn-human-parser') (download implícito para o cache HF). O runner R3 carrega-o de <weights-dir>/fashn-human-parser (diretório local verificado por sha256) e corre com HF_HUB_OFFLINE=1 — única adaptação ao pipeline (fonte dos pesos; algoritmo inalterado)"
+  }
+ },
+ "download_total_bytes": 2550962243,
+ "download_total_note": "model.safetensors 1 943 668 048 + yolox_l.onnx 216 746 733 + dw-ll_ucoco_384.onnx 134 399 116 + parser model.safetensors 256 146 352 + 2 JSON ≈ 2,55 GB (2,38 GiB); venv (torch cu130 ≈ 3–4 GB + onnxruntime-gpu 160 MB + transformers/opencv/matplotlib ≈ 0,5 GB) ≈ 4–5 GB adicionais",
+ "upstream_defaults": {
+  "num_samples": 1,
+  "num_timesteps": 30,
+  "guidance_scale": 1.5,
+  "skip_cfg_last_n_steps": 1,
+  "seed": 42,
+  "segmentation_free": true,
+  "garment_photo_type": "model",
+  "time_shift_mu": 1.5,
+  "source": "pipeline.py __call__/_sample e examples/basic_inference.py (argparse defaults) @ 7c0f10af"
+ },
+ "pipeline_facts": {
+  "model_input_hw": [864, 576],
+  "pre_resize": "AspectPreserveResize(target (864,864), mode fit, PIL LANCZOS, allow_upsampling=False) nas DUAS imagens antes de pose/parser",
+  "resize_pad": "ResizePad((576,864), opencv): fit + padding simétrico; saída unpad → tamanho da imagem pré-redimensionada (≤ 864 no lado maior)",
+  "cfg": "forward_for_cfg duplica o batch (cond + nulo) → 2 amostras por passo; skip_cfg_last_n_steps=1",
+  "sampler": "Euler, rectified flow, schedule shifted mu=1.5; num_timesteps passos",
+  "segfree_semantics": "segmentation_free=True: FashnHumanParser É inicializado e executado em A e em B; create_clothing_agnostic_image(..., disable_masking=True) devolve A inteira (sem máscara); garment parsing continua ativo quando garment_photo_type='model' (create_garment_image mascara tudo fora dos labels da categoria com cinza 127). NÃO é 'parser-free'.",
+  "masked_semantics": "segmentation_free=False (masking da pessoa HABILITADO): mesmo parser executado em A e B; create_clothing_agnostic_image mascara labels da categoria (+ arms/torso para upper/full, + legs para lower/full), dilatação/contour/bounded/hybrid, exclui identidade (face, hair, jewelry, bag, glasses, hat) e mãos/pés conforme cobertura → cinza 127",
+  "flat_lay": "garment_photo_type='flat-lay': pose da peça = dummy (-1), sem DWPose em B; garment sem máscara",
+  "pose": "DWPose (yolox_l 640 + dw-ll_ucoco_384) em A (e em B quando 'model'); draw_pose grayscale; sem detecção → keypoints -1 (sem exceção explícita no pipeline aberto)",
+  "precision": "bf16 se cuda e torch.cuda.is_bf16_supported(), senão fp32 (pipeline.py); parser em fp32 (from_pretrained padrão)",
+  "cost_difference_between_modes": "segfree vs masked diferem só na criação da imagem agnóstica em CPU (ms); custo de GPU idêntico por construção"
+ },
+ "environment": {
+  "python": ">=3.11 exigido pelo onnxruntime-gpu 1.30.0 (alvo: 3.12)",
+  "torch": "mesma versão/CUDA do venv do ComfyUI Desktop (detectado pelo setup; alvo em 2026-10-08: 2.12.1+cu130, sm_120); índice https://download.pytorch.org/whl/cu130; wheels Windows do PyPI são CPU-only",
+  "onnxruntime": {
+   "pin": "onnxruntime-gpu==1.30.0",
+   "wheel_win_cp312": {"filename": "onnxruntime_gpu-1.30.0-cp312-cp312-win_amd64.whl", "size_bytes": 160478594, "sha256": "882da66f936e1f560b155118c5953dc45268cd92893abb8d31a940f4d1effb36", "upload_date": "2026-09-10", "cuda_version": "13.0"},
+   "evidence": "onnxruntime/capi/build_and_package_info.py dentro do wheel: cuda_version = '13.0' (lido do PyPI em 2026-10-08); docs gh-pages CUDA-ExecutionProvider.md: 'ONNX Runtime built with CUDA 13.0 require CUDA 13.0 or newer'; CUDA 13.0 + cuDNN 9.x para ORT 1.27–1.30 (PyPI); pipeline de release 1.30.0 usa cudnn_folder 9.14.0.64_cuda13; release notes 1.30.0: 'Fixed Windows CUDA 12.9 SM120 compilation'",
+   "dll_loading": "onnxruntime.preload_dlls() (≥ 1.21): no Windows procura primeiro em torch\\lib (cudart/cublas/cufft/cudnn do torch cu130, mesma major CUDA 13) → sem pacotes nvidia-* extras; o runner importa torch ANTES de onnxruntime e chama preload_dlls()",
+   "fallback_cuda12": {"pin": "onnxruntime-gpu==1.26.0 (cuda_version 12.8; wheel win cp312 sha256 5f49c44689894650990e4c8a857d2edafc276fbd79bba57ceb224bd18d25d491)", "when": "só se o torch do alvo for cu128 (CUDA 12.x); exige cuDNN 9 e cudart 12.8+ (torch cu128 fornece)"},
+   "compute_capability_note": "lista CMAKE_CUDA_ARCHITECTURES do wheel oficial NÃO declarada nos docs lidos (parâmetro do pipeline); suporte a sm_120 inferido das notas de release ('Windows CUDA 12.9 SM120 compilation') — VERIFICAÇÃO EMPÍRICA obrigatória no setup (sessão CUDA + inferência yolox) antes do benchmark",
+   "provider_policy": "CUDAExecutionProvider exigido; fallback silencioso do ORT para CPU é detectado por session.get_providers() e reprovado (exit 5) salvo --allow-ort-cpu-fallback, sempre registrado no sidecar"
+  },
+  "requirements": "tools/r3_fashn/requirements-r3.txt (+ fashn-human-parser==0.1.1 e o clone fashn-vton instalados com --no-deps)",
+  "offline": "runner: HF_HUB_OFFLINE=1, TRANSFORMERS_OFFLINE=1, HF_DATASETS_OFFLINE=1, HF_HUB_DISABLE_TELEMETRY=1, DISABLE_TELEMETRY=1, HF_HOME=<weights-dir>\\hf_home (determinístico, vazio) definidos ANTES dos imports + guarda de rede (socket.connect fora de loopback → exceção) salvo --allow-online; parser carregado de diretório local"
+ },
+ "run_protocol": {
+  "inputs": "mesmas A e B do klein4b_fp8_2ref_1mp e da R1-EI; categoria e garment_photo_type declarados pelo operador (inputs_decision.json); B vestida em pessoa → 'model'",
+  "modes": {"segfree": "--segmentation-free (parser executado; masking da pessoa desabilitado)", "masked": "--masked (parser executado; masking da pessoa habilitado)"},
+  "fixed_params": {"num_samples": 1, "num_timesteps": 30, "guidance_scale": 1.5, "seed": 42, "skip_cfg_last_n_steps": 1},
+  "resolution": "canvas do modelo 576×864 (fixo pelo checkpoint); A pré-redimensionada para caber em 864 sem upsampling → NÃO comparável em MP com klein4b/R1-EI (~1 MP)",
+  "harness": "tools/measure_run.py --budget-s 3600 --interval-s 0.5; cold n=3 e warm n=3 por modo (12 runs); processo novo por run",
+  "state_definitions": {"cold": "process-cold: processo novo, pesos lidos do disco; page cache do SO NÃO esvaziado salvo -RamMap (rótulo cold_pagecache_unflushed)", "warm": "processo novo com cache do SO presumivelmente aquecido; NÃO é pipeline residente"},
+  "labels": "r3_fashn15_bf16_576x864_<segfree|masked>_<cold|warm>",
+  "eligibility": "docs/03 §8 item 6: cold ≤ 1 500 s elegível; 1 500–3 000 marginal; > 3 000 ou OOM/thrashing inviável; o watchdog de 3 600 s é só o limite do benchmark isolado",
+  "status": "PREPARADA, NÃO MEDIDA (2026-10-08)"
+ },
+ "memory_expectations": {
+  "known": "pesos: tryon 1,94 GB bf16; parser 0,26 GB fp32; ONNX 0,35 GB; única medição publicada: PR #6 do repo (Apple M4 Max, FP16, 30 passos, sem parser) 3,044 GiB de pico (research_raw/07)",
+  "unknown": "VRAM/RAM reais no alvo (nenhuma declaração oficial de VRAM); custo das sessões ORT CUDA (workspace cuDNN); RAM do processo (torch + ORT + transformers)",
+  "estimate_level_E": "VRAM 3–6 GB; RAM 4–8 GB; tempo: segundos a poucas dezenas de segundos por run frio (30 passos × 2 CFG em 48×72 = 3 456 tokens)"
+ }
+}

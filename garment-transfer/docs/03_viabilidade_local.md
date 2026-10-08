@@ -83,6 +83,12 @@ Leitura:
 - **RAM/commit:** `sys_ram_used` 14,4–15,2 GB de 16 GB (saturada); `tree_private` 20,8–24,3 GB > RSS 8,6–9,8 GB (reservas virtuais CUDA/WDDM commitadas); commit do sistema 31,6–35,1 GB → **depende do pagefile** (≈ 26 GB no alvo). ΔRAM vs klein4b ≈ +4,5 GB (o klein4b tinha ComfyUI + browser no baseline; comparação indicativa).
 - **O que esta medição não diz:** nada sobre **capacidade em roupa/adição** (NV) nem sobre qualidade/oclusão/preservação de A — isso é G0/E4. A **viabilidade de R1-EI fica fechada** com este registro (D-051).
 
+### 1f. R3 (FASHN VTON 1.5): identidade/pins verificados e medição preparada em dois modos (2026-10-08; `P` para identidade; **não medida**)
+
+Identidade e pins em fonte primária (`research_raw/09`; `tools/r3_fashn/r3_manifest.json`): código `fashn-AI/fashn-vton-1.5` @ `7c0f10af…` (HEAD de `main`; Apache-2.0; sem paper; **não** está no PyPI); pesos HF `fashn-ai/fashn-vton-1.5` @ `77206831…` (`model.safetensors` 1,94 GB, sha `d6cd3828…`); DWPose ONNX (`fashn-ai/DWPose` @ `548b5df2…`, 351 MB, Apache); parser `fashn-human-parser==0.1.1` + pesos `fashn-ai/fashn-human-parser` @ `1f80c34d…` (SegFormer-B4, 256 MB) — **licença separada NVIDIA SegFormer (não comercial)**, S-01 mantido. Download total ≈ 2,55 GB. Defaults oficiais preservados como baseline (30 passos, CFG 1,5, seed 42, 1 amostra). **Semântica dos modos** (código lido): `segfree` = parser **executado** em A e B, masking da pessoa desabilitado (B continua recortada pelo parser quando `garment_photo_type=model`); `masked` = parser executado, masking da pessoa habilitado. Nenhum dos dois é "parser-free"; o custo de GPU é idêntico por construção.
+
+Preparação (`tools/r3_fashn/`): venv dedicado; `onnxruntime-gpu==1.30.0` (PyPI, **build CUDA 13.0** lido do wheel → casa com torch cu130; fallback 1.26.0/CUDA 12.8 automático se o torch for cu128); download determinístico com `hf_hub_download(revision=…)` incluindo o parser (que o upstream baixaria implicitamente em runtime); runner em processo próprio **offline por construção** (`HF_HUB_OFFLINE` + guarda de rede + parser de diretório local — única adaptação, de fonte de pesos), `CUDAExecutionProvider` exigido com detecção de fallback para CPU, fases por componente e sidecar; `bench_r3.ps1` = 2 modos × (cold×3 + warm×3) = **12 runs**, `measure_run.py`, 3 600 s. Canvas fixo **576×864** → não comparável em MP com klein4b/R1-EI. VRAM/RAM reais **desconhecidas** (nenhuma declaração oficial; estimativa `E` 3–6 GB / 4–8 GB). **Nenhuma medição executada.**
+
 ### 1c. Custo do mecanismo × motor (rev. 2026-10-08, nível `E`/`P`)
 
 | Mecanismo de separação espacial | Fator de custo | Aplicável a | Evidência |
@@ -177,7 +183,7 @@ Calibração com medições (2026-10-08): klein 4B fp8 A+B — estimado 4,2–7,
 | CatVTON (NC) | ELEGÍVEL | <8 GB (`P`) | DensePose/SCHP no Windows (detectron2) |
 | Leffa (MIT/OpenRAIL) | ELEGÍVEL | SD1.5 + ref UNet | issue Windows #40 (autocast); decode em tiles |
 | FitDiT (NC) | MARGINAL | 19.5 GB fp16; offload "<6 GB" (`P-ex`) mas 8 GB falhou (issue) | medir `--aggressive_offload` em 12 GB |
-| FASHN VTON 1.5 (Apache) | **ELEGÍVEL** | ~8 GB (`R`), ~1B, sem VAE | subprocesso Windows; licença dos pesos (card NV) |
+| FASHN VTON 1.5 (código/pesos Apache; **parser NVIDIA NC**) | **ELEGÍVEL** (provisório; medição preparada em `tools/r3_fashn/`, §1f) | VRAM **não declarada** (único dado: 3,0 GiB em M4 Max FP16 sem parser), 0,97 B, sem VAE | processo próprio Windows preparado; ORT CUDA 13 × Blackwell a verificar empiricamente |
 | TEMU-VTOFF (NC) / TryOffDiff (SSPL) | ELEGÍVEL (pré-etapa) | SD3-M dual DiT sequencial ~8 GB (`E`) | tempo adicional; SD3-M gated |
 | OmniTry / UniFit (FLUX Fill NC) | MARGINAL | ≥28 GB bf16 → fp8/GGUF 12 GB + offload | VRAM real com LoRA em fp8 |
 | OmniVTON++ (NC) | PENDENTE | pré-processamento pesado (DensePose, TAPPS, pseudo-pessoa) | custo total; Windows |
@@ -224,7 +230,7 @@ Para cada rota e resolução interna: (a) `O_null1` = `A` após encode/decode do
 
 ## 9. O que esta fase **não** sabe (honestamente)
 
-- Tempo medido só para **R1 klein 4B** (§1d) e **R1-EI** (§1e); nenhuma medição ainda de R3, R2, R4 em 12 GB + 16 GB RAM. Para R1-EI não se sabe se a folga de ≈ 40 MiB de VRAM sobrevive a máscaras maiores/outras A (eviction WDDM não medida).
+- Tempo medido só para **R1 klein 4B** (§1d) e **R1-EI** (§1e); R3 **preparada** (§1f) mas não medida; nenhuma medição ainda de R2, R4 em 12 GB + 16 GB RAM. Para R1-EI não se sabe se a folga de ≈ 40 MiB de VRAM sobrevive a máscaras maiores/outras A (eviction WDDM não medida).
 - Qual stack torch/CUDA o Comfy-Desktop 1.1.6 instala numa 5070 (cu128 vs cu130) e se SageAttention/Nunchaku wheels casam com ele.
 - Perda de qualidade de Q4/NVFP4 em **topologia e microdetalhe** de roupa (nenhum estudo).
 - Se GGUF já é suportado pelo aimdo (era "unsupported at merge").

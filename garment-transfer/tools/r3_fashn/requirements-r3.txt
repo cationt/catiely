@@ -1,0 +1,16 @@
+# R3 - FASHN VTON 1.5: dependencias pinadas (versoes vigentes em 2026-10-08).
+# torch/torchvision vem do indice CUDA do PyTorch (setup_r3.ps1), NAO do PyPI (wheels Windows do PyPI sao CPU-only).
+# Os dois pacotes upstream NAO estao aqui de proposito: o setup instala `fashn-human-parser==0.1.1` (PyPI) e o clone pinado de
+# fashn-vton-1.5 com `pip install --no-deps`, para que o pip nunca resolva "torch>=2.2" a partir do PyPI por cima do torch CUDA.
+onnxruntime-gpu==1.30.0
+transformers==5.15.0
+safetensors==0.8.0
+huggingface_hub==1.27.0
+numpy==2.5.2
+Pillow==12.3.0
+opencv-python==4.14.0.94
+einops==0.8.2
+tqdm==4.70.1
+matplotlib==3.11.2
+psutil>=5.9
+nvidia-ml-py>=12.560
