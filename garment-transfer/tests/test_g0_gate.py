@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Testes do agregador do Gate G0 (regras pré-registradas; 6 casos core congelados). Rodar: python tests/test_g0_gate.py"""
 import json, os, subprocess, sys, tempfile
+import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _fixtures import build_case_dir, run_audit, perfect_output, engine_output, noisy, save_rgb, save_mask, Checker, GATE, FIDELITY  # noqa: E402
+from _fixtures import build_case_dir, run_audit, perfect_output, engine_output, noisy, save_rgb, save_mask, Checker, GATE, FIDELITY, make_adj, ADJ_YES, ADJ_NO  # noqa: E402
 
 CORE = ["synth_easy_01", "synth_core_a", "synth_hard_01", "synth_core_b", "synth_core_c", "synth_core_d"]
 
@@ -11,13 +12,13 @@ CORE = ["synth_easy_01", "synth_core_a", "synth_hard_01", "synth_core_b", "synth
 def fid(fx, case_id, o, g, adj, out):
     F = fx["files"]; kind = "easy" if case_id.startswith("synth_easy") else "hard"
     r = subprocess.run([sys.executable, FIDELITY, "--profile", "g0", "--a", F[f"{kind}_A.png"], "--b", F[f"{kind}_B.png"], "--manifest", fx["manifest"], "--case-id", case_id,
-                        "--data-root", fx["d"], "--prereg", fx["prereg"], "--freeze", fx["freeze"], "--roles", fx["roles"], "--o-engine", o, "--garment-mask", g,
+                        "--data-root", fx["d"], "--prereg", fx["prereg"], "--freeze", fx["freeze"], "--roles", fx["roles"], "--allow-dirty-freeze", "--o-engine", o, "--garment-mask", g,
                         "--adjudication", adj, "--json-out", out], capture_output=True, text=True)
     assert r.returncode in (0, 1, 3), r.stderr[-800:]
 
 
 def gate(fx, index_path, extra=()):
-    r = subprocess.run([sys.executable, GATE, "--roles", fx["roles"], "--freeze", fx["freeze"], "--manifest", fx["manifest"], "--prereg", fx["prereg"], "--index", index_path, *extra],
+    r = subprocess.run([sys.executable, GATE, "--roles", fx["roles"], "--freeze", fx["freeze"], "--manifest", fx["manifest"], "--prereg", fx["prereg"], "--index", index_path, "--allow-dirty-freeze", *extra],
                        capture_output=True, text=True)
     assert r.returncode in (0, 1, 3), r.stderr[-800:]
     return json.loads(r.stdout), r.returncode
@@ -31,7 +32,6 @@ def main():
         GB = os.path.join(d, "G_fake.png"); save_mask(GB, hard["BMIN_split"])
         aref_h = noisy(hard["A"], 3, 11); Aref_h = os.path.join(d, "aref_h.png"); save_rgb(Aref_h, aref_h)
         aref_e = noisy(easy["A"], 3, 12); Aref_e = os.path.join(d, "aref_e.png"); save_rgb(Aref_e, aref_e)
-        adj_yes, adj_no = os.path.join(d, "adj_yes.json"), os.path.join(d, "adj_no.json")
         runs = os.path.join(d, "runs"); os.makedirs(runs)
 
         def produce(case_id, seed, mode="pass"):
@@ -43,8 +43,13 @@ def main():
             else:
                 save_rgb(o, engine_output(m, aref, m["G_split"] if kind == "hard" else None, seed)); g = G
             occ = os.path.join(runs, f"{case_id}_s{seed}.occ.json"); fdj = os.path.join(runs, f"{case_id}_s{seed}.fid.json")
-            run_audit(fx, case_id, o, g, a_ref=(Aref_e if kind == "easy" else Aref_h), extra=["--json-out", occ], with_occ=(mode != "missing_occ"))
-            fid(fx, case_id, o, g, adj_no if mode == "fid_fail" else adj_yes, fdj)
+            extra = ["--json-out", occ]
+            if mode == "composed_fail":
+                oc = perfect_output(m, m["G_split"] if kind == "hard" else None).copy(); oc[2, 2] = np.clip(oc[2, 2].astype(int) + 5, 0, 255); ocp = os.path.join(runs, f"{case_id}_s{seed}_comp.png"); save_rgb(ocp, oc)
+                extra += ["--o-composed", ocp]
+            run_audit(fx, case_id, o, g, a_ref=(Aref_e if kind == "easy" else Aref_h), extra=extra, with_occ=(mode != "missing_occ"))
+            adj = make_adj(runs, f"{case_id}_s{seed}.adj.json", case_id, o, ADJ_NO if mode == "fid_fail" else ADJ_YES)
+            fid(fx, case_id, o, g, adj, fdj)
             return {"case_id": case_id, "seed": seed, "occupancy": occ, "fidelity": fdj}
 
         def write_index(entries, name):
@@ -100,6 +105,27 @@ def main():
         idx = [e for e in idx_all if not (e["case_id"] == "synth_core_d" and e["seed"] == 1)] + [dict(src2, case_id="synth_core_d")]
         j, rc = gate(fx, write_index(idx, "idx_relabel.json"))
         c.ok("GATE_relabel_de_caso_INCONCLUSIVO", j["verdict"] == "INCONCLUSIVO" and any(x.startswith("case_id_divergente") for x in j["integrity"]), j["integrity"][:3])
+        # L2: reuso de um run como três seeds → integridade (run_duplicada)
+        one = [e for e in idx_all if e["case_id"] == "synth_core_a" and e["seed"] == 1][0]
+        idx = [e for e in idx_all if e["case_id"] != "synth_core_a"] + [dict(one, seed=s_) for s_ in (1, 2, 3)]
+        j, rc = gate(fx, write_index(idx, "idx_reuse.json"))
+        c.ok("L2_reuso_de_run_como_3_seeds_INCONCLUSIVO", j["verdict"] == "INCONCLUSIVO" and any(x.startswith("run_duplicada") for x in j["integrity"]), j["integrity"][:3])
+        # L2: fidelidade de outra saída (sha divergente entre auditores) → integridade
+        o1 = [e for e in idx_all if e["case_id"] == "synth_core_b" and e["seed"] == 1][0]; o2 = [e for e in idx_all if e["case_id"] == "synth_core_b" and e["seed"] == 2][0]
+        idx = [e for e in idx_all if not (e["case_id"] == "synth_core_b" and e["seed"] == 2)] + [dict(o2, fidelity=o1["fidelity"])]
+        j, rc = gate(fx, write_index(idx, "idx_fidswap.json"))
+        c.ok("L2_fidelidade_de_outra_saida_INCONCLUSIVO", j["verdict"] == "INCONCLUSIVO" and any(x.startswith(("saida_divergente_entre_auditores", "run_duplicada")) for x in j["integrity"]), j["integrity"][:3])
+        # L2: O composto FAIL vincula o caso
+        idx = [e for e in idx_all if e["case_id"] != "synth_core_d"] + [produce("synth_core_d", s_, "composed_fail") for s_ in (1, 2, 3)]
+        j, rc = gate(fx, write_index(idx, "idx_comp.json"))
+        c.ok("L2_composto_FAIL_vincula", j["verdict"] != "PASS" and j["core"]["synth_core_d"]["case_verdict"] == "FAIL" and any(c_.startswith("composed:") for c_ in j["core"]["synth_core_d"]["seeds"]["1"]["causes"] if isinstance(c_, str)), (j["verdict"], j["core"]["synth_core_d"]["case_verdict"], j["core"]["synth_core_d"]["seeds"]["1"]["causes"][:2]))
+        # L2: roles com uma única seed → integridade (regra ≥2/3 inexequível)
+        rb = open(fx["roles"]).read(); r1 = json.loads(rb); r1["core_rule"]["seeds"] = [1]
+        for sp in r1["progression"].values(): sp["of_seeds"] = 1; sp["min_seeds_axis_A"] = 1
+        json.dump(r1, open(fx["roles"], "w"))
+        j, rc = gate(fx, write_index([e for e in idx_all if e["seed"] == 1], "idx_one.json"))
+        c.ok("L2_roles_uma_seed_INCONCLUSIVO", j["verdict"] == "INCONCLUSIVO" and any("roles_invalido:seeds" in x or x.startswith("sha256:roles") for x in j["integrity"]), j["integrity"][:3])
+        open(fx["roles"], "w").write(rb)
     return c.done("test_g0_gate")
 
 

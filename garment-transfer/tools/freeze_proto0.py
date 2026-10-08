@@ -48,6 +48,9 @@ def main():
             c["case_id"] = r["case_id"]
         referenced.extend(checked); mism_all.extend(f"{r['case_id']}:{m}" for m in mism)
     ids = {r["case_id"] for r in rows}
+    dups = fz.duplicate_case_ids(rows)
+    if dups:
+        mism_all.append("manifest:case_id_duplicado:" + ",".join(dups))
     core = roles.get("core_cases", [])
     roles_issues = [c for c in core if c not in ids]
     if roles_issues:
@@ -57,12 +60,13 @@ def main():
         mism_all.append("roles:casos_sem_papel:" + ",".join(missing_roles))
     dirty = fz.git_dirty(root)
     frozen = (not mism_all) and (not dirty or args.allow_dirty)
+    out_allow_dirty = bool(args.allow_dirty and dirty)
     if mism_all and not args.allow_placeholders:
         print("NÃO CONGELADO — divergências:\n  " + "\n  ".join(mism_all[:50]), file=sys.stderr)
         if not any("placeholder" in m for m in mism_all) or not args.allow_placeholders:
             sys.exit(1)
     out = {"version": 1, "gate": roles.get("gate", "G0"), "freeze_tag": args.tag, "created_utc": datetime.now(timezone.utc).isoformat(),
-           "git_commit": fz.git_head(root), "git_dirty": dirty, "frozen": bool(frozen),
+           "git_commit": fz.git_head(root), "git_dirty": dirty, "allow_dirty_used": out_allow_dirty, "frozen": bool(frozen),
            "files": {"manifest": {"path": args.manifest, "sha256": fz.sha256_file(args.manifest)},
                      "prereg": {"path": args.prereg, "sha256": fz.sha256_file(args.prereg)},
                      "roles": {"path": args.roles, "sha256": fz.sha256_file(args.roles)}},

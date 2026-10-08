@@ -48,9 +48,9 @@ def build_masks(with_occluder=True):
     BC = BMAXB.copy()
     PR = np.zeros((H, W), bool); PR[:20, :] = True
     # elemento split: upper_arm_L = bloco rows 33:60, cols 50:55; proximal (must_cover) rows 33:44; distal (visible) rows 48:60; zona rows 44:48
-    EL_ARM = np.zeros((H, W), bool); EL_ARM[33:60, 50:55] = True
+    EL_ARM = np.zeros((H, W), bool); EL_ARM[33:60, 50:55] = True; EL_ARM &= ~FO  # elemento não sobrepõe o oclusor frontal
     MC = np.zeros((H, W), bool); MC[33:44, 50:55] = True
-    MV = np.zeros((H, W), bool); MV[48:60, 50:55] = True
+    MV = np.zeros((H, W), bool); MV[48:60, 50:55] = True; MV &= ~FO  # parte visível não pode sobrepor o oclusor (regra própria)
     BMIN_split = BMIN & ~(MV | (EL_ARM & ~MC & ~MV))
     TORSO = BMIN.copy()
     G = np.zeros((H, W), bool); G[33:87, 24:56] = True; G &= ~FO
@@ -161,10 +161,9 @@ def build_case_dir(d):
     kp = {"hands": [[40, 58, 0.9]], "forearms": [[30, 58, 0.9]], "counts": {"hands": 1, "forearms": 1}}
     json.dump(kp, open(os.path.join(d, "kpA.json"), "w")); json.dump(kp, open(os.path.join(d, "kpE.json"), "w"))
     kp2 = dict(kp, counts={"hands": 2, "forearms": 1}); json.dump(kp2, open(os.path.join(d, "kpE_dup.json"), "w"))
+    # adjudicações genéricas (sem case_id/output_sha256): só servem para testar a REJEIÇÃO no perfil g0
     adj = {"blind": True, "evaluator_id": "ev1", "date": "2026-10-08", "catch_trials_passed": True, "answers": {"category": "yes", "sleeve_length": "yes", "split_edge:upper_arm_L": "yes"}}
-    json.dump(adj, open(os.path.join(d, "adj_yes.json"), "w"))
-    json.dump(dict(adj, answers=dict(adj["answers"], category="no", **{"split_edge:upper_arm_L": "no"})), open(os.path.join(d, "adj_no.json"), "w"))
-    json.dump(dict(adj, blind=False), open(os.path.join(d, "adj_notblind.json"), "w"))
+    json.dump(adj, open(os.path.join(d, "adj_unbound.json"), "w"))
     return {"d": d, "hard": hard, "easy": easy, "manifest": manifest, "prereg": prereg, "roles": roles_p, "freeze": freeze, "files": files}
 
 
@@ -173,7 +172,7 @@ def run_audit(fx, case_id, o_engine, g_path, extra=(), profile="g0", a=None, wit
     args = [sys.executable, AUDIT, "--a", a or fx["files"][f"{kind}_A.png"], "--o-engine", o_engine, "--garment-mask", g_path, "--profile", profile,
             "--contact-fringe-px", "2"]
     if profile == "g0":
-        args += ["--manifest", fx["manifest"], "--case-id", case_id, "--data-root", d, "--prereg", fx["prereg"], "--freeze", fx["freeze"], "--roles", fx["roles"]]
+        args += ["--manifest", fx["manifest"], "--case-id", case_id, "--data-root", d, "--prereg", fx["prereg"], "--freeze", fx["freeze"], "--roles", fx["roles"], "--allow-dirty-freeze"]
     if a_ref:
         args += ["--a-ref", a_ref]
     if kind == "hard" and with_occ:
@@ -204,3 +203,15 @@ class Checker:
     def done(self, label):
         print(f"\n[{label}] {self.n - self.fails}/{self.n} ok — " + ("TODOS OS TESTES PASSARAM" if self.fails == 0 else f"{self.fails} FALHARAM"))
         return 1 if self.fails else 0
+
+
+ADJ_YES = {"category": "yes", "sleeve_length": "yes", "split_edge:upper_arm_L": "yes"}
+ADJ_NO = {"category": "no", "sleeve_length": "yes", "split_edge:upper_arm_L": "no"}
+
+
+def make_adj(d, name, case_id, o_path, answers=ADJ_YES, **overrides):
+    """adjudicação humana CEGA ligada ao caso e à saída julgada (sha256 de O′), como o perfil g0 exige."""
+    adj = {"blind": True, "evaluator_id": "ev1", "date": "2026-10-08", "catch_trials_passed": True, "case_id": case_id,
+           "output_sha256": fz.sha256_file(o_path), "answers": dict(answers)}
+    adj.update(overrides)
+    p = os.path.join(d, name); json.dump(adj, open(p, "w")); return p

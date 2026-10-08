@@ -18,7 +18,7 @@ A, B, S ──► [1] Análise de A e B      ──► invariantes de A; garment
             [7] Auditoria DUPLA (O′ e O) + QA/seleção/retry/rejeição
 ```
 
-**H0 (redação completa em `06` §3).** Falsificação: Prototype 0 — se, para o melhor mecanismo de separação espacial, não existir configuração com `coverage_of_band_min ≥ 0.9` **e** deriva de landmarks dentro da banda ≤ tolerância **e** sem `bad_occlusion` em O′ em ≥ 4/6 casos para ao menos um motor, a casca por região é insuficiente → voltar à Fase 2 (camadas explícitas / F5 / F6).
+**H0 (redação completa em `06` §3).** Falsificação: Prototype 0 — se, para o melhor mecanismo de separação espacial, não existir configuração com `coverage_of_band_min ≥ 0.9` **e** deriva de landmarks dentro da banda ≤ tolerância **e** sem `bad_occlusion` em O′ em ≥ 4/6 dos seis casos core congelados em `benchmark/proto0/g0_case_roles.json` (`proto0_easy_01`, `proto0_medium_01`, `proto0_hard_01`, `proto0_hard_02`, `proto0_hard_03`, `proto0_hard_05`) para ao menos um motor, a casca por região é insuficiente → voltar à Fase 2 (camadas explícitas / F5 / F6).
 
 Riscos conhecidos: costuras do VAE (ART-VITON/ASUKA); mapa no latente (dedos/cabelo via C5 em pixel); destilados de 4 passos dão ao DifferentialDiffusion só 4 degraus; z-order `uncertain` indecidível a priori.
 
@@ -125,9 +125,9 @@ Gerais (Fase 5 plano §Critérios de abandono): falha em A sem correção; categ
 | R3 | drift corporal não contido pela casca (Protótipo A/C) **ou** licença de pesos não permissiva confirmada **e** usuário exige trilha permissiva |
 | R4 | H6 falsa (try-off destrói construção) **ou** erro acumulado inferior à rota direta em todos os eixos |
 | R5 | incompatibilidade RefTon×Nunchaku sem alternativa que caiba em 12 GB |
-| Casca (H0, ex-D-008) | **Prototype 0 FALHA-ACOPLAMENTO** (nenhum mecanismo — incluindo E4 scaffold em pixel — com criação ≥ 0,9 e preservação ≤ tol em ≥ 4/6) **ou** H1 falsa de forma irrecuperável → voltar à Fase 2: camadas explícitas (H13) / F5 / F6 como estrutura |
+| Casca (H0, ex-D-008) | **Prototype 0 FALHA-ACOPLAMENTO** (nenhum mecanismo — incluindo E4 scaffold em pixel — com criação ≥ 0,9 e preservação ≤ tol em ≥ 4/6 dos casos core de `g0_case_roles.json` (ver `06` §7)) **ou** H1 falsa de forma irrecuperável → voltar à Fase 2: camadas explícitas (H13) / F5 / F6 como estrutura |
 | R1-EI | FALHA-CRIAÇÃO em E4 (Easy-Insert não cria a peça em roupa) **ou** tempo frio (15 passos, modo 8 GB) acima do teto |
-| Qualquer rota | FALHA-CRIAÇÃO no Prototype 0 (não faz a peça nascer em ≥ 3/6) → sai da trilha de `add`; FALHA-OCLUSÃO → só casos sem oclusor |
+| Qualquer rota | FALHA-CRIAÇÃO no Prototype 0 (não faz a peça nascer em ≥ 3/6 dos casos core) → sai da trilha de `add`; FALHA-OCLUSÃO → só casos sem oclusor |
 
 ## 6. Alternativas consideradas e por que não são a decisão
 
@@ -139,6 +139,6 @@ Gerais (Fase 5 plano §Critérios de abandono): falha em A sem correção; categ
 ## 7. Próximos passos (ordem revisada 2026-10-08)
 
 1. **Fase 3 no alvo** (operador): `tools/inventory_windows.ps1` (agora detecta `%LOCALAPPDATA%\Comfy-Desktop\ComfyUI-Installs`); medição fria/quente de klein 4B e FASHN 1.5; QIE-2511 Q5 na mesma A/B do sweep histórico (promove o relato a `MEDIDO`). **Gate:** H4 decide se R2 continua.
-2. **Prototype 0 — ADDITION / OCCUPANCY STRESS TEST** (`06` §7; casos em `benchmark/proto0_cases.jsonl`): motor puro (E0) vs mecanismos de controle espacial (E1/E1′/E1″/E2/E3) em klein 4B, FASHN 1.5, QIE-2511 (subconjunto), R4; cinco eixos medidos separadamente em O′ e O; critérios pré-registrados. **Decide H0, H11 e a elegibilidade de cada rota para `add`.**
+2. **Prototype 0 — ADDITION / OCCUPANCY STRESS TEST** (`06` §7; casos em `benchmark/proto0_cases.jsonl` com papéis/core em `benchmark/proto0/g0_case_roles.json`): E0/E0′ vs E1/E1′/E1″/E2a/E2b/E3/E4 em klein 4B, klein-base-4B + Easy-Insert (R1-EI), FASHN 1.5, QIE-2511 (subconjunto), R4, R8; agregação por `tools/g0_gate.py`; cinco eixos medidos separadamente em O′ e O; critérios pré-registrados. **Decide H0, H11 e a elegibilidade de cada rota para `add`.**
 3. Protótipo A (fundido com 0 na parte de preservação), B (fidelidade EASY) com ablação de precisão (H8), C–G, H conforme `05`.
 4. Revisão desta seleção com tabela rota × protótipo; só então Fase 6 (integração).

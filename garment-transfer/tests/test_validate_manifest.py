@@ -126,6 +126,44 @@ def main():
         expect("roles_controle_com_papel_errado", run(CASES, "--allow-placeholders", "--roles", write_json(f"{d}/r12.json", r12)), 1,
                "deveria ser auditor_control")
 
+
+        # ---- lente adversarial (validador): consentimento vazio / variantes de licença / url-only / máscara B-dependente / roles
+        rows = copy.deepcopy(base); bid = by_id(rows)
+        bid["proto0_easy_01"]["A"]["license"] = "self-captured-consent (termo assinado)"; bid["proto0_easy_01"]["A"]["consent_record_id"] = ""
+        expect("consent_record_id_vazio", run(write_jsonl(os.path.join(d, "m_consent_empty.jsonl"), rows), "--allow-placeholders"), 1, "consent_record_id")
+        rows = copy.deepcopy(base); bid = by_id(rows)
+        bid["proto0_easy_01"]["A"]["license"] = "Self-Captured-Consent"; bid["proto0_easy_01"]["A"].pop("consent_record_id", None)
+        expect("licenca_variante_maiuscula_exige_consent", run(write_jsonl(os.path.join(d, "m_consent_case.jsonl"), rows), "--allow-placeholders"), 1, "consent_record_id")
+        rows = copy.deepcopy(base); bid = by_id(rows)
+        bid["proto0_easy_01"]["A"]["license"] = "self captured consent"; bid["proto0_easy_01"]["A"]["consent_record_id"] = "N/A"
+        expect("licenca_variante_espaco_consent_na", run(write_jsonl(os.path.join(d, "m_consent_na.jsonl"), rows), "--allow-placeholders"), 1, "consent_record_id")
+        rows = copy.deepcopy(base); bid = by_id(rows)
+        bc = bid["proto0_hard_02"]["expected"]["frozen_annotation"]["body_coverable_mask"]; bc.pop("local_path"); bc["source_type"] = "url"; bc["url"] = "https://x/proto0_hard_01_BC.png"
+        expect("mascara_url_only_rejeitada", run(write_jsonl(os.path.join(d, "m_url.jsonl"), rows), "--allow-placeholders"), 1, "sem local_path")
+        rows = copy.deepcopy(base); bid = by_id(rows)
+        bid["proto0_hard_04"]["expected"]["frozen_annotation"]["plausible_occupancy_band"]["min_mask"]["local_path"] = "benchmark/proto0/proto0_hard_03_BMIN.png"
+        expect("mascara_dependente_de_B_com_B_diferente", run(write_jsonl(os.path.join(d, "m_bdep.jsonl"), rows), "--allow-placeholders"), 1, "depende da peça B")
+        rows = copy.deepcopy(base); bid = by_id(rows)
+        bid["proto0_hard_02"]["expected"]["frozen_annotation"]["body_coverable_mask"]["local_path"] = "benchmark/proto0/../../../etc/proto0_hard_02_BC.png"
+        expect("caminho_com_dotdot_rejeitado", run(write_jsonl(os.path.join(d, "m_dotdot.jsonl"), rows), "--allow-placeholders"), 1, "'..'")
+        rows = copy.deepcopy(base); bid = by_id(rows)
+        bid["proto0_hard_01_pair_b"]["expected"]["frozen_annotation"]["front_occluders_mask"]["local_path"] = "runs/evil/proto0_hard_01_FO.png"
+        expect("reuso_de_arquivo_que_nao_e_o_do_dono", run(write_jsonl(os.path.join(d, "m_notowner.jsonl"), rows), "--allow-placeholders"), 1, "difere do arquivo congelado do dono")
+        rows = copy.deepcopy(base); bid = by_id(rows)
+        bid["proto0_medium_01"]["coverage"]["occlusion"] = ["none", "furniture"]
+        expect("occlusion_mistura_none", run(write_jsonl(os.path.join(d, "m_nonemix.jsonl"), rows), "--allow-placeholders"), 1, "mistura 'none'")
+        r7 = copy.deepcopy(roles); r7["core_cases"] = r7["core_cases"] + ["proto0_easy_02"]; r7["core_rule"]["of"] = 7; r7["roles"]["proto0_easy_02"] = "gate_core"
+        expect("roles_of_7_rejeitado", run(CASES, "--allow-placeholders", "--roles", write_json(os.path.join(d, "roles7.json"), r7)), 1, "exatamente 6")
+        rl = copy.deepcopy(roles); rl["core_rule"].pop("levels_counted")
+        expect("roles_sem_levels_counted", run(CASES, "--allow-placeholders", "--roles", write_json(os.path.join(d, "roles_nolevels.json"), rl)), 1, "levels_counted")
+        rx = copy.deepcopy(roles); rx["core_rule"]["levels_counted"] = ["EASY", "MEDIUM", "HARD", "EXTREME"]
+        expect("roles_levels_com_EXTREME", run(CASES, "--allow-placeholders", "--roles", write_json(os.path.join(d, "roles_extreme.json"), rx)), 1, "EXTREME")
+        # manifesto proto0 sem roles disponível: copiar validador+schema para um diretório sem proto0/
+        vd = os.path.join(d, "vcopy", "benchmark"); os.makedirs(vd)
+        import shutil; shutil.copy(VALIDATOR, os.path.join(vd, "validate_manifest.py")); shutil.copy(os.path.join(ROOT, "benchmark", "manifest.schema.json"), os.path.join(vd, "manifest.schema.json"))
+        rr = subprocess.run([sys.executable, os.path.join(vd, "validate_manifest.py"), CASES, "--allow-placeholders"], capture_output=True, text=True)
+        expect("roles_ausente_e_erro", (rr.returncode, rr.stdout + rr.stderr), 1, "sem arquivo de papéis")
+
     print(f"\n{'TODOS OK' if not fails else str(fails) + ' FALHA(S)'}")
     sys.exit(1 if fails else 0)
 

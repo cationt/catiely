@@ -7,7 +7,7 @@ import json, os, shutil, sys, tempfile
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _fixtures import build_case_dir, run_audit, perfect_output, engine_output, noisy, save_rgb, save_mask, Checker, GARMENT_RGB, build_masks, AUDIT  # noqa: E402
+from _fixtures import build_case_dir, run_audit, perfect_output, engine_output, noisy, save_rgb, save_mask, Checker, GARMENT_RGB, build_masks, AUDIT, make_adj, ADJ_YES, ADJ_NO  # noqa: E402
 import subprocess  # noqa: E402
 
 
@@ -96,12 +96,20 @@ def main():
         # sem máscaras split e sem adjudicação → INCONCLUSIVO; adjudicação cega no → FAIL; yes → PASS; não cega → INCONCLUSIVO
         j, rc = run_audit(fx, "synth_hard_nosplit", O_hard, Gs, a_ref=Aref_h)
         c.ok("B06_split_sem_referencia_INCONCLUSIVO", j["verdict_engine"] == "INCONCLUSIVO" and any(x.startswith("split_edge_reference") for x in j["engine"]["missing_required_evidence"]), (j["verdict_engine"], j["engine"]["missing_required_evidence"]))
-        j, rc = run_audit(fx, "synth_hard_nosplit", O_hard, Gs, a_ref=Aref_h, extra=["--human-adjudication", os.path.join(d, "adj_no.json")])
+        adj_no = make_adj(d, "adj_no_hard.json", "synth_hard_nosplit", O_hard, ADJ_NO); adj_yes = make_adj(d, "adj_yes_hard.json", "synth_hard_nosplit", O_hard, ADJ_YES)
+        j, rc = run_audit(fx, "synth_hard_nosplit", O_hard, Gs, a_ref=Aref_h, extra=["--human-adjudication", adj_no])
         c.ok("B06_adjudicacao_cega_no_FAIL", j["verdict_engine"] == "FAIL" and any("split_edge_violation:human_blind" in x for x in j["engine"]["causes"]), j["engine"]["causes"])
-        j, rc = run_audit(fx, "synth_hard_nosplit", O_hard, Gs, a_ref=Aref_h, extra=["--human-adjudication", os.path.join(d, "adj_yes.json")])
-        c.ok("B06_adjudicacao_cega_yes_PASS", j["verdict_engine"] == "PASS" and j["engine"]["per_element"]["upper_arm_L"]["judged_by"] == "human_blind", (j["verdict_engine"], j["engine"]["per_element"]["upper_arm_L"]))
-        j, rc = run_audit(fx, "synth_hard_nosplit", O_hard, Gs, a_ref=Aref_h, extra=["--human-adjudication", os.path.join(d, "adj_notblind.json")])
-        c.ok("B06_adjudicacao_nao_cega_INCONCLUSIVO", j["verdict_engine"] == "INCONCLUSIVO" and "adjudication_not_blind" in j["engine"]["missing_required_evidence"], (j["verdict_engine"], j["engine"]["missing_required_evidence"]))
+        j, rc = run_audit(fx, "synth_hard_nosplit", O_hard, Gs, a_ref=Aref_h, extra=["--human-adjudication", adj_yes])
+        c.ok("B06_adjudicacao_cega_yes_PASS", j["verdict_engine"] == "PASS" and j["engine"]["per_element"]["upper_arm_L"]["judged_by"] == "human_blind", (j["verdict_engine"], j["engine"]["per_element"]["upper_arm_L"], j["engine"]["missing_required_evidence"]))
+        j, rc = run_audit(fx, "synth_hard_nosplit", O_hard, Gs, a_ref=Aref_h, extra=["--human-adjudication", make_adj(d, "adj_nb.json", "synth_hard_nosplit", O_hard, ADJ_YES, blind=False)])
+        c.ok("B06_adjudicacao_nao_cega_INCONCLUSIVO", j["verdict_engine"] == "INCONCLUSIVO" and any("adjudication_invalid:not_blind" in x for x in j["engine"]["missing_required_evidence"]), (j["verdict_engine"], j["engine"]["missing_required_evidence"]))
+        # L2: adjudicação sem catch trials / sem ligação à saída / de outra saída → INCONCLUSIVO, nunca PASS
+        j, rc = run_audit(fx, "synth_hard_nosplit", O_hard, Gs, a_ref=Aref_h, extra=["--human-adjudication", make_adj(d, "adj_noct.json", "synth_hard_nosplit", O_hard, ADJ_YES, catch_trials_passed=False)])
+        c.ok("L2_adjudicacao_sem_catch_trials_INCONCLUSIVO", j["verdict_engine"] == "INCONCLUSIVO" and any("catch_trials" in x for x in j["engine"]["missing_required_evidence"]), (j["verdict_engine"], j["engine"]["missing_required_evidence"]))
+        j, rc = run_audit(fx, "synth_hard_nosplit", O_hard, Gs, a_ref=Aref_h, extra=["--human-adjudication", os.path.join(d, "adj_unbound.json")])
+        c.ok("L2_adjudicacao_nao_ligada_a_saida_INCONCLUSIVO", j["verdict_engine"] == "INCONCLUSIVO" and any("output_sha256_mismatch" in x or "case_id_mismatch" in x for x in j["engine"]["missing_required_evidence"]), (j["verdict_engine"], j["engine"]["missing_required_evidence"]))
+        j, rc = run_audit(fx, "synth_hard_nosplit", O_hard, Gs, a_ref=Aref_h, extra=["--human-adjudication", make_adj(d, "adj_other.json", "synth_hard_nosplit", O_easy, ADJ_YES)])
+        c.ok("L2_adjudicacao_de_outra_saida_INCONCLUSIVO", j["verdict_engine"] == "INCONCLUSIVO" and any("output_sha256_mismatch" in x for x in j["engine"]["missing_required_evidence"]), (j["verdict_engine"], j["engine"]["missing_required_evidence"]))
 
         # B-09: consistência — BAND_MIN pequeno (1 % do canvas) com metade fora do permitido → INCONCLUSIVO:annotation_inconsistent
         m = build_masks(True)
@@ -211,7 +219,7 @@ def main():
         j, rc = run_audit(fx, "synth_hard_01", Oall, Ga, a_ref=Aref_h, extra=["--layer-graph", lgp3])
         c.ok("L1_layer_graph_relacao_divergente_FAIL_frozen", j["verdict_engine"] == "FAIL:frozen_reference_mismatch" and any("relacao_divergente" in x for x in j["frozen_reference_check"]["mismatches"]), j["frozen_reference_check"]["mismatches"][:3])
         lg4 = json.loads(json.dumps(lg)); el4 = [e for e in lg4 if e["element"] == "upper_arm_L"][0]; el4.pop("split_must_cover_mask"); el4.pop("split_must_stay_visible_mask"); lgp4 = os.path.join(d, "lg_nosplit.json"); json.dump(lg4, open(lgp4, "w"))
-        j, rc = run_audit(fx, "synth_hard_01", Oall, Ga, a_ref=Aref_h, extra=["--layer-graph", lgp4, "--human-adjudication", os.path.join(d, "adj_yes.json")])
+        j, rc = run_audit(fx, "synth_hard_01", Oall, Ga, a_ref=Aref_h, extra=["--layer-graph", lgp4, "--human-adjudication", make_adj(d, "adj_all.json", "synth_hard_01", Oall, ADJ_YES)])
         c.ok("L1_layer_graph_omite_mascaras_split_FAIL_frozen", j["verdict_engine"] == "FAIL:frozen_reference_mismatch" and any("mascara_congelada_omitida" in x for x in j["frozen_reference_check"]["mismatches"]), j["frozen_reference_check"]["mismatches"][:3])
         # L1: keypoints vazios não são evidência
         kpv = os.path.join(d, "kp_void.json"); json.dump({"counts": {}}, open(kpv, "w"))
@@ -220,6 +228,51 @@ def main():
         kpz = os.path.join(d, "kp_zero.json"); json.dump({"hands": [], "forearms": [], "counts": {"hands": 0, "forearms": 0}}, open(kpz, "w"))
         j, rc = run_audit(fx, "synth_hard_01", O_hard, Gs, a_ref=Aref_h, with_kp=False, extra=["--keypoints-a", kpz, "--keypoints-engine", kpz])
         c.ok("L1_keypoints_zero_deteccoes_INCONCLUSIVO", j["verdict_engine"] == "INCONCLUSIVO" and any(x.startswith("keypoints") for x in j["engine"]["missing_required_evidence"]), (j["verdict_engine"], j["engine"]["missing_required_evidence"]))
+        # L2: largura da franja vem do manifesto; CLI diferente → FAIL:frozen_reference_mismatch
+        j, rc = run_audit(fx, "synth_hard_01", O_hard, Gs, a_ref=Aref_h, extra=["--contact-fringe-px", "40"])
+        c.ok("L2_franja_cli_diferente_do_congelado_FAIL_frozen", j["verdict_engine"] == "FAIL:frozen_reference_mismatch" and any(x.startswith("contact_fringe_px") for x in j["frozen_reference_check"]["mismatches"]), j["frozen_reference_check"]["mismatches"][:2])
+        c.ok("L2_franja_resolvida_do_manifesto", run_audit(fx, "synth_hard_01", O_hard, Gs, a_ref=Aref_h)[0]["thresholds"]["contact_fringe_px"] == 2, "")
+        # L2: franja larga (minimal) não lava reconstrução: dilui a região de identidade → INCONCLUSIVO, nunca PASS
+        drift = engine_output(hard, aref_h, hard["G_split"], 41).astype(int); mask_out = ~hard["G_split"] & ~hard["PR"]; drift[mask_out] = np.clip(drift[mask_out] * 0.85, 0, 255)
+        Odr = os.path.join(d, "o_drift.png"); save_rgb(Odr, drift.astype(np.uint8))
+        args_min40 = [a for a in args_min] + ["--contact-fringe-px", "40", "--a-ref", Aref_h]
+        args_min40 = [a for a in args_min40 if a not in ("--tol-engine", "4")]
+        j, rc = run_audit(fx, "synth_hard_01", Odr, Gs, profile="minimal", extra=args_min40)
+        c.ok("L2_franja_larga_nao_lava_deriva", j["verdict_engine"] != "PASS" and ("identity_region_diluted_by_fringe" in j["engine"]["missing_required_evidence"] or j["verdict_engine"] == "FAIL"), (j["verdict_engine"], j["engine"]["missing_required_evidence"], j["engine"].get("fraction_excluded_by_fringe")))
+        j, rc = run_audit(fx, "synth_hard_01", Odr, Gs, a_ref=Aref_h)
+        c.ok("L2_deriva_com_franja_congelada_FAIL", j["verdict_engine"] == "FAIL", (j["verdict_engine"], j["engine"]["causes"][:3]))
+        # L2: sombra de contato sobre a parte visível do braço dentro da franja → PASS (regras da franja e do split não se contradizem)
+        sh = perfect_output(hard, hard["G_split"], base=aref_h).astype(int); fr_mv = (hard["MV"] | (hard["EL_ARM"] & ~hard["MC"] & ~hard["MV"])) & (np.zeros((120, 80), bool) | True)
+        ring = np.zeros((120, 80), bool); ring[:, :] = False
+        from occupancy_audit import dilate as _dil
+        ring = _dil(hard["G_split"], 2) & ~hard["G_split"] & (hard["MV"] | (hard["EL_ARM"] & ~hard["MC"] & ~hard["MV"]))
+        sh[ring] = np.clip(sh[ring] * 0.85, 0, 255); Osh2 = os.path.join(d, "o_shadow_arm.png"); save_rgb(Osh2, sh.astype(np.uint8))
+        j, rc = run_audit(fx, "synth_hard_01", Osh2, Gs, a_ref=Aref_h)
+        c.ok("L2_sombra_sobre_braco_na_franja_PASS", j["verdict_engine"] == "PASS" and ring.sum() > 0, (j["verdict_engine"], j["engine"]["causes"], int(ring.sum())))
+        # L2: máscara 0/1 → INCONCLUSIVO:mask_not_binary com JSON e exit 3; tamanho errado → INCONCLUSIVO:grid_mismatch
+        bad01 = os.path.join(d, "bmin01.png"); Image_ = __import__("PIL.Image", fromlist=["Image"]); Image_.fromarray(hard["BMIN_split"].astype(np.uint8)).save(bad01)
+        a01 = [a for a in args_min]; a01[a01.index(F["hard_BMIN_split.png"])] = bad01
+        j, rc = run_audit(fx, "synth_hard_01", O_hard, Gs, profile="minimal", extra=a01)
+        c.ok("L2_mascara_0_1_INCONCLUSIVO_com_JSON", str(j["verdict_engine"]).startswith("INCONCLUSIVO:mask_not_binary") and rc == 3, (j["verdict_engine"], j.get("mask_error")))
+        small = os.path.join(d, "bmin_small.png"); save_mask(small, np.zeros((60, 40), bool))
+        a_sm = [a for a in args_min]; a_sm[a_sm.index(F["hard_BMIN_split.png"])] = small
+        j, rc = run_audit(fx, "synth_hard_01", O_hard, Gs, profile="minimal", extra=a_sm)
+        c.ok("L2_mascara_tamanho_errado_INCONCLUSIVO_com_JSON", str(j["verdict_engine"]).startswith("INCONCLUSIVO:grid_mismatch") and rc == 3, (j["verdict_engine"], j.get("mask_error")))
+        # L2: anotação contraditória (BAND_MIN ∩ must_stay_visible) → INCONCLUSIVO, não FAIL do motor
+        a_bm = [a for a in args_min]; a_bm[a_bm.index(F["hard_BMIN_split.png"])] = F["hard_BMIN.png"]
+        lg_ok = [{"element": "hand_R", "relation": "front_certain", "mask": F["hard_EL_hand_R.png"]}, {"element": "torso_front_skin", "relation": "behind_must_cover", "mask": F["hard_TORSO.png"]},
+                 {"element": "upper_arm_L", "relation": "split_by_garment_edge", "mask": F["hard_EL_ARM.png"], "split_must_cover_mask": F["hard_MC.png"], "split_must_stay_visible_mask": F["hard_MV.png"]}]
+        lgok = os.path.join(d, "lg_ok.json"); json.dump(lg_ok, open(lgok, "w"))
+        j, rc = run_audit(fx, "synth_hard_01", O_hard, Gs, profile="minimal", extra=a_bm + ["--layer-graph", lgok])
+        c.ok("L2_BMIN_sobre_parte_visivel_INCONCLUSIVO", j["verdict_engine"] == "INCONCLUSIVO" and any("must_stay_visible" in x for x in j["engine"]["reference_quality"].get("annotation_inconsistent", [])), (j["verdict_engine"], j["engine"]["reference_quality"]))
+        # L2: textura apagada na franja estruturada → FAIL structure/structure_erased
+        tex = build_masks(True); texA = tex["A"].copy(); rng2 = np.random.default_rng(7)
+        ringT = _dil(tex["G_split"], 2) & ~tex["G_split"] & ~tex["FO"] & ~tex["PR"]
+        texA[ringT] = np.clip(texA[ringT].astype(int) + rng2.integers(-25, 26, texA[ringT].shape), 0, 255).astype(np.uint8)
+        At = os.path.join(d, "A_tex.png"); save_rgb(At, texA); Oer = perfect_output(tex, tex["G_split"], base=texA).copy(); Oer[ringT] = (200, 200, 200)
+        Oerp = os.path.join(d, "o_erased.png"); save_rgb(Oerp, Oer)
+        j, rc = run_audit(fx, "synth_hard_01", Oerp, Gs, profile="minimal", a=At, extra=[x for x in args_min if x not in ("--tol-engine", "4")] + ["--tol-engine", "4"])
+        c.ok("L2_textura_apagada_na_franja_FAIL", j["verdict_engine"] == "FAIL" and any(x.startswith("contact_fringe_violation:structure") for x in j["engine"]["causes"]), j["engine"]["causes"][:4])
     return c.done("test_occupancy_audit")
 
 

@@ -39,7 +39,8 @@ manifesto, do PREREG (--prereg: o sha é calculado aqui, não recebido como stri
 máscaras) são conferidos; --a (e --b) devem ser os arquivos congelados. Divergência → FAIL:frozen_reference_mismatch. O JSON grava
 sha256 do manifesto, do PREREG, do FREEZE, freeze_tag, freeze_commit e o commit atual do repositório.
 
-Veredito por alvo: FAIL (causas) > INCONCLUSIVO (referência inconsistente / evidência obrigatória ausente) > PASS.
+Veredito por alvo (precedência): INCONCLUSIVO:annotation_inconsistent > INCONCLUSIVO por nula/estado de oclusão ausentes > FAIL (causas) > INCONCLUSIVO (outra evidência obrigatória ausente) > PASS.
+Máscaras: PNG L/1 estritamente binário (0/255) na grade de A; valores 0/1, RGB/RGBA ou tamanho diferente → INCONCLUSIVO:mask_* (JSON emitido, exit 3).
 Exit: 0 PASS · 1 FAIL · 3 INCONCLUSIVO · 2 erro de uso.
 """
 import argparse, json, sys, os, math
@@ -73,12 +74,22 @@ def image_format_issue(path):
     return None
 
 
+class MaskError(Exception):
+    """referência inválida (não é culpa do motor): grade diferente, modo não binário, valores 0/1 — vira INCONCLUSIVO com JSON."""
+
+
 def load_bin(path, shape):
     if path is None:
         return None
-    m = np.asarray(Image.open(path).convert("L"))
+    im = Image.open(path)
+    if im.mode not in ("L", "1", "I;16", "I", "P"):
+        raise MaskError(f"mask_mode:{os.path.basename(path)}:{im.mode} (máscara deve ser L/1 binária, não RGB/RGBA)")
+    m = np.asarray(im.convert("L"))
     if m.shape != shape:
-        raise SystemExit(f"FAIL:grid_mismatch {path} {m.shape} vs {shape}")
+        raise MaskError(f"grid_mismatch:{os.path.basename(path)}:{m.shape}vs{shape}")
+    mx = int(m.max()) if m.size else 0
+    if 0 < mx < 128 or ((m > 0) & (m < 255)).any():
+        raise MaskError(f"mask_not_binary:{os.path.basename(path)}:max={mx} (esperado 0/255; máscaras 0/1 seriam lidas como vazias)")
     return m >= 128
 
 
@@ -164,28 +175,53 @@ def check_mask_consistency(M):
                 issues.append(f"{name} ∩ FRONT_OCCLUDERS ≠ ∅ (oclusor frontal não pode ser região ocupável)")
     if BMIN is not None and UNC is not None and (BMIN & UNC).any():
         issues.append("BAND_MIN ∩ UNCERTAIN ≠ ∅")
-    if BMIN is not None and BMIN.sum() > 0 and (BC is not None or FS is not None or BMAXB is not None):
+    env_parts = [m for m in (BMAXB, FS) if m is not None]
+    if not env_parts and BC is not None:
+        env_parts = [BC]  # sem envelope explícito, a capacidade do corpo é o único limite conhecido
+    if BMIN is not None and BMIN.sum() > 0 and env_parts:
         allowed = np.zeros_like(BMIN)
-        for m in (BC, FS, BMAXB):
-            if m is not None:
-                allowed |= m
+        for m in env_parts:
+            allowed |= m
         bad = int((BMIN & ~allowed).sum())
         stats["band_min_outside_allowed_frac"] = bad / int(BMIN.sum())
         if stats["band_min_outside_allowed_frac"] > 0.02:
-            issues.append(f"BAND_MIN não contido em BODY_COVERABLE ∪ FREE_SPACE ∪ BAND_MAX_BODY ({stats['band_min_outside_allowed_frac']:.1%} de BAND_MIN; limite 2 %)")
+            issues.append(f"BAND_MIN não contido em BAND_MAX_BODY ∪ FREE_SPACE ({stats['band_min_outside_allowed_frac']:.1%} de BAND_MIN; limite 2 %)")
+    if BMAXB is not None and BC is not None and BMAXB.sum() > 0:
+        stats["band_max_body_outside_coverable_frac"] = float((BMAXB & ~BC).sum() / int(BMAXB.sum()))
+        if stats["band_max_body_outside_coverable_frac"] > 0.02:
+            issues.append(f"BAND_MAX_BODY não contido em BODY_COVERABLE ({stats['band_max_body_outside_coverable_frac']:.1%})")
+    if FO is not None and BC is not None and (BC & FO).any():
+        issues.append("BODY_COVERABLE ∩ FRONT_OCCLUDERS ≠ ∅ (oclusor frontal não é superfície cobrível)")
     if PR is not None:
-        for name, m in (("BAND_MIN", BMIN), ("BAND_MAX_BODY", BMAXB), ("FREE_SPACE", FS), ("UNCERTAIN", UNC)):
+        for name, m in (("BAND_MIN", BMIN), ("BAND_MAX_BODY", BMAXB), ("FREE_SPACE", FS), ("UNCERTAIN", UNC), ("BODY_COVERABLE", BC)):
             if m is not None and (PR & m).any():
                 issues.append(f"PROTECTED ∩ {name} ≠ ∅")
     for el in M.get("LAYERS") or []:
         em, mc, mv = el.get("mask_arr"), el.get("must_cover_arr"), el.get("must_stay_visible_arr")
         if el.get("relation") == "split_by_garment_edge" and mc is not None and mv is not None:
+            if mc.sum() == 0 or mv.sum() == 0:
+                issues.append(f"split {el['element']}: must_cover/must_stay_visible vazia")
             if (mc & mv).any():
                 issues.append(f"split {el['element']}: must_cover ∩ must_stay_visible ≠ ∅")
             if em is not None and ((mc | mv) & ~em).any():
                 issues.append(f"split {el['element']}: must_cover ∪ must_stay_visible não contido na máscara do elemento")
             if FO is not None and (mc & FO).any():
                 issues.append(f"split {el['element']}: must_cover ∩ FRONT_OCCLUDERS ≠ ∅")
+            if BMIN is not None and (BMIN & mv).any():
+                issues.append(f"split {el['element']}: BAND_MIN ∩ must_stay_visible ≠ ∅ (nenhuma saída poderia satisfazer ambas)")
+            if FO is not None and (mv & FO).any():
+                issues.append(f"split {el['element']}: must_stay_visible ∩ FRONT_OCCLUDERS ≠ ∅ (oclusor já tem regra própria)")
+            env_ = [m for m in (BMIN, BMAXB, FS, UNC) if m is not None]
+            if env_:
+                allowed_ = np.zeros_like(mc)
+                for m in env_:
+                    allowed_ |= m
+                if (mc & ~allowed_).sum() / max(int(mc.sum()), 1) > 0.02:
+                    issues.append(f"split {el['element']}: must_cover fora do envelope de ocupação (nenhuma saída poderia satisfazer ambas)")
+        if el.get("relation") == "behind_must_cover" and em is not None:
+            for nm, m in (("FRONT_OCCLUDERS", FO), ("PROTECTED", PR)):
+                if m is not None and (em & m).any():
+                    issues.append(f"behind_must_cover {el['element']} ∩ {nm} ≠ ∅ (nenhuma saída poderia satisfazer ambas)")
         if el.get("relation") == "front_certain" and em is not None and FO is not None and (em & ~FO).mean() > 0 and (em & ~FO).sum() / max(int(em.sum()), 1) > 0.02:
             issues.append(f"front_certain {el['element']} não contido em FRONT_OCCLUDERS ({(em & ~FO).sum() / max(int(em.sum()), 1):.1%})")
     return issues, stats
@@ -219,21 +255,28 @@ def fringe_metrics(A_ref, O, fringe, tol, args, G):
     ga, go = masked_grad_mag(A_ref, valid)[fringe], masked_grad_mag(O, valid)[fringe]
     structured = ga > 3.0 * max(tol, 1)
     out["fringe_structured_px"] = int(structured.sum())
-    if structured.sum() >= 30 and go[structured].std() > 1e-6 and ga[structured].std() > 1e-6:
-        corr = float(np.corrcoef(ga[structured], go[structured])[0, 1])
+    if structured.sum() >= 30:
+        if go[structured].std() <= 1e-6 or ga[structured].std() <= 1e-6:
+            corr = 0.0  # estrutura de A apagada (ou sem variação) onde A tinha estrutura
+        else:
+            corr = float(np.corrcoef(ga[structured], go[structured])[0, 1])
         out["fringe_structure_corr"] = corr
         if corr < args.min_fringe_structure_corr:
             causes.append("contact_fringe_violation:structure")
+        out["fringe_structure_ratio"] = float(go[structured].mean() / max(ga[structured].mean(), 1e-6))
+        if out["fringe_structure_ratio"] < 1.0 / 3.0:
+            causes.append("contact_fringe_violation:structure_erased")
     else:
         out["fringe_structure_corr"] = None
     out["fringe_texture_added"] = float(go.mean() - ga.mean())
     if out["fringe_texture_added"] > 3.0 * max(tol, 1):
         causes.append("contact_fringe_violation:structure_added")
+    # limitação registrada: deslocamento de fase de textura periódica com magnitude de gradiente igual não é detectado por esta métrica
     return out, causes
 
 
 # -------------------------------------------------------------------------------------------------------------- split elements
-def split_element_metrics(G, same, el, args, adjud):
+def split_element_metrics(G, same, el, args, adjud, fringe):
     r = {"relation": "split_by_garment_edge"}
     mc, mv, em = el.get("must_cover_arr"), el.get("must_stay_visible_arr"), el.get("mask_arr")
     key = f"split_edge:{el['element']}"
@@ -249,13 +292,16 @@ def split_element_metrics(G, same, el, args, adjud):
         r["verdict"] = "INCONCLUSIVO:ambiguous"; return r, [], [f"split_edge_ambiguous:{el['element']}"]
     r["judged_by"] = "frozen_masks"
     causes = []
+    ans = (adjud or {}).get("answers", {}).get(key) if isinstance((adjud or {}).get("answers"), dict) else None
+    if ans is not None:
+        r["human_blind_answer"] = ans  # registrado; as máscaras congeladas decidem; desacordo vira flag (ver abaixo)
     r["must_cover_coverage"] = float((G & mc).sum() / max(int(mc.sum()), 1))
     if r["must_cover_coverage"] < args.min_coverage_band_min:
         causes.append(f"split_edge_violation:must_cover_not_covered:{el['element']}")
     r["fabric_over_must_stay_visible"] = float((G & mv).sum() / max(int(mv.sum()), 1))
     if r["fabric_over_must_stay_visible"] > args.max_garment_over_occluders:
         causes.append(f"split_edge_violation:fabric_over_visible_part:{el['element']}")
-    vis = mv & ~G
+    vis = mv & ~G & ~fringe  # pixels da franja C3 são julgados pela regra da franja (limites por pixel), não pela identidade
     if vis.sum() > 0:
         r["must_stay_visible_identity"] = float(same[vis].mean())
         if r["must_stay_visible_identity"] < args.min_unchanged_without_garment:
@@ -264,10 +310,12 @@ def split_element_metrics(G, same, el, args, adjud):
         bz = em & ~mc & ~mv
         r["boundary_zone_px"] = int(bz.sum())
         if bz.sum() > 0:
-            r["boundary_zone_consistency"] = float((G | same)[bz].mean())  # cada pixel é tecido OU idêntico a A
+            r["boundary_zone_consistency"] = float((G | same | fringe)[bz].mean())  # cada pixel é tecido OU idêntico a A (franja: regra própria)
             if r["boundary_zone_consistency"] < args.min_unchanged_without_garment:
                 causes.append(f"split_edge_violation:boundary_zone_inconsistent:{el['element']}")
     r["verdict"] = "FAIL:split_edge_violation" if causes else "PASS"
+    if ans is not None and ((ans == "no" and not causes) or (ans == "yes" and causes)):
+        r["flag"] = "adjudication_mask_disagreement"
     return r, causes, []
 
 
@@ -290,7 +338,10 @@ def audit_target(A, O, G, M, args, tol, target):
     FO, BMIN, BMAXB, FS, UNC, BC, PR = (M.get(k) for k in ("FO", "BMIN", "BMAXB", "FS", "UNC", "BC", "PR"))
     has_fc = M.get("HAS_FRONT_CERTAIN")
     res["missing_required_evidence"].extend(M.get("MISSING", []))
-    fringe = (dilate(G, args.contact_fringe_px) & ~G) if args.contact_fringe_px > 0 else np.zeros_like(G)
+    # franja C3 = dilate(G, r) \ dilate(G, e_G): o anel interno de largura e_G (erro de borda calibrado do segmentador G) não é julgado
+    # nem como tecido nem como identidade — e_G vem da calibração de G (00 §4.4) e fica registrado; sem calibração, e_G = 0.
+    inner = dilate(G, args.g_boundary_err_px) if args.g_boundary_err_px > 0 else G
+    fringe = (dilate(G, args.contact_fringe_px) & ~inner) if args.contact_fringe_px > 0 else np.zeros_like(G)
     if FO is not None:
         fringe &= ~FO
     if PR is not None:
@@ -386,7 +437,11 @@ def audit_target(A, O, G, M, args, tol, target):
         if m is not None:
             tot = m if tot is None else (tot | m)
     if tot is not None:
+        if UNC is not None:
+            tot = tot & ~UNC  # UNCERTAIN tem regra própria (sem contagem dupla)
         res["fraction_excluded_by_fringe"] = float((fringe & tot).sum() / max(int(tot.sum()), 1))
+        if res["fraction_excluded_by_fringe"] > args.max_fringe_excluded_frac:
+            res["missing_required_evidence"].append("identity_region_diluted_by_fringe")  # franja larga demais para julgar "nada mudou"
         sel = tot & ~G & ~fringe
         if FO is not None:
             sel &= ~FO
@@ -394,6 +449,8 @@ def audit_target(A, O, G, M, args, tol, target):
             res["unchanged_in_band_without_garment"] = float(same[sel].mean())
             if res["unchanged_in_band_without_garment"] < args.min_unchanged_without_garment:
                 res["causes"].append("background_drift_or_unauthorized_change:in_band_without_garment")
+        else:
+            res["missing_required_evidence"].append("identity_region_empty:band_without_garment")
     if BC is not None:
         sel = BC & ~G & ~fringe
         if FO is not None:
@@ -402,6 +459,8 @@ def audit_target(A, O, G, M, args, tol, target):
             res["uncovered_coverable_identity"] = float(same[sel].mean())
             if res["uncovered_coverable_identity"] < args.min_unchanged_without_garment:
                 res["causes"].append("body_reconstruction_probable:uncovered_skin_changed")
+        elif (BC & ~G).sum() > 0:
+            res["missing_required_evidence"].append("identity_region_empty:uncovered_coverable")
     elif M.get("PROFILE") == "g0":
         res["missing_required_evidence"].append("body_coverable")
     if UNC is not None and UNC.sum() > 0:
@@ -428,10 +487,12 @@ def audit_target(A, O, G, M, args, tol, target):
         for el in M["LAYERS"]:
             em = el.get("mask_arr")
             if el["relation"] == "split_by_garment_edge":
-                r, c, miss = split_element_metrics(G, same, el, args, M.get("ADJUD"))
+                r, c, miss = split_element_metrics(G, same, el, args, M.get("ADJUD"), fringe)
                 res["causes"].extend(c)
                 for m_ in miss:
                     (res["missing_required_evidence"] if m_.startswith("split_edge_reference") else res["inconclusive"]).append(m_)
+                if r.get("flag"):
+                    res["flags"].append(f"{r['flag']}:{el['element']}")
                 per[el["element"]] = r; continue
             if em is None or em.sum() == 0:
                 per[el["element"]] = {"relation": el["relation"], "verdict": "INCONCLUSIVO:missing_required_evidence"}
@@ -537,8 +598,10 @@ def main():
     ap.add_argument("--prereg", help="arquivo PREREG.md commitado antes do run (sha256 calculado aqui)")
     ap.add_argument("--freeze", help="FREEZE.json gerado por tools/freeze_proto0.py")
     ap.add_argument("--roles", help="g0_case_roles.json (conferido contra FREEZE.json)")
-    ap.add_argument("--commit-sha", help="commit do run (padrão: git rev-parse HEAD)")
-    ap.add_argument("--contact-fringe-px", type=int, default=8)
+    ap.add_argument("--allow-dirty-freeze", action="store_true", help="SÓ TESTES: aceita FREEZE.json gerado em árvore git suja (gravado no JSON; o gate marca como não elegível salvo com a mesma flag)")
+    ap.add_argument("--contact-fringe-px", type=int, default=None, help="largura da franja C3; no perfil g0 vem do manifesto (frozen_annotation.contact_fringe_px) e um valor diferente é divergência; padrão 8 sem manifesto")
+    ap.add_argument("--g-boundary-err-px", type=int, default=0, help="erro de borda calibrado do segmentador G (px): anel interno da franja excluído do julgamento; vem da calibração de G, registrado no PREREG (máx. 2)")
+    ap.add_argument("--max-fringe-excluded-frac", type=float, default=0.25, help="fração máxima da banda que a franja pode excluir da checagem 'nada mudou' (acima → INCONCLUSIVO)")
     ap.add_argument("--crown-px", type=int, default=6)
     ap.add_argument("--min-occluder-identity", type=float, default=0.95, help="em O_engine com paste-back; em O_composed exact aplica-se 1.0")
     ap.add_argument("--max-garment-over-occluders", type=float, default=0.02)
@@ -567,8 +630,8 @@ def main():
     data_root = args.data_root or repo_root
     out = {"auditor_version": VERSION, "profile": args.profile, "composed_contract": args.composed_contract,
            "thresholds": {k: getattr(args, k) for k in vars(args) if k.startswith(("min_", "max_", "contact", "crown"))},
-           "provenance": {"run_commit_sha": args.commit_sha or fz.git_head(repo_root), "manifest_path": args.manifest, "case_id": args.case_id,
-                          "prereg_path": args.prereg, "freeze_path": args.freeze, "roles_path": args.roles},
+           "provenance": {"run_commit_sha": fz.git_head(repo_root), "run_tree_dirty": fz.git_dirty(repo_root), "manifest_path": args.manifest, "case_id": args.case_id,
+                          "prereg_path": args.prereg, "freeze_path": args.freeze, "roles_path": args.roles, "allow_dirty_freeze": bool(args.allow_dirty_freeze)},
            "frozen_reference_check": {"mismatches": [], "checked_files": []}, "gate_eligible": False}
     prov = out["provenance"]; frc = out["frozen_reference_check"]
     missing_global = []
@@ -583,7 +646,7 @@ def main():
     # --- congelamento / proveniência (antes de qualquer avaliação do motor)
     row = None
     if args.profile == "g0":
-        for need, val in (("manifest", args.manifest), ("case_id", args.case_id), ("prereg", args.prereg), ("freeze", args.freeze)):
+        for need, val in (("manifest", args.manifest), ("case_id", args.case_id), ("prereg", args.prereg), ("freeze", args.freeze), ("roles", args.roles)):
             if not val:
                 missing_global.append(f"provenance:{need}")
     if args.prereg:
@@ -595,20 +658,30 @@ def main():
         if os.path.exists(args.manifest):
             prov["manifest_sha256"] = fz.sha256_file(args.manifest)
             rows = fz.load_manifest(args.manifest)
+            dups = fz.duplicate_case_ids(rows)
+            if dups:
+                frc["mismatches"].append("case_id_duplicado:" + ",".join(dups))
             row = fz.find_row(rows, args.case_id) if args.case_id else None
             if row is None:
-                frc["mismatches"].append(f"caso_ausente_no_manifesto:{args.case_id}")
+                frc["mismatches"].append(f"caso_ausente_ou_duplicado_no_manifesto:{args.case_id}")
         else:
             frc["mismatches"].append(f"ausente:manifest:{args.manifest}")
-    if args.roles and os.path.exists(args.roles):
-        prov["roles_sha256"] = fz.sha256_file(args.roles)
+    if args.roles:
+        if os.path.exists(args.roles):
+            prov["roles_sha256"] = fz.sha256_file(args.roles)
+        else:
+            frc["mismatches"].append(f"ausente:roles:{args.roles}")
     if args.freeze:
-        info, mism = fz.verify_freeze(args.freeze, args.manifest, args.prereg, args.roles)
+        info, mism = fz.verify_freeze(args.freeze, args.manifest, args.prereg, args.roles, allow_dirty=args.allow_dirty_freeze)
         prov.update({k: v for k, v in info.items() if k != "freeze_path"})
         frc["mismatches"].extend(mism)
     if row is not None:
         fa = row.get("expected", {}).get("frozen_annotation", {}) or {}
         prov["freeze_tag_manifest"] = fa.get("freeze_tag"); prov["freeze_commit_manifest"] = fa.get("freeze_commit")
+        if args.freeze and fa.get("freeze_tag") and prov.get("freeze_tag") and fa["freeze_tag"] != prov["freeze_tag"]:
+            frc["mismatches"].append(f"freeze_tag:manifesto={fa['freeze_tag']}!=FREEZE={prov['freeze_tag']}")
+        if args.freeze and fa.get("freeze_commit") and prov.get("freeze_commit") and fa["freeze_commit"] != prov["freeze_commit"]:
+            frc["mismatches"].append(f"freeze_commit:manifesto={fa['freeze_commit'][:12]}!=FREEZE={str(prov['freeze_commit'])[:12]}")
         checked, mism = fz.verify_row_files(row, data_root)
         frc["checked_files"] = checked; frc["mismatches"].extend(mism)
         for label, given, src in (("A", args.a, row.get("A")), ("B", args.b, row.get("B"))):
@@ -628,14 +701,40 @@ def main():
                     m = fz.verify_input_matches(given, src, arg)
                     if m:
                         frc["mismatches"].append(m)
+    if row is not None:
+        frozen_fringe = (row.get("expected", {}).get("frozen_annotation", {}) or {}).get("contact_fringe_px")
+        if isinstance(frozen_fringe, int):
+            if args.contact_fringe_px is None:
+                args.contact_fringe_px = frozen_fringe
+            elif args.contact_fringe_px != frozen_fringe:
+                frc["mismatches"].append(f"contact_fringe_px:cli={args.contact_fringe_px}!=congelado={frozen_fringe}")
+        elif args.profile == "g0":
+            missing_global.append("contact_fringe_px_not_frozen")
+    if args.contact_fringe_px is None:
+        args.contact_fringe_px = 8
+    if args.g_boundary_err_px > 2:
+        frc["mismatches"].append(f"g_boundary_err_px={args.g_boundary_err_px}>2 (anel não julgado largo demais)")
+    frc["mismatches"] = sorted(set(frc["mismatches"]))
     if frc["mismatches"]:
         bail("FAIL:frozen_reference_mismatch", 1)
 
-    # --- carregar A e máscaras
+    # --- carregar A e máscaras (referência inválida → INCONCLUSIVO com JSON, nunca FAIL do motor)
     A = load_rgb(args.a); shape = A.shape[:2]
-    M = {"FO": load_bin(args.front_occluders, shape), "BMIN": load_bin(args.band_min, shape), "BMAXB": load_bin(args.band_max_body, shape),
-         "FS": load_bin(args.free_space, shape), "UNC": load_bin(args.uncertain, shape), "BC": load_bin(args.body_coverable, shape),
-         "PR": load_bin(args.protected, shape), "PROFILE": args.profile, "G_SOURCE": args.g_source, "noop_mode": bool(args.noop_mode), "EVIDENCE": {}}
+    try:
+        M = {"FO": load_bin(args.front_occluders, shape), "BMIN": load_bin(args.band_min, shape), "BMAXB": load_bin(args.band_max_body, shape),
+             "FS": load_bin(args.free_space, shape), "UNC": load_bin(args.uncertain, shape), "BC": load_bin(args.body_coverable, shape),
+             "PR": load_bin(args.protected, shape), "PROFILE": args.profile, "G_SOURCE": args.g_source, "noop_mode": bool(args.noop_mode), "EVIDENCE": {}}
+    except MaskError as e:
+        out["mask_error"] = str(e); bail("INCONCLUSIVO:" + str(e).split(":")[0], 3)
+    for name, key in (("protected", "PR"), ("body_coverable", "BC"), ("band_max_body", "BMAXB"), ("free_space", "FS"), ("uncertain", "UNC")):
+        if M[key] is not None and M[key].sum() == 0:
+            missing_global.append(f"mask_empty:{name}")  # máscara fornecida mas vazia não é evidência
+
+    fi = image_format_issue(args.o_engine)
+    if fi:
+        out["format_issue"] = f"engine:{fi}"; bail("INCONCLUSIVO:format_mismatch:engine", 3)
+    prov["o_engine_sha256"] = fz.sha256_file(args.o_engine)
+    prov["garment_mask_sha256"] = fz.sha256_file(args.garment_mask)
 
     # --- layer graph (explícito ou derivado do manifesto) e estado de oclusão
     layers = None
@@ -679,10 +778,13 @@ def main():
             layers.append(e)
         src_lg = "manifest_z_order"
     if layers:
-        for el in layers:
-            el["mask_arr"] = load_bin(el.get("mask"), shape) if el.get("mask") else None
-            el["must_cover_arr"] = load_bin(el.get("split_must_cover_mask"), shape) if el.get("split_must_cover_mask") else None
-            el["must_stay_visible_arr"] = load_bin(el.get("split_must_stay_visible_mask"), shape) if el.get("split_must_stay_visible_mask") else None
+        try:
+            for el in layers:
+                el["mask_arr"] = load_bin(el.get("mask"), shape) if el.get("mask") else None
+                el["must_cover_arr"] = load_bin(el.get("split_must_cover_mask"), shape) if el.get("split_must_cover_mask") else None
+                el["must_stay_visible_arr"] = load_bin(el.get("split_must_stay_visible_mask"), shape) if el.get("split_must_stay_visible_mask") else None
+        except MaskError as e:
+            out["mask_error"] = str(e); bail("INCONCLUSIVO:" + str(e).split(":")[0], 3)
         M["LAYERS"] = layers; M["EVIDENCE"]["layer_graph"] = f"PRESENT:{src_lg}"
     if row is not None:
         zo = (row.get("expected", {}).get("frozen_annotation", {}) or {}).get("z_order", []) or []
@@ -711,10 +813,11 @@ def main():
     out["occlusion_status"] = M["EVIDENCE"]["occlusion_status"]
     if args.human_adjudication:
         adj = json.load(open(args.human_adjudication, encoding="utf-8"))
-        if adj.get("blind") is True:
+        problems = fz.validate_adjudication(adj, args.case_id, prov.get("o_engine_sha256"), strict=(args.profile == "g0"))
+        if not problems:
             M["ADJUD"] = adj
         else:
-            missing_global.append("adjudication_not_blind")
+            missing_global.extend("adjudication_invalid:" + pb for pb in problems)
     if args.keypoints_a and args.keypoints_engine:
         kpa = json.load(open(args.keypoints_a, encoding="utf-8")); kpe = json.load(open(args.keypoints_engine, encoding="utf-8"))
         def _valid_kp(k):
@@ -730,14 +833,15 @@ def main():
             missing_global.append("keypoints_empty_or_invalid")  # JSON vazio/sem detecções não é evidência de mão intacta
 
     # --- tolerâncias
-    fi = image_format_issue(args.o_engine)
-    if fi:
-        out["format_issue"] = f"engine:{fi}"; bail("INCONCLUSIVO:format_mismatch:engine", 3)
-    prov["o_engine_sha256"] = fz.sha256_file(args.o_engine)
     Oe = load_rgb(args.o_engine)
     if Oe.shape != A.shape:
         bail("FAIL:canvas_mismatch:engine", 1)
-    Me = dict(M); Me["pixel_identity_is_eliminatory"] = bool(args.engine_is_paste_back); Me["OCC_ENGINE"] = load_bin(args.occluder_mask_engine, shape)
+    Me = dict(M); Me["pixel_identity_is_eliminatory"] = bool(args.engine_is_paste_back)
+    try:
+        Me["OCC_ENGINE"] = load_bin(args.occluder_mask_engine, shape)
+        Ge = load_bin(args.garment_mask, shape)
+    except MaskError as e:
+        out["mask_error"] = str(e); bail("INCONCLUSIVO:" + str(e).split(":")[0], 3)
     if Me["OCC_ENGINE"] is not None:
         Me["EVIDENCE"] = dict(M["EVIDENCE"], occluder_mask_engine="PRESENT")
     tol_src = None
@@ -770,7 +874,6 @@ def main():
     out["tol_composed"] = tol_composed
     Me["MISSING"] = list(missing_global)
 
-    Ge = load_bin(args.garment_mask, shape)
     out["engine"] = audit_target(A, Oe, Ge, Me, args, tol_engine, "engine")
 
     if args.o_composed:
@@ -781,7 +884,10 @@ def main():
         Oc = load_rgb(args.o_composed)
         if Oc.shape != A.shape:
             bail("FAIL:canvas_mismatch:composed", 1)
-        Gc = load_bin(args.garment_mask_composed, shape) if args.garment_mask_composed else Ge
+        try:
+            Gc = load_bin(args.garment_mask_composed, shape) if args.garment_mask_composed else Ge
+        except MaskError as e:
+            out["mask_error"] = str(e); bail("INCONCLUSIVO:" + str(e).split(":")[0], 3)
         Mc = dict(M); Mc["pixel_identity_is_eliminatory"] = True; Mc.pop("KP_A", None); Mc.pop("KP_E", None); Mc["MISSING"] = [m for m in missing_global if m != "null_distribution"]
         out["composed"] = audit_target(A, Oc, Gc, Mc, args, tol_composed, "composed")
         FO = M.get("FO")

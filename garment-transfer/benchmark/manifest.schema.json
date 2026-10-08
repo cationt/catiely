@@ -1,1030 +1,1046 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "garment-transfer/benchmark/manifest.schema.json",
-  "$comment": "v6 — shares_A_with (reuso de máscaras só entre casos com a MESMA imagem A), split_must_cover_mask/split_must_stay_visible_mask obrigatórias em split_by_garment_edge, expected.b_garment_mask (máscara da peça em B), frozen_annotation.protected_mask (C1 estrito, <case>_PR.png), consent_record_id obrigatório quando license contém self-captured-consent. Papéis do gate G0 vivem em benchmark/proto0/g0_case_roles.json.",
-  "title": "Caso de benchmark de garment transfer (A + B -> O)",
-  "description": "Um registro por caso. Imagens NÃO são redistribuídas quando a licença não permite: o manifesto guarda URL de origem, licença, hash e as transformações aplicadas (crop/resize) para reprodução legal.",
-  "type": "object",
-  "required": [
-    "case_id",
-    "split",
-    "level",
-    "A",
-    "B",
-    "spec",
-    "coverage",
-    "expected"
-  ],
-  "properties": {
-    "case_id": {
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "garment-transfer/benchmark/manifest.schema.json",
+ "$comment": "v6 — shares_A_with (reuso de máscaras só entre casos com a MESMA imagem A), split_must_cover_mask/split_must_stay_visible_mask obrigatórias em split_by_garment_edge, expected.b_garment_mask (máscara da peça em B), frozen_annotation.protected_mask (C1 estrito, <case>_PR.png), consent_record_id obrigatório quando license contém self-captured-consent. Papéis do gate G0 vivem em benchmark/proto0/g0_case_roles.json.",
+ "title": "Caso de benchmark de garment transfer (A + B -> O)",
+ "description": "Um registro por caso. Imagens NÃO são redistribuídas quando a licença não permite: o manifesto guarda URL de origem, licença, hash e as transformações aplicadas (crop/resize) para reprodução legal.",
+ "type": "object",
+ "required": [
+  "case_id",
+  "split",
+  "level",
+  "A",
+  "B",
+  "spec",
+  "coverage",
+  "expected"
+ ],
+ "properties": {
+  "case_id": {
+   "type": "string",
+   "pattern": "^[a-z0-9_-]+$"
+  },
+  "split": {
+   "type": "string",
+   "enum": [
+    "proto0",
+    "dev",
+    "regression",
+    "final_test"
+   ]
+  },
+  "level": {
+   "type": "string",
+   "enum": [
+    "EASY",
+    "MEDIUM",
+    "HARD",
+    "EXTREME"
+   ]
+  },
+  "A": {
+   "$ref": "#/$defs/image_source"
+  },
+  "B": {
+   "$ref": "#/$defs/image_source"
+  },
+  "extra_refs": {
+   "type": "array",
+   "items": {
+    "allOf": [
+     {
+      "$ref": "#/$defs/image_source"
+     },
+     {
+      "properties": {
+       "role": {
+        "enum": [
+         "back",
+         "detail",
+         "alt_view",
+         "other_donor"
+        ]
+       }
+      }
+     }
+    ]
+   }
+  },
+  "spec": {
+   "type": "object",
+   "description": "Especificação S (ver docs/00_formulacao_contrato.md §1.3)",
+   "required": [
+    "mode",
+    "garments",
+    "garment_of_category_present_in_A"
+   ],
+   "properties": {
+    "target_person": {
+     "type": [
+      "object",
+      "null"
+     ],
+     "properties": {
+      "bbox_xywh_norm": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 4,
+       "maxItems": 4
+      }
+     }
+    },
+    "garments": {
+     "type": "array",
+     "minItems": 1,
+     "items": {
+      "type": "object",
+      "required": [
+       "category"
+      ],
+      "properties": {
+       "category": {
+        "enum": [
+         "top",
+         "cropped_top",
+         "shirt",
+         "long_sleeve_top",
+         "jacket",
+         "coat",
+         "dress_tight",
+         "dress_loose",
+         "skirt_mini",
+         "skirt_midi",
+         "skirt_maxi",
+         "shorts",
+         "pants",
+         "jumpsuit",
+         "set_two_piece",
+         "other"
+        ]
+       },
+       "bbox_xywh_norm_in_B": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 4,
+        "maxItems": 4
+       }
+      }
+     }
+    },
+    "mode": {
+     "enum": [
+      "replace",
+      "add",
+      "add_over_layer"
+     ]
+    },
+    "remove_from_A": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "keep_from_A": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "layering": {
+     "type": "object",
+     "properties": {
+      "tuck": {
+       "enum": [
+        "in",
+        "out",
+        "unknown"
+       ]
+      },
+      "closure": {
+       "enum": [
+        "closed",
+        "open",
+        "partial",
+        "unknown"
+       ]
+      },
+      "sleeves": {
+       "enum": [
+        "down",
+        "rolled",
+        "unknown"
+       ]
+      }
+     }
+    },
+    "notes": {
+     "type": "string"
+    },
+    "garment_of_category_present_in_A": {
+     "type": "boolean",
+     "description": "false = caso de ADIÇÃO (A não veste peça da categoria-alvo); true = substituição."
+    }
+   }
+  },
+  "coverage": {
+   "type": "object",
+   "description": "Eixos da matriz de cobertura (docs/benchmark/coverage_matrix.md)",
+   "required": [
+    "pose",
+    "perspective",
+    "category",
+    "construction",
+    "material",
+    "occlusion",
+    "reference_modality",
+    "operation"
+   ],
+   "properties": {
+    "pose": {
+     "enum": [
+      "standing_frontal",
+      "standing_3q",
+      "standing_profile",
+      "walking",
+      "sitting",
+      "crouching",
+      "kneeling",
+      "reclining",
+      "lying",
+      "legs_crossed",
+      "legs_apart",
+      "arms_over_garment",
+      "arms_raised",
+      "twisted_torso"
+     ]
+    },
+    "perspective": {
+     "enum": [
+      "eye_level",
+      "low_angle",
+      "high_angle",
+      "foreshortened_limb",
+      "wide_angle_distortion",
+      "close_up"
+     ]
+    },
+    "category": {
+     "type": "string"
+    },
+    "construction": {
+     "type": "array",
+     "items": {
+      "enum": [
+       "straps_thin",
+       "straps_wide",
+       "strapless",
+       "asymmetric",
+       "slit",
+       "open_front",
+       "buttons",
+       "zipper",
+       "pockets",
+       "pleats",
+       "ruffles",
+       "layered_panels",
+       "cutout",
+       "collar",
+       "hood",
+       "belt",
+       "tie",
+       "none_special"
+      ]
+     }
+    },
+    "material": {
+     "type": "array",
+     "items": {
+      "enum": [
+       "matte_cotton",
+       "denim",
+       "knit",
+       "satin_shiny",
+       "leather",
+       "sheer_non_explicit",
+       "lace",
+       "sequins",
+       "fur_faux",
+       "print_large",
+       "print_small",
+       "logo_text",
+       "stripes_checks",
+       "solid"
+      ]
+     }
+    },
+    "occlusion": {
+     "type": "array",
+     "items": {
+      "enum": [
+       "none",
+       "hands_on_garment",
+       "arms_crossing",
+       "hair_over_garment",
+       "object_in_front",
+       "other_person",
+       "self_occlusion_legs",
+       "furniture",
+       "bag_strap"
+      ]
+     },
+     "minItems": 1
+    },
+    "reference_modality": {
+     "enum": [
+      "worn_other_person",
+      "worn_same_person_other_photo",
+      "catalog_ghost",
+      "flat_lay",
+      "hanger",
+      "mannequin"
+     ]
+    },
+    "reference_pose_delta": {
+     "enum": [
+      "similar",
+      "moderate",
+      "very_different"
+     ]
+    },
+    "operation": {
+     "enum": [
+      "replace",
+      "add_over_skin",
+      "add_over_background",
+      "add_over_layer",
+      "replace_and_expose_skin"
+     ]
+    },
+    "fit_intent": {
+     "enum": [
+      "tight",
+      "regular",
+      "loose",
+      "oversized",
+      "unknown"
+     ]
+    },
+    "addition_difficulty": {
+     "enum": [
+      "none",
+      "skin_only",
+      "skin_and_background",
+      "skin_background_and_front_occluder",
+      "skin_background_front_occluder_twisted_torso_foreshortening"
+     ],
+     "description": "eixo do Prototype 0 (ADDITION / OCCUPANCY STRESS TEST)."
+    }
+   }
+  },
+  "expected": {
+   "type": "object",
+   "description": "O que o QA deve cobrar neste caso; atributos ocultos ficam como 'not_assessable'.",
+   "properties": {
+    "garment_attributes": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "name",
+       "state"
+      ],
+      "properties": {
+       "name": {
+        "type": "string"
+       },
+       "value": {
+        "type": "string",
+        "not": {
+         "pattern": "(?i)\\bTBD\\b"
+        },
+        "description": "valor congelado ANTES da geração; 'TBD' é rejeitado."
+       },
+       "state": {
+        "enum": [
+         "observed",
+         "inferred",
+         "unknown",
+         "not_assessable"
+        ]
+       },
+       "expected_visible_in_O": {
+        "enum": [
+         "yes",
+         "no",
+         "partial",
+         "unknown"
+        ]
+       }
+      }
+     },
+     "minItems": 1,
+     "contains": {
+      "type": "object",
+      "properties": {
+       "name": {
+        "const": "category"
+       }
+      },
+      "required": [
+       "name"
+      ]
+     },
+     "description": " Deve conter o atributo name=category (eliminatório na adjudicação cega)."
+    },
+    "c1_regions": {
+     "type": "array",
+     "items": {
+      "enum": [
+       "face",
+       "hair",
+       "hands",
+       "feet",
+       "background",
+       "other_people",
+       "accessories",
+       "shoes",
+       "held_objects",
+       "kept_garments",
+       "forearms",
+       "upper_arms",
+       "neck",
+       "feet_shoes"
+      ]
+     }
+    },
+    "has_ground_truth": {
+     "type": "boolean"
+    },
+    "ground_truth": {
+     "anyOf": [
+      {
+       "$ref": "#/$defs/image_source"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "ground_truth_residuals": {
+     "type": "string",
+     "description": "diferenças residuais de pose/iluminação/alinhamento entre GT e A, quando GT existe"
+    },
+    "negative_control": {
+     "enum": [
+      "none",
+      "same_garment_noop",
+      "wrong_category_should_fail",
+      "B_identity_leak_probe",
+      "B_leak_specificity_probe",
+      "identity_output",
+      "known_drift_positive",
+      "fabric_over_occluder_synthetic",
+      "hand_removed_synthetic"
+     ],
+     "description": "none · same_garment_noop (A já veste a peça; calibra falso nascimento/resíduos) · wrong_category_should_fail · B_identity_leak_probe (doador muito distinto; sensibilidade) · B_leak_specificity_probe (doador parecido com A; especificidade) · identity_output (O := A; auditor DEVE falhar por não-criação) · known_drift_positive (saída de denoise global 1.0 do sweep histórico; auditor DEVE detectar reconstrução) · fabric_over_occluder_synthetic (colagem de tecido sobre a mão; DEVE falhar z-order) · hand_removed_synthetic (mão apagada/movida; DEVE falhar duplicate_limb/keypoints)"
+    },
+    "frozen_annotation": {
+     "type": "object",
+     "description": "Anotação feita ANTES de qualquer geração e nunca derivada de uma saída. Usada para auditar ocupação/oclusão sem circularidade.",
+     "properties": {
+      "annotator": {
+       "type": "string"
+      },
+      "annotated_on": {
+       "type": "string",
+       "format": "date"
+      },
+      "protected_mask": {
+       "anyOf": [
+        {
+         "$ref": "#/$defs/image_source"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "PROTECTED: C1 estrito (rosto, fundo distante, objetos) — identidade EXATA em O_composed (tol 0); arquivo <case>_PR.png. Obrigatório em split=proto0 (o validador exige); o auditor resolve a máscara a partir do manifesto quando --protected não é passado e verifica o sha256 quando é."
+      },
+      "front_occluders_mask": {
+       "anyOf": [
+        {
+         "$ref": "#/$defs/image_source"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "FRONT_OCCLUDERS_CORE: núcleo de partes de A que DEVEM permanecer à frente da nova roupa (mãos, antebraço cruzado, cabelo frontal, objetos). Grade de A."
+      },
+      "body_coverable_mask": {
+       "anyOf": [
+        {
+         "$ref": "#/$defs/image_source"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "BODY_COVERABLE: superfície observada de A que a peça PODERIA cobrir (capacidade, não predição)."
+      },
+      "plausible_occupancy_band": {
+       "type": "object",
+       "description": "Envelope de ocupação anotado ANTES da geração: min_mask = BAND_MIN (certamente tecido); max_body_mask = BAND_MAX_BODY (pele/roupa antiga que a peça PODE cobrir, condicional a atributos de B).",
+       "properties": {
+        "min_mask": {
+         "anyOf": [
+          {
+           "$ref": "#/$defs/image_source"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "max_body_mask": {
+         "anyOf": [
+          {
+           "$ref": "#/$defs/image_source"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "max_mask": {
+         "anyOf": [
+          {
+           "$ref": "#/$defs/image_source"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "description": "legado: união de max_body ∪ free_space; preferir campos separados"
+        }
+       }
+      },
+      "must_remain_visible": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "description": "partes de A que o contrato exige visíveis (ex.: 'left_hand','right_forearm','hair_front')."
+      },
+      "may_be_occluded": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "description": "partes/conteúdo que a roupa pode ocluir (ex.: 'torso_skin','background_left_of_torso')."
+      },
+      "z_order_notes": {
+       "type": "string"
+      },
+      "free_space_mask": {
+       "anyOf": [
+        {
+         "$ref": "#/$defs/image_source"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "FREE_SPACE: fundo/objetos atrás que o volume da peça PODE ocupar."
+      },
+      "uncertain_occupancy_mask": {
+       "anyOf": [
+        {
+         "$ref": "#/$defs/image_source"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "UNCERTAIN_OCCUPANCY: zona em que a existência de tecido é decidida pelo motor (axila, inter-membro, folga)."
+      },
+      "kept_garment_interface_mask": {
+       "anyOf": [
+        {
+         "$ref": "#/$defs/image_source"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "KEPT_GARMENT_INTERFACE: faixa ao longo da fronteira com peças mantidas (cós, alça), cujo z-order depende de spec.layering."
+      },
+      "newly_exposed_mask": {
+       "anyOf": [
+        {
+         "$ref": "#/$defs/image_source"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "NEWLY_EXPOSED: região da roupa antiga removida que não será coberta (síntese inferida)."
+      },
+      "contact_fringe_px": {
+       "type": "integer",
+       "minimum": 0,
+       "description": "largura da franja C3 (px na grade de A) onde mudança limitada de luminância é permitida ao redor do tecido medido."
+      },
+      "envelope_class": {
+       "enum": [
+        "E1_observed_surface",
+        "E2_surface_plus_outside_silhouette",
+        "E3_background"
+       ],
+       "description": "E1: tops/justos — envelope = superfície observável ⊕ folga por fit; E2: peças soltas; E3: saias amplas/sentado — banda larga, anotação humana obrigatória."
+      },
+      "z_order": {
+       "type": "array",
+       "description": "ordem de profundidade por ELEMENTO em relação à roupa nova; só front_certain/behind_certain são eliminatórios.",
+       "items": {
+        "type": "object",
+        "required": [
+         "element",
+         "relation",
+         "basis",
+         "mask"
+        ],
+        "properties": {
+         "element": {
+          "enum": [
+           "hand_L",
+           "hand_R",
+           "forearm_L",
+           "forearm_R",
+           "upper_arm_L",
+           "upper_arm_R",
+           "hair_front",
+           "hair_back",
+           "neck",
+           "torso_front_skin",
+           "held_object",
+           "bag_strap",
+           "furniture",
+           "kept_garment_top",
+           "kept_garment_bottom",
+           "other"
+          ]
+         },
+         "relation": {
+          "enum": [
+           "front_certain",
+           "behind_must_cover",
+           "behind_may_cover",
+           "split_by_garment_edge",
+           "uncertain"
+          ],
+          "description": "front_certain: elemento fica à frente da roupa nova (eliminatório); behind_must_cover: a peça DEVE cobrir (torso frontal para top); behind_may_cover: cobertura depende de atributo de B (braço superior vs manga); split_by_garment_edge: parte à frente/parte coberta, fronteira na banda UNCERTAIN (bainha da manga sob a mão); uncertain: indecidível a priori (cabelo vs gola, cós vs bainha)."
+         },
+         "basis": {
+          "enum": [
+           "observed_in_A",
+           "category_rule",
+           "spec_layering",
+           "default"
+          ]
+         },
+         "note": {
+          "type": "string"
+         },
+         "mask": {
+          "anyOf": [
+           {
+            "$ref": "#/$defs/image_source"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "máscara 2D do elemento (grade de A), anotada antes da geração; front_occluders_mask deve ser a união das máscaras front_certain."
+         },
+         "confidence": {
+          "type": "number"
+         },
+         "split_must_cover_mask": {
+          "anyOf": [
+           {
+            "$ref": "#/$defs/image_source"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "só para relation=split_by_garment_edge: parte do elemento que a peça DEVE cobrir (lado proximal, p.ex. braço superior sob a manga). Grade de A, anotada antes da geração."
+         },
+         "split_must_stay_visible_mask": {
+          "anyOf": [
+           {
+            "$ref": "#/$defs/image_source"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "só para relation=split_by_garment_edge: parte do elemento que DEVE permanecer visível e idêntica a A (lado distal, p.ex. braço abaixo da bainha). Zona de fronteira = elemento ∩ UNCERTAIN_OCCUPANCY: cada pixel é G ou idêntico a A."
+         }
+        },
+        "if": {
+         "properties": {
+          "relation": {
+           "const": "split_by_garment_edge"
+          }
+         },
+         "required": [
+          "relation"
+         ]
+        },
+        "then": {
+         "required": [
+          "split_must_cover_mask",
+          "split_must_stay_visible_mask"
+         ],
+         "properties": {
+          "split_must_cover_mask": {
+           "$ref": "#/$defs/image_source"
+          },
+          "split_must_stay_visible_mask": {
+           "$ref": "#/$defs/image_source"
+          }
+         }
+        }
+       }
+      },
+      "audit_targets": {
+       "enum": [
+        "engine_output",
+        "composed_output",
+        "both"
+       ],
+       "description": "em qual alvo a anotação audita (padrão: both)."
+      },
+      "mask_states": {
+       "type": "object",
+       "description": "estado por máscara: observado / inferido(conf) / desconhecido, com estimadores usados.",
+       "additionalProperties": {
+        "type": "object",
+        "properties": {
+         "state": {
+          "enum": [
+           "observed",
+           "inferred",
+           "unknown"
+          ]
+         },
+         "confidence": {
+          "type": "number"
+         },
+         "estimators": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      },
+      "layer_estimator_eval": {
+       "type": "object",
+       "description": "pré-requisito do Prototype 0: acerto do estimador automático (SAM 3 por pontos DWPose + MHR depth + MoGe) contra esta anotação, por elemento.",
+       "properties": {
+        "iou_by_element": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "number"
+         }
+        },
+        "relation_accuracy": {
+         "type": "number"
+        },
+        "torso_skin_as_background_fraction": {
+         "type": "number",
+         "description": "fração do torso nu que o parser de vestuário rotula como background (diagnóstico de inadequação do parser para adição)."
+        }
+       }
+      },
+      "freeze_commit": {
+       "type": "string",
+       "pattern": "^[a-f0-9]{7,40}$",
+       "description": "sha do commit em que as máscaras foram congeladas; deve ser ANTERIOR ao primeiro run."
+      },
+      "freeze_tag": {
+       "type": "string",
+       "description": "ex.: proto0-frozen-v1"
+      },
+      "annotator_id": {
+       "type": "string"
+      },
+      "inter_annotator_iou": {
+       "type": "object",
+       "description": "IoU entre dois anotadores (ou dois passes cegos) por máscara; a tolerância de qualquer métrica de ocupação nunca pode ser mais apertada que isto.",
+       "additionalProperties": {
+        "type": "number"
+       }
+      }
+     }
+    },
+    "ground_truth_type": {
+     "enum": [
+      "none",
+      "same_person_with_garment_photo",
+      "synthetic_render",
+      "self_captured_pair",
+      "synthetic_inverse"
+     ],
+     "description": "tipo de referência não circular: self_captured_pair (tripé, mesma pessoa sem/com a peça), synthetic_inverse (foto real VESTIDA = GT; A-sem fabricada por inpainting da PEÇA — serve para ocupação/z-order, não para realismo de pele), synthetic_render, none."
+    },
+    "ground_truth_garment_mask": {
+     "anyOf": [
+      {
+       "$ref": "#/$defs/image_source"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "description": "G*: máscara da peça anotada NA FOTO GT antes da geração (referência de ocupação real)."
+    },
+    "gt_alignment": {
+     "type": "object",
+     "properties": {
+      "method": {
+       "enum": [
+        "none",
+        "landmarks_affine",
+        "landmarks_tps"
+       ]
+      },
+      "residual_px_norm": {
+       "type": "number",
+       "description": "mediana do deslocamento DWPose A↔GT normalizado pela diagonal da pessoa"
+      },
+      "illumination_delta": {
+       "type": "number",
+       "description": "Δ cromaticidade média em região difusa comum (A vs GT)"
+      }
+     }
+    },
+    "gt_noise_floor": {
+     "type": "object",
+     "description": "piso de ruído A vs GT fora de (G* ∪ franja): toda métrica O vs GT é reportada como métrica − piso.",
+     "additionalProperties": {
+      "type": "number"
+     }
+    },
+    "b_garment_mask": {
+     "anyOf": [
+      {
+       "$ref": "#/$defs/image_source"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "description": "máscara humana congelada da peça de referência DENTRO de B (grade de B), anotada antes da geração; usada por tools/garment_fidelity_audit.py para comparar cromaticidade/textura de G em O′ com a peça em B. Não é derivada de nenhuma saída."
+    }
+   }
+  },
+  "provenance": {
+   "type": "object",
+   "properties": {
+    "added_by": {
+     "type": "string"
+    },
+    "added_on": {
+     "type": "string",
+     "format": "date"
+    },
+    "person_group_id": {
+     "type": "string",
+     "description": "id anônimo da pessoa para evitar vazamento entre splits"
+    },
+    "garment_group_id": {
+     "type": "string"
+    },
+    "source_group_id": {
+     "type": "string"
+    },
+    "likely_in_pretraining": {
+     "enum": [
+      "unknown",
+      "likely",
+      "unlikely_self_captured"
+     ],
+     "description": "imagens de Commons/Pexels podem estar no treino dos motores (FASHN 18M wild; Qwen); proto0/final_test preferem unlikely_self_captured."
+    },
+    "phash": {
+     "type": "string",
+     "description": "hash perceptual (dHash 64 bits hex) de A, para detecção de duplicatas entre splits."
+    },
+    "shares_A_with": {
+     "type": "array",
+     "items": {
       "type": "string",
       "pattern": "^[a-z0-9_-]+$"
+     },
+     "uniqueItems": true,
+     "description": "casos que usam EXATAMENTE a mesma imagem A (mesmo arquivo/sha); só então máscaras congeladas podem ser compartilhadas. Deve ser o conjunto completo de casos com a mesma A, declarado em TODAS as linhas envolvidas (o validador exige reciprocidade)."
+    }
+   }
+  }
+ },
+ "$defs": {
+  "image_source": {
+   "type": "object",
+   "required": [
+    "source_type",
+    "license",
+    "sha256",
+    "consent_adult_non_explicit"
+   ],
+   "properties": {
+    "source_type": {
+     "enum": [
+      "url",
+      "local_redistributable",
+      "local_private",
+      "synthetic"
+     ]
     },
-    "split": {
+    "url": {
+     "type": "string"
+    },
+    "local_path": {
+     "type": "string"
+    },
+    "license": {
+     "type": "string",
+     "description": "ex.: CC0-1.0, CC-BY-4.0, Unsplash-License (sem redistribuição em dataset), Pexels-License, self-captured-consent, synthetic-generated"
+    },
+    "redistributable_in_repo": {
+     "type": "boolean"
+    },
+    "attribution": {
+     "type": "string"
+    },
+    "sha256": {
+     "type": "string",
+     "pattern": "^[a-f0-9]{64}$"
+    },
+    "original_size_wh": {
+     "type": "array",
+     "items": {
+      "type": "integer"
+     },
+     "minItems": 2,
+     "maxItems": 2
+    },
+    "prep": {
+     "type": "object",
+     "description": "transformações determinísticas para reproduzir a imagem usada",
+     "properties": {
+      "crop_xywh": {
+       "type": "array",
+       "items": {
+        "type": "integer"
+       }
+      },
+      "resize_long_side": {
+       "type": "integer"
+      },
+      "resample": {
+       "enum": [
+        "lanczos",
+        "bicubic",
+        "area"
+       ]
+      },
+      "color_profile": {
+       "type": "string"
+      }
+     }
+    },
+    "consent_adult_non_explicit": {
+     "type": "boolean",
+     "const": true,
+     "description": "Obrigatório e deve ser true: adulto, conteúdo não explícito, consentimento/licença compatível."
+    },
+    "consent_record_id": {
+     "type": "string",
+     "description": "identificador/sha256 do termo de consentimento; OBRIGATÓRIO quando license contém 'self-captured-consent' (if/then). Valor contendo 'PLACEHOLDER' conta como placeholder no validador.",
+     "minLength": 1,
+     "pattern": "\\S"
+    }
+   },
+   "if": {
+    "properties": {
+     "license": {
       "type": "string",
-      "enum": [
-        "proto0",
-        "dev",
-        "regression",
-        "final_test"
+      "pattern": "(?i)self[-_ ]?captured[-_ ]?consent"
+     }
+    },
+    "required": [
+     "license"
+    ]
+   },
+   "then": {
+    "required": [
+     "consent_record_id"
+    ]
+   }
+  }
+ },
+ "allOf": [
+  {
+   "if": {
+    "properties": {
+     "spec": {
+      "properties": {
+       "mode": {
+        "enum": [
+         "add",
+         "add_over_layer"
+        ]
+       }
+      },
+      "required": [
+       "mode"
       ]
-    },
-    "level": {
-      "type": "string",
-      "enum": [
-        "EASY",
-        "MEDIUM",
-        "HARD",
-        "EXTREME"
+     }
+    }
+   },
+   "then": {
+    "properties": {
+     "expected": {
+      "properties": {
+       "frozen_annotation": {
+        "required": [
+         "plausible_occupancy_band",
+         "z_order"
+        ],
+        "properties": {
+         "plausible_occupancy_band": {
+          "required": [
+           "min_mask"
+          ]
+         }
+        }
+       }
+      },
+      "required": [
+       "frozen_annotation"
       ]
-    },
-    "A": {
-      "$ref": "#/$defs/image_source"
-    },
-    "B": {
-      "$ref": "#/$defs/image_source"
-    },
-    "extra_refs": {
-      "type": "array",
-      "items": {
-        "allOf": [
-          {
-            "$ref": "#/$defs/image_source"
-          },
-          {
-            "properties": {
-              "role": {
-                "enum": [
-                  "back",
-                  "detail",
-                  "alt_view",
-                  "other_donor"
-                ]
-              }
-            }
-          }
-        ]
-      }
-    },
-    "spec": {
-      "type": "object",
-      "description": "Especificação S (ver docs/00_formulacao_contrato.md §1.3)",
-      "required": [
-        "mode",
-        "garments",
-        "garment_of_category_present_in_A"
-      ],
-      "properties": {
-        "target_person": {
-          "type": [
-            "object",
-            "null"
-          ],
-          "properties": {
-            "bbox_xywh_norm": {
-              "type": "array",
-              "items": {
-                "type": "number"
-              },
-              "minItems": 4,
-              "maxItems": 4
-            }
-          }
-        },
-        "garments": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "object",
-            "required": [
-              "category"
-            ],
-            "properties": {
-              "category": {
-                "enum": [
-                  "top",
-                  "cropped_top",
-                  "shirt",
-                  "long_sleeve_top",
-                  "jacket",
-                  "coat",
-                  "dress_tight",
-                  "dress_loose",
-                  "skirt_mini",
-                  "skirt_midi",
-                  "skirt_maxi",
-                  "shorts",
-                  "pants",
-                  "jumpsuit",
-                  "set_two_piece",
-                  "other"
-                ]
-              },
-              "bbox_xywh_norm_in_B": {
-                "type": "array",
-                "items": {
-                  "type": "number"
-                },
-                "minItems": 4,
-                "maxItems": 4
-              }
-            }
-          }
-        },
-        "mode": {
-          "enum": [
-            "replace",
-            "add",
-            "add_over_layer"
-          ]
-        },
-        "remove_from_A": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "keep_from_A": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "layering": {
-          "type": "object",
-          "properties": {
-            "tuck": {
-              "enum": [
-                "in",
-                "out",
-                "unknown"
-              ]
-            },
-            "closure": {
-              "enum": [
-                "closed",
-                "open",
-                "partial",
-                "unknown"
-              ]
-            },
-            "sleeves": {
-              "enum": [
-                "down",
-                "rolled",
-                "unknown"
-              ]
-            }
-          }
-        },
-        "notes": {
-          "type": "string"
-        },
-        "garment_of_category_present_in_A": {
-          "type": "boolean",
-          "description": "false = caso de ADIÇÃO (A não veste peça da categoria-alvo); true = substituição."
-        }
-      }
-    },
-    "coverage": {
-      "type": "object",
-      "description": "Eixos da matriz de cobertura (docs/benchmark/coverage_matrix.md)",
-      "required": [
-        "pose",
-        "perspective",
-        "category",
-        "construction",
-        "material",
-        "occlusion",
-        "reference_modality",
-        "operation"
-      ],
-      "properties": {
-        "pose": {
-          "enum": [
-            "standing_frontal",
-            "standing_3q",
-            "standing_profile",
-            "walking",
-            "sitting",
-            "crouching",
-            "kneeling",
-            "reclining",
-            "lying",
-            "legs_crossed",
-            "legs_apart",
-            "arms_over_garment",
-            "arms_raised",
-            "twisted_torso"
-          ]
-        },
-        "perspective": {
-          "enum": [
-            "eye_level",
-            "low_angle",
-            "high_angle",
-            "foreshortened_limb",
-            "wide_angle_distortion",
-            "close_up"
-          ]
-        },
-        "category": {
-          "type": "string"
-        },
-        "construction": {
-          "type": "array",
-          "items": {
-            "enum": [
-              "straps_thin",
-              "straps_wide",
-              "strapless",
-              "asymmetric",
-              "slit",
-              "open_front",
-              "buttons",
-              "zipper",
-              "pockets",
-              "pleats",
-              "ruffles",
-              "layered_panels",
-              "cutout",
-              "collar",
-              "hood",
-              "belt",
-              "tie",
-              "none_special"
-            ]
-          }
-        },
-        "material": {
-          "type": "array",
-          "items": {
-            "enum": [
-              "matte_cotton",
-              "denim",
-              "knit",
-              "satin_shiny",
-              "leather",
-              "sheer_non_explicit",
-              "lace",
-              "sequins",
-              "fur_faux",
-              "print_large",
-              "print_small",
-              "logo_text",
-              "stripes_checks",
-              "solid"
-            ]
-          }
-        },
-        "occlusion": {
-          "type": "array",
-          "items": {
-            "enum": [
-              "none",
-              "hands_on_garment",
-              "arms_crossing",
-              "hair_over_garment",
-              "object_in_front",
-              "other_person",
-              "self_occlusion_legs",
-              "furniture",
-              "bag_strap"
-            ]
-          }
-        },
-        "reference_modality": {
-          "enum": [
-            "worn_other_person",
-            "worn_same_person_other_photo",
-            "catalog_ghost",
-            "flat_lay",
-            "hanger",
-            "mannequin"
-          ]
-        },
-        "reference_pose_delta": {
-          "enum": [
-            "similar",
-            "moderate",
-            "very_different"
-          ]
-        },
-        "operation": {
-          "enum": [
-            "replace",
-            "add_over_skin",
-            "add_over_background",
-            "add_over_layer",
-            "replace_and_expose_skin"
-          ]
-        },
-        "fit_intent": {
-          "enum": [
-            "tight",
-            "regular",
-            "loose",
-            "oversized",
-            "unknown"
-          ]
-        },
-        "addition_difficulty": {
-          "enum": [
-            "none",
-            "skin_only",
-            "skin_and_background",
-            "skin_background_and_front_occluder",
-            "skin_background_front_occluder_twisted_torso_foreshortening"
-          ],
-          "description": "eixo do Prototype 0 (ADDITION / OCCUPANCY STRESS TEST)."
-        }
-      }
-    },
-    "expected": {
-      "type": "object",
-      "description": "O que o QA deve cobrar neste caso; atributos ocultos ficam como 'not_assessable'.",
-      "properties": {
-        "garment_attributes": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "name",
-              "state"
-            ],
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "value": {
-                "type": "string",
-                "not": {
-                  "pattern": "(?i)\\bTBD\\b"
-                },
-                "description": "valor congelado ANTES da geração; 'TBD' é rejeitado."
-              },
-              "state": {
-                "enum": [
-                  "observed",
-                  "inferred",
-                  "unknown",
-                  "not_assessable"
-                ]
-              },
-              "expected_visible_in_O": {
-                "enum": [
-                  "yes",
-                  "no",
-                  "partial",
-                  "unknown"
-                ]
-              }
-            }
-          }
-        },
-        "c1_regions": {
-          "type": "array",
-          "items": {
-            "enum": [
-              "face",
-              "hair",
-              "hands",
-              "feet",
-              "background",
-              "other_people",
-              "accessories",
-              "shoes",
-              "held_objects",
-              "kept_garments",
-              "forearms",
-              "upper_arms",
-              "neck",
-              "feet_shoes"
-            ]
-          }
-        },
-        "has_ground_truth": {
-          "type": "boolean"
-        },
-        "ground_truth": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/image_source"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "ground_truth_residuals": {
-          "type": "string",
-          "description": "diferenças residuais de pose/iluminação/alinhamento entre GT e A, quando GT existe"
-        },
-        "negative_control": {
-          "enum": [
-            "none",
-            "same_garment_noop",
-            "wrong_category_should_fail",
-            "B_identity_leak_probe",
-            "B_leak_specificity_probe",
-            "identity_output",
-            "known_drift_positive",
-            "fabric_over_occluder_synthetic",
-            "hand_removed_synthetic"
-          ],
-          "description": "none · same_garment_noop (A já veste a peça; calibra falso nascimento/resíduos) · wrong_category_should_fail · B_identity_leak_probe (doador muito distinto; sensibilidade) · B_leak_specificity_probe (doador parecido com A; especificidade) · identity_output (O := A; auditor DEVE falhar por não-criação) · known_drift_positive (saída de denoise global 1.0 do sweep histórico; auditor DEVE detectar reconstrução) · fabric_over_occluder_synthetic (colagem de tecido sobre a mão; DEVE falhar z-order) · hand_removed_synthetic (mão apagada/movida; DEVE falhar duplicate_limb/keypoints)"
-        },
-        "frozen_annotation": {
-          "type": "object",
-          "description": "Anotação feita ANTES de qualquer geração e nunca derivada de uma saída. Usada para auditar ocupação/oclusão sem circularidade.",
-          "properties": {
-            "annotator": {
-              "type": "string"
-            },
-            "annotated_on": {
-              "type": "string",
-              "format": "date"
-            },
-            "protected_mask": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/image_source"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "PROTECTED: C1 estrito (rosto, fundo distante, objetos) — identidade EXATA em O_composed (tol 0); arquivo <case>_PR.png. Obrigatório em split=proto0 (o validador exige); o auditor resolve a máscara a partir do manifesto quando --protected não é passado e verifica o sha256 quando é."
-            },
-            "front_occluders_mask": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/image_source"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "FRONT_OCCLUDERS_CORE: núcleo de partes de A que DEVEM permanecer à frente da nova roupa (mãos, antebraço cruzado, cabelo frontal, objetos). Grade de A."
-            },
-            "body_coverable_mask": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/image_source"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "BODY_COVERABLE: superfície observada de A que a peça PODERIA cobrir (capacidade, não predição)."
-            },
-            "plausible_occupancy_band": {
-              "type": "object",
-              "description": "Envelope de ocupação anotado ANTES da geração: min_mask = BAND_MIN (certamente tecido); max_body_mask = BAND_MAX_BODY (pele/roupa antiga que a peça PODE cobrir, condicional a atributos de B).",
-              "properties": {
-                "min_mask": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/$defs/image_source"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "max_body_mask": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/$defs/image_source"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "max_mask": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/$defs/image_source"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "legado: união de max_body ∪ free_space; preferir campos separados"
-                }
-              }
-            },
-            "must_remain_visible": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "partes de A que o contrato exige visíveis (ex.: 'left_hand','right_forearm','hair_front')."
-            },
-            "may_be_occluded": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "partes/conteúdo que a roupa pode ocluir (ex.: 'torso_skin','background_left_of_torso')."
-            },
-            "z_order_notes": {
-              "type": "string"
-            },
-            "free_space_mask": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/image_source"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "FREE_SPACE: fundo/objetos atrás que o volume da peça PODE ocupar."
-            },
-            "uncertain_occupancy_mask": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/image_source"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "UNCERTAIN_OCCUPANCY: zona em que a existência de tecido é decidida pelo motor (axila, inter-membro, folga)."
-            },
-            "kept_garment_interface_mask": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/image_source"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "KEPT_GARMENT_INTERFACE: faixa ao longo da fronteira com peças mantidas (cós, alça), cujo z-order depende de spec.layering."
-            },
-            "newly_exposed_mask": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/image_source"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "NEWLY_EXPOSED: região da roupa antiga removida que não será coberta (síntese inferida)."
-            },
-            "contact_fringe_px": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "largura da franja C3 (px na grade de A) onde mudança limitada de luminância é permitida ao redor do tecido medido."
-            },
-            "envelope_class": {
-              "enum": [
-                "E1_observed_surface",
-                "E2_surface_plus_outside_silhouette",
-                "E3_background"
-              ],
-              "description": "E1: tops/justos — envelope = superfície observável ⊕ folga por fit; E2: peças soltas; E3: saias amplas/sentado — banda larga, anotação humana obrigatória."
-            },
-            "z_order": {
-              "type": "array",
-              "description": "ordem de profundidade por ELEMENTO em relação à roupa nova; só front_certain/behind_certain são eliminatórios.",
-              "items": {
-                "type": "object",
-                "required": [
-                  "element",
-                  "relation",
-                  "basis",
-                  "mask"
-                ],
-                "properties": {
-                  "element": {
-                    "enum": [
-                      "hand_L",
-                      "hand_R",
-                      "forearm_L",
-                      "forearm_R",
-                      "upper_arm_L",
-                      "upper_arm_R",
-                      "hair_front",
-                      "hair_back",
-                      "neck",
-                      "torso_front_skin",
-                      "held_object",
-                      "bag_strap",
-                      "furniture",
-                      "kept_garment_top",
-                      "kept_garment_bottom",
-                      "other"
-                    ]
-                  },
-                  "relation": {
-                    "enum": [
-                      "front_certain",
-                      "behind_must_cover",
-                      "behind_may_cover",
-                      "split_by_garment_edge",
-                      "uncertain"
-                    ],
-                    "description": "front_certain: elemento fica à frente da roupa nova (eliminatório); behind_must_cover: a peça DEVE cobrir (torso frontal para top); behind_may_cover: cobertura depende de atributo de B (braço superior vs manga); split_by_garment_edge: parte à frente/parte coberta, fronteira na banda UNCERTAIN (bainha da manga sob a mão); uncertain: indecidível a priori (cabelo vs gola, cós vs bainha)."
-                  },
-                  "basis": {
-                    "enum": [
-                      "observed_in_A",
-                      "category_rule",
-                      "spec_layering",
-                      "default"
-                    ]
-                  },
-                  "note": {
-                    "type": "string"
-                  },
-                  "mask": {
-                    "anyOf": [
-                      {
-                        "$ref": "#/$defs/image_source"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "description": "máscara 2D do elemento (grade de A), anotada antes da geração; front_occluders_mask deve ser a união das máscaras front_certain."
-                  },
-                  "confidence": {
-                    "type": "number"
-                  },
-                  "split_must_cover_mask": {
-                    "anyOf": [
-                      {
-                        "$ref": "#/$defs/image_source"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "description": "só para relation=split_by_garment_edge: parte do elemento que a peça DEVE cobrir (lado proximal, p.ex. braço superior sob a manga). Grade de A, anotada antes da geração."
-                  },
-                  "split_must_stay_visible_mask": {
-                    "anyOf": [
-                      {
-                        "$ref": "#/$defs/image_source"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "description": "só para relation=split_by_garment_edge: parte do elemento que DEVE permanecer visível e idêntica a A (lado distal, p.ex. braço abaixo da bainha). Zona de fronteira = elemento ∩ UNCERTAIN_OCCUPANCY: cada pixel é G ou idêntico a A."
-                  }
-                },
-                "if": {
-                  "properties": {
-                    "relation": {
-                      "const": "split_by_garment_edge"
-                    }
-                  },
-                  "required": [
-                    "relation"
-                  ]
-                },
-                "then": {
-                  "required": [
-                    "split_must_cover_mask",
-                    "split_must_stay_visible_mask"
-                  ],
-                  "properties": {
-                    "split_must_cover_mask": {
-                      "$ref": "#/$defs/image_source"
-                    },
-                    "split_must_stay_visible_mask": {
-                      "$ref": "#/$defs/image_source"
-                    }
-                  }
-                }
-              }
-            },
-            "audit_targets": {
-              "enum": [
-                "engine_output",
-                "composed_output",
-                "both"
-              ],
-              "description": "em qual alvo a anotação audita (padrão: both)."
-            },
-            "mask_states": {
-              "type": "object",
-              "description": "estado por máscara: observado / inferido(conf) / desconhecido, com estimadores usados.",
-              "additionalProperties": {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "enum": [
-                      "observed",
-                      "inferred",
-                      "unknown"
-                    ]
-                  },
-                  "confidence": {
-                    "type": "number"
-                  },
-                  "estimators": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            },
-            "layer_estimator_eval": {
-              "type": "object",
-              "description": "pré-requisito do Prototype 0: acerto do estimador automático (SAM 3 por pontos DWPose + MHR depth + MoGe) contra esta anotação, por elemento.",
-              "properties": {
-                "iou_by_element": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "number"
-                  }
-                },
-                "relation_accuracy": {
-                  "type": "number"
-                },
-                "torso_skin_as_background_fraction": {
-                  "type": "number",
-                  "description": "fração do torso nu que o parser de vestuário rotula como background (diagnóstico de inadequação do parser para adição)."
-                }
-              }
-            },
-            "freeze_commit": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{7,40}$",
-              "description": "sha do commit em que as máscaras foram congeladas; deve ser ANTERIOR ao primeiro run."
-            },
-            "freeze_tag": {
-              "type": "string",
-              "description": "ex.: proto0-frozen-v1"
-            },
-            "annotator_id": {
-              "type": "string"
-            },
-            "inter_annotator_iou": {
-              "type": "object",
-              "description": "IoU entre dois anotadores (ou dois passes cegos) por máscara; a tolerância de qualquer métrica de ocupação nunca pode ser mais apertada que isto.",
-              "additionalProperties": {
-                "type": "number"
-              }
-            }
-          }
-        },
-        "ground_truth_type": {
-          "enum": [
-            "none",
-            "same_person_with_garment_photo",
-            "synthetic_render",
-            "self_captured_pair",
-            "synthetic_inverse"
-          ],
-          "description": "tipo de referência não circular: self_captured_pair (tripé, mesma pessoa sem/com a peça), synthetic_inverse (foto real VESTIDA = GT; A-sem fabricada por inpainting da PEÇA — serve para ocupação/z-order, não para realismo de pele), synthetic_render, none."
-        },
-        "ground_truth_garment_mask": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/image_source"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "G*: máscara da peça anotada NA FOTO GT antes da geração (referência de ocupação real)."
-        },
-        "gt_alignment": {
-          "type": "object",
-          "properties": {
-            "method": {
-              "enum": [
-                "none",
-                "landmarks_affine",
-                "landmarks_tps"
-              ]
-            },
-            "residual_px_norm": {
-              "type": "number",
-              "description": "mediana do deslocamento DWPose A↔GT normalizado pela diagonal da pessoa"
-            },
-            "illumination_delta": {
-              "type": "number",
-              "description": "Δ cromaticidade média em região difusa comum (A vs GT)"
-            }
-          }
-        },
-        "gt_noise_floor": {
-          "type": "object",
-          "description": "piso de ruído A vs GT fora de (G* ∪ franja): toda métrica O vs GT é reportada como métrica − piso.",
-          "additionalProperties": {
-            "type": "number"
-          }
-        },
-        "b_garment_mask": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/image_source"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "máscara humana congelada da peça de referência DENTRO de B (grade de B), anotada antes da geração; usada por tools/garment_fidelity_audit.py para comparar cromaticidade/textura de G em O′ com a peça em B. Não é derivada de nenhuma saída."
-        }
-      }
-    },
-    "provenance": {
-      "type": "object",
-      "properties": {
-        "added_by": {
-          "type": "string"
-        },
-        "added_on": {
-          "type": "string",
-          "format": "date"
-        },
-        "person_group_id": {
-          "type": "string",
-          "description": "id anônimo da pessoa para evitar vazamento entre splits"
-        },
-        "garment_group_id": {
-          "type": "string"
-        },
-        "source_group_id": {
-          "type": "string"
-        },
-        "likely_in_pretraining": {
-          "enum": [
-            "unknown",
-            "likely",
-            "unlikely_self_captured"
-          ],
-          "description": "imagens de Commons/Pexels podem estar no treino dos motores (FASHN 18M wild; Qwen); proto0/final_test preferem unlikely_self_captured."
-        },
-        "phash": {
-          "type": "string",
-          "description": "hash perceptual (dHash 64 bits hex) de A, para detecção de duplicatas entre splits."
-        },
-        "shares_A_with": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^[a-z0-9_-]+$"
-          },
-          "uniqueItems": true,
-          "description": "casos que usam EXATAMENTE a mesma imagem A (mesmo arquivo/sha); só então máscaras congeladas podem ser compartilhadas. Deve ser o conjunto completo de casos com a mesma A, declarado em TODAS as linhas envolvidas (o validador exige reciprocidade)."
-        }
-      }
+     }
     }
-  },
-  "$defs": {
-    "image_source": {
-      "type": "object",
-      "required": [
-        "source_type",
-        "license",
-        "sha256",
-        "consent_adult_non_explicit"
-      ],
-      "properties": {
-        "source_type": {
-          "enum": [
-            "url",
-            "local_redistributable",
-            "local_private",
-            "synthetic"
-          ]
-        },
-        "url": {
-          "type": "string"
-        },
-        "local_path": {
-          "type": "string"
-        },
-        "license": {
-          "type": "string",
-          "description": "ex.: CC0-1.0, CC-BY-4.0, Unsplash-License (sem redistribuição em dataset), Pexels-License, self-captured-consent, synthetic-generated"
-        },
-        "redistributable_in_repo": {
-          "type": "boolean"
-        },
-        "attribution": {
-          "type": "string"
-        },
-        "sha256": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
-        },
-        "original_size_wh": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          },
-          "minItems": 2,
-          "maxItems": 2
-        },
-        "prep": {
-          "type": "object",
-          "description": "transformações determinísticas para reproduzir a imagem usada",
-          "properties": {
-            "crop_xywh": {
-              "type": "array",
-              "items": {
-                "type": "integer"
-              }
-            },
-            "resize_long_side": {
-              "type": "integer"
-            },
-            "resample": {
-              "enum": [
-                "lanczos",
-                "bicubic",
-                "area"
-              ]
-            },
-            "color_profile": {
-              "type": "string"
-            }
-          }
-        },
-        "consent_adult_non_explicit": {
-          "type": "boolean",
-          "const": true,
-          "description": "Obrigatório e deve ser true: adulto, conteúdo não explícito, consentimento/licença compatível."
-        },
-        "consent_record_id": {
-          "type": "string",
-          "description": "identificador/sha256 do termo de consentimento; OBRIGATÓRIO quando license contém 'self-captured-consent' (if/then). Valor contendo 'PLACEHOLDER' conta como placeholder no validador."
-        }
-      },
-      "if": {
-        "properties": {
-          "license": {
-            "type": "string",
-            "pattern": "self-captured-consent"
-          }
-        },
-        "required": [
-          "license"
-        ]
-      },
-      "then": {
-        "required": [
-          "consent_record_id"
-        ]
-      }
-    }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "spec": {
-            "properties": {
-              "mode": {
-                "enum": [
-                  "add",
-                  "add_over_layer"
-                ]
-              }
-            },
-            "required": [
-              "mode"
-            ]
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "expected": {
-            "properties": {
-              "frozen_annotation": {
-                "required": [
-                  "plausible_occupancy_band",
-                  "z_order"
-                ],
-                "properties": {
-                  "plausible_occupancy_band": {
-                    "required": [
-                      "min_mask"
-                    ]
-                  }
-                }
-              }
-            },
-            "required": [
-              "frozen_annotation"
-            ]
-          }
-        }
-      }
-    }
-  ]
+   }
+  }
+ ]
 }

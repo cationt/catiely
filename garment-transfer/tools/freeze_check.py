@@ -56,7 +56,19 @@ def load_manifest(path):
 
 
 def find_row(rows, case_id):
-    return next((r for r in rows if r.get("case_id") == case_id), None)
+    """Linha do caso; None se ausente OU duplicado (um manifesto com case_id duplicado não é congelável)."""
+    hits = [r for r in rows if r.get("case_id") == case_id]
+    return hits[0] if len(hits) == 1 else None
+
+
+def duplicate_case_ids(rows):
+    seen, dup = set(), set()
+    for r in rows:
+        cid = r.get("case_id")
+        if cid in seen:
+            dup.add(cid)
+        seen.add(cid)
+    return sorted(dup)
 
 
 def resolve_path(local_path, data_root):
@@ -74,7 +86,7 @@ def verify_row_files(row, data_root):
         if is_placeholder_sha(declared):
             entry["status"] = "placeholder"; mismatches.append(f"placeholder:{field}")
         elif not lp:
-            entry["status"] = "no_local_path"  # url-only: não verificável localmente
+            entry["status"] = "unverifiable_no_local_path"; mismatches.append(f"unverifiable:{field}")  # url-only: sem arquivo local não há congelamento verificável
         else:
             fp = resolve_path(lp, data_root)
             if not os.path.exists(fp):
@@ -103,18 +115,22 @@ def verify_input_matches(path_given, src, label):
     return None
 
 
-def verify_freeze(freeze_path, manifest_path=None, prereg_path=None, roles_path=None):
-    """Compara os sha256 atuais de manifesto/PREREG/roles com os registrados em FREEZE.json.
-    Retorna (info:dict, mismatches:list)."""
-    info = {"freeze_path": freeze_path, "freeze_sha256": None, "freeze_tag": None, "freeze_commit": None, "frozen": None}
+def verify_freeze(freeze_path, manifest_path=None, prereg_path=None, roles_path=None, allow_dirty=False):
+    """Compara os sha256 atuais de manifesto/PREREG/roles com os registrados em FREEZE.json; exige frozen=true e árvore git limpa
+    no congelamento (salvo allow_dirty — só testes). Retorna (info:dict, mismatches:list)."""
+    info = {"freeze_path": freeze_path, "freeze_sha256": None, "freeze_tag": None, "freeze_commit": None, "frozen": None, "freeze_git_dirty": None}
     mism = []
     if not freeze_path or not os.path.exists(freeze_path):
         return info, [f"ausente:freeze:{freeze_path}"]
     info["freeze_sha256"] = sha256_file(freeze_path)
     fz = json.load(open(freeze_path, encoding="utf-8"))
-    info["freeze_tag"] = fz.get("freeze_tag"); info["freeze_commit"] = fz.get("git_commit"); info["frozen"] = fz.get("frozen")
+    info["freeze_tag"] = fz.get("freeze_tag"); info["freeze_commit"] = fz.get("git_commit"); info["frozen"] = fz.get("frozen"); info["freeze_git_dirty"] = fz.get("git_dirty")
     if fz.get("frozen") is not True:
         mism.append("not_frozen:FREEZE.json marca frozen=false (placeholders ou divergências no congelamento)")
+    if fz.get("git_dirty") is not False and not allow_dirty:
+        mism.append("freeze_dirty_tree:FREEZE.json foi gerado com árvore git suja ou sem git — o congelamento não está ancorado num commit")
+    if not fz.get("git_commit") and not allow_dirty:
+        mism.append("freeze_sem_commit")
     files = fz.get("files", {})
     for key, path in (("manifest", manifest_path), ("prereg", prereg_path), ("roles", roles_path)):
         rec = files.get(key)
@@ -129,3 +145,27 @@ def verify_freeze(freeze_path, manifest_path=None, prereg_path=None, roles_path=
         if actual != rec.get("sha256"):
             mism.append(f"sha256:{key}:{path} (congelado {str(rec.get('sha256'))[:12]}…, atual {actual[:12]}…)")
     return info, mism
+
+
+def validate_adjudication(adj, case_id=None, output_sha256=None, strict=True):
+    """Adjudicação humana CEGA: blind=true, catch_trials_passed=true, evaluator_id e date presentes; em modo estrito (g0) o arquivo
+    tem de estar ligado ao caso (case_id) e à saída julgada (output_sha256 == sha256 do O′). Devolve lista de problemas (vazia = válida)."""
+    problems = []
+    if not isinstance(adj, dict):
+        return ["not_a_dict"]
+    if adj.get("blind") is not True:
+        problems.append("not_blind")
+    if adj.get("catch_trials_passed") is not True:
+        problems.append("catch_trials_not_passed")
+    if not adj.get("evaluator_id"):
+        problems.append("no_evaluator_id")
+    if not adj.get("date"):
+        problems.append("no_date")
+    if not isinstance(adj.get("answers"), dict):
+        problems.append("no_answers")
+    if strict:
+        if case_id and adj.get("case_id") != case_id:
+            problems.append("case_id_mismatch")
+        if output_sha256 and adj.get("output_sha256") != output_sha256:
+            problems.append("output_sha256_mismatch")
+    return problems

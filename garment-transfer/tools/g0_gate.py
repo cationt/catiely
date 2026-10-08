@@ -45,16 +45,19 @@ def main():
     ap.add_argument("--roles", required=True); ap.add_argument("--freeze", required=True)
     ap.add_argument("--manifest", required=True); ap.add_argument("--prereg", required=True)
     ap.add_argument("--index", required=True); ap.add_argument("--route", default=""); ap.add_argument("--arm", default="")
+    ap.add_argument("--allow-dirty-freeze", action="store_true", help="SÓ TESTES: aceita FREEZE.json de árvore suja e JSONs auditados com a mesma flag")
     ap.add_argument("--json-out")
     args = ap.parse_args()
     roles = json.load(open(args.roles, encoding="utf-8"))
     out = {"gate": roles.get("gate", "G0"), "route": args.route, "arm": args.arm, "integrity": [], "core": {}, "non_core": {}, "progression": {}}
-    info, mism = fz.verify_freeze(args.freeze, args.manifest, args.prereg, args.roles)
+    info, mism = fz.verify_freeze(args.freeze, args.manifest, args.prereg, args.roles, allow_dirty=args.allow_dirty_freeze)
     out["freeze"] = info; out["integrity"].extend(mism)
     freeze_sha = info.get("freeze_sha256")
     core = roles["core_cases"]; rule = roles["core_rule"]; seeds = set(rule.get("seeds", [1, 2, 3]))
     if not (1 <= int(rule.get("min_pass", 0)) <= int(rule.get("of", 0))) or len(core) != int(rule.get("of", 0)) or len(set(core)) != len(core):
         out["integrity"].append(f"roles_invalido:min_pass={rule.get('min_pass')} of={rule.get('of')} core={len(core)}")
+    if len(seeds) < 3 or any(spec.get("of_seeds") != len(seeds) for spec in roles.get("progression", {}).values()):
+        out["integrity"].append(f"roles_invalido:seeds={sorted(seeds)} (pré-registro exige ≥ 3 seeds e of_seeds == nº de seeds)")
     if roles.get("frozen_before_first_run") is not True:
         out["integrity"].append("roles_invalido:frozen_before_first_run")
     idx = json.load(open(args.index, encoding="utf-8"))
@@ -74,28 +77,74 @@ def main():
                 out["integrity"].append(f"freeze_divergente:{kind}:{e['case_id']}:seed{e['seed']}")
             if j.get("provenance", {}).get("case_id") != e["case_id"]:
                 out["integrity"].append(f"case_id_divergente:{kind}:{e['case_id']}:seed{e['seed']}")
-            # coerência interna do JSON (adulteração): veredito PASS exige causas vazias e nenhuma evidência ausente
+            if j.get("provenance", {}).get("allow_dirty_freeze") and not args.allow_dirty_freeze:
+                out["integrity"].append(f"auditado_com_allow_dirty_freeze:{kind}:{e['case_id']}:seed{e['seed']}")
+            # coerência interna do JSON (adulteração / fabricação): veredito PASS exige causas vazias, evidência completa e estrutura do auditor
+            if j.get("frozen_reference_check", {}).get("mismatches"):
+                out["integrity"].append(f"json_com_mismatch_de_congelamento:{kind}:{e['case_id']}:seed{e['seed']}")
             if kind == "occupancy":
                 eng = j.get("engine", {})
+                if not j.get("auditor_version") or not isinstance(eng.get("evidence"), dict) or j.get("tol_engine_source") not in ("a_ref_p99.5", "null_stats"):
+                    out["integrity"].append(f"json_sem_estrutura_do_auditor:{kind}:{e['case_id']}:seed{e['seed']}")
                 if j.get("verdict_engine") == "PASS" and (eng.get("causes") or eng.get("missing_required_evidence") or eng.get("verdict") != "PASS"):
                     out["integrity"].append(f"json_incoerente:{kind}:{e['case_id']}:seed{e['seed']}")
+                if "verdict_composed" in j and j.get("verdict_composed") is not None and "composed" not in j:
+                    out["integrity"].append(f"json_incoerente_composed:{kind}:{e['case_id']}:seed{e['seed']}")
             else:
+                if j.get("auditor") != "garment_fidelity_audit" or j.get("evidence", {}).get("chroma") != "PRESENT" or not j.get("attributes_judged"):
+                    out["integrity"].append(f"json_sem_estrutura_do_auditor:{kind}:{e['case_id']}:seed{e['seed']}")
                 if j.get("verdict") == "PASS" and (j.get("causes") or j.get("missing_required_evidence") or j.get("inconclusive")):
                     out["integrity"].append(f"json_incoerente:{kind}:{e['case_id']}:seed{e['seed']}")
+        # ocupação e fidelidade da MESMA saída (mesmo O′ e mesma G)
+        oj, fj = rec.get("occupancy"), rec.get("fidelity")
+        if oj and fj:
+            for key in ("o_engine_sha256", "garment_mask_sha256"):
+                if oj.get("provenance", {}).get(key) != fj.get("provenance", {}).get(key) or not oj.get("provenance", {}).get(key):
+                    out["integrity"].append(f"saida_divergente_entre_auditores:{key}:{e['case_id']}:seed{e['seed']}")
         if e["seed"] not in seeds:
             out["integrity"].append(f"seed_fora_do_prereg:{e['case_id']}:seed{e['seed']}"); continue
         if e["seed"] in by_case[e["case_id"]]:
             out["integrity"].append(f"seed_duplicada:{e['case_id']}:seed{e['seed']}")
         by_case[e["case_id"]][e["seed"]] = rec
 
+    # seeds distintas têm de ser RUNS distintos: mesmo arquivo JSON ou mesma saída (sha de O′) em duas seeds = reuso
+    for cid, recs in by_case.items():
+        seen_sha, seen_path = {}, {}
+        for sd, rec in recs.items():
+            for kind in ("occupancy", "fidelity"):
+                pth = next((e_[kind] for e_ in idx if e_["case_id"] == cid and e_["seed"] == sd), None)
+                if pth and (kind, pth) in seen_path:
+                    out["integrity"].append(f"run_duplicada:{kind}:{cid}:seed{sd}=seed{seen_path[(kind, pth)]}")
+                if pth:
+                    seen_path[(kind, pth)] = sd
+            sha = (rec.get("occupancy") or {}).get("provenance", {}).get("o_engine_sha256")
+            if sha and sha in seen_sha:
+                out["integrity"].append(f"run_duplicada:o_engine_sha256:{cid}:seed{sd}=seed{seen_sha[sha]}")
+            if sha:
+                seen_sha[sha] = sd
+    # limiares idênticos em todos os JSONs do run (nenhum caso pode ser julgado com limiar/franja diferente)
+    for kind in ("occupancy", "fidelity"):
+        thr = {json.dumps(rec[kind].get("thresholds"), sort_keys=True) for recs in by_case.values() for rec in recs.values() if rec.get(kind)}
+        if len(thr) > 1:
+            out["integrity"].append(f"thresholds_divergentes:{kind}:{len(thr)} conjuntos distintos")
+
     def seed_eval(rec):
         occ, fid = rec.get("occupancy"), rec.get("fidelity")
         if occ is None or fid is None:
             return {"status": "INCONCLUSIVO", "causes": ["missing_audit_json"], "axis_A": None}
-        ve = occ.get("verdict_engine"); vf = fid.get("verdict")
-        eng = occ.get("engine", {})
-        causes = list(eng.get("causes", [])) + list(fid.get("causes", []))
-        axis_a = (not any(c.startswith(CREATION) for c in eng.get("causes", []))) and eng.get("coverage_of_band_min") is not None
+        ve = occ.get("verdict_engine"); vf = fid.get("verdict"); vc = occ.get("verdict_composed")
+        eng = occ.get("engine", {}); comp = occ.get("composed", {}) or {}
+        causes = list(eng.get("causes", [])) + list(fid.get("causes", [])) + [f"composed:{c}" for c in comp.get("causes", [])]
+        thr = occ.get("thresholds", {}) or {}
+        axis_a = (occ.get("gate_eligible") is True and ve != "INCONCLUSIVO"
+                  and (eng.get("coverage_of_band_min") or 0.0) >= float(thr.get("min_coverage_band_min", 0.9))
+                  and (eng.get("band_min_change_magnitude") or 0.0) >= float(thr.get("min_band_min_delta_e", 8.0))
+                  and (eng.get("changed_fraction_in_G") or 0.0) >= float(thr.get("min_changed_fraction_in_g", 0.9))
+                  and not any(c.startswith(CREATION) for c in eng.get("causes", [])))
+        if vc is not None and vc != "PASS":  # O composto, quando fornecido, é a entrega: FAIL/INCONCLUSIVO vinculam
+            if str(vc).startswith("INCONCLUSIVO"):
+                return {"status": "INCONCLUSIVO", "causes": causes + ["composed:" + str(vc)], "axis_A": bool(axis_a), "verdict_occupancy_engine": ve, "verdict_occupancy_composed": vc, "verdict_fidelity": vf}
+            return {"status": "FAIL", "causes": causes or ["composed:" + str(vc)], "axis_A": bool(axis_a), "verdict_occupancy_engine": ve, "verdict_occupancy_composed": vc, "verdict_fidelity": vf}
         flags = list(occ.get("flags", [])) + list(eng.get("flags", []))
         if ve == "PASS" and vf == "PASS" and not any(f.startswith(("occlusion_listed_without_front_certain", "null_distribution_not_credible")) for f in flags):
             st = "PASS"
@@ -110,7 +159,7 @@ def main():
                 causes += eng.get("inconclusive", []) + fid.get("inconclusive", [])
         else:
             st = "FAIL"
-        return {"status": st, "causes": causes, "axis_A": bool(axis_a), "verdict_occupancy_engine": ve, "verdict_fidelity": vf}
+        return {"status": st, "causes": causes, "axis_A": bool(axis_a), "verdict_occupancy_engine": ve, "verdict_occupancy_composed": vc, "verdict_fidelity": vf}
 
     def case_eval(cid):
         recs = by_case.get(cid, {})
@@ -148,8 +197,9 @@ def main():
 
     # progressão
     for trans, spec in roles.get("progression", {}).items():
-        ok_cases = [c for c in spec["cases"] if out["core"].get(c, {}).get("axis_A_seeds_pass", 0) >= spec["min_seeds_axis_A"]]
-        out["progression"][trans] = {"cases_meeting_axis_A": ok_cases, "allowed": len(ok_cases) >= spec["min_cases"]}
+        ok_cases = [c for c in spec["cases"] if out["core"].get(c, {}).get("axis_A_seeds_pass", 0) >= spec["min_seeds_axis_A"]
+                    and not out["core"].get(c, {}).get("missing_seeds") and len(out["core"].get(c, {}).get("seeds", {})) == spec.get("of_seeds", len(seeds))]
+        out["progression"][trans] = {"cases_meeting_axis_A": ok_cases, "allowed": (len(ok_cases) >= spec["min_cases"]) and not out["integrity"]}
 
     # veredito
     core_verdicts = [out["core"][c]["case_verdict"] for c in core]

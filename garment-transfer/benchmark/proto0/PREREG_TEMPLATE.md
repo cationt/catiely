@@ -68,7 +68,7 @@ Braço que não cria a peça em EASY é rotulado **replace-only** e sai sem disc
 | R1 klein 4B fp8 | E0′, E1, E1′, E1″, E2a, E2b | 1,2,3 | 1024 lado maior | guidance fixo 1.0, 4 passos |
 | R1-EI klein-base-4B + Easy-Insert | E4 | 1,2,3 | 1024² (recorte) | 15 passos (NV); medir frio |
 | R3 FASHN 1.5 | seg-free; mascarado | 1,2,3 | ≤ 576×864 | só auditoria em O′ |
-| R2 QIE-2511 Q5 | E0 (sweep), E0′, E2b, E4, E3 (depth MoGe como ref.; patch Blockwise NV) | 1 (2 se couber) | 544×960 | sob H4 |
+| R2 QIE-2511 Q5 | E0 (sweep), E0′, E4, E3 (depth MoGe como ref.; patch Blockwise NV); E2b só se E2 mostrar sinal em klein (`06` §7) | 1 (2 se couber) | 544×960 | sob H4 |
 | R4 CatVTON | máscara desenhada = envelope \ FO; B plana e B vestida recortada; política a/b/c | 1,2,3 | 1024×768 | NC |
 | R8 two-pass FASHN→klein | — | 1,2,3 | — | máscara derivada de O′_FASHN só para gerar |
 
@@ -89,8 +89,15 @@ Braço que não cria a peça em EASY é rotulado **replace-only** e sai sem disc
 | excess_forbidden_frac | ≤ 0,02 | provisório |
 | **franja C3** (`contact_fringe_px` ao redor de G) | \|ΔL\| ≤ 12 **e** Δchroma ≤ 6 por pixel; ≤ 5 % dos pixels da franja violando; correlação de estrutura de gradiente (A vs O′ na franja) ≥ 0,6 | provisório — recalibrar com a nula; muda só em PREREG v2 |
 | **split_by_garment_edge** (por elemento) | cobertura de `split_must_cover_mask` por G ≥ 0,90; tecido sobre `split_must_stay_visible_mask` ≤ 0,02; identidade de `split_must_stay_visible_mask` ≥ limiar derivado da nula; **zona de fronteira** (elemento ∩ UNCERTAIN): cada pixel é G **ou** idêntico a A (dentro de τ_null) — nada intermediário | provisório (cobertura/tecido); nula (identidade) |
-| **fidelidade à peça** (`tools/garment_fidelity_audit.py`) | adjudicação **cega** dos atributos congelados em `expected.garment_attributes` (humano, saídas por hash): **categoria eliminatória**; distância cromática em Lab entre G em O′ e `expected.b_garment_mask` em B ≤ 12 (mediana por região; provisório); DINOv2 cos-sim (G em O′ vs peça em B) **acima da baseline de peça aleatória** — só reporte, não decide | provisório / baseline medida no próprio run |
+| **fidelidade à peça** (`tools/garment_fidelity_audit.py`) | adjudicação **cega** dos atributos congelados em `expected.garment_attributes` (humano, saídas por hash): **categoria eliminatória**; distância entre centróides de croma Lab (a*,b*) de G em O′ e de `expected.b_garment_mask` em B ≤ 12 (`--max-chroma-distance`) **e** interseção dos histogramas de matiz (36 bins, croma > 5) ≥ 0,40 (`--min-hue-intersection`); L* só reportado (iluminação A ≠ B); ambos provisórios, calibrar no `same_garment_noop`; DINOv2 cos-sim (G em O′ vs peça em B) **acima da baseline de peça aleatória** — só reporte, não decide | provisório / baseline medida no próprio run |
 | **tol_engine** (identidade de pixel em O′) | p99,5 de \|A_ref − A\| por zona (`--a-ref`, O_null1) | nula |
+| franja: `--g-boundary-err-px` | ≤ 2 px (erro de borda calibrado do segmentador G; anel interno da franja não julgado) | calibração de G (00 §4.4) |
+| franja: `--max-fringe-excluded-frac` | ≤ 0,25 da banda excluída pela franja; acima → INCONCLUSIVO | fixo (anti-diluição) |
+| nula: `--max-tol-engine` | p99,5 da nula ≤ 12; acima → nula não aceita → INCONCLUSIVO | fixo (credibilidade) |
+| fidelidade: `--min-chroma-inlier-fraction` | ≥ 0,60 dos pixels de G a ≤ 12 do centróide (a*,b*) de B | provisório |
+| fidelidade: `--max-achromatic-delta-l` | peças acromáticas: |ΔL*| médio ≤ 30 (branco vs preto não é iluminação) | provisório |
+| adjudicação cega | `blind`, `catch_trials_passed`, `evaluator_id`, `date`, `case_id`, `output_sha256` (= sha de O′) obrigatórios | fixo |
+| O composto no gate | quando fornecido, FAIL/INCONCLUSIVO do alvo composto vincula o caso (entrega) | fixo |
 | **tol_composed** (identidade de pixel em O) | **0** — contrato exato em PROTECTED (`frozen_annotation.protected_mask` = `<case>_PR.png`, resolvido do manifesto) e núcleo dos oclusores | contrato (`docs/00` §4) |
 
 ## 6. Regra de agregação

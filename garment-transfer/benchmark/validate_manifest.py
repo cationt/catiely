@@ -25,7 +25,7 @@ Checagens:
     nenhum par de casos core compartilha A (independência); auditor_control ⇔ negative_control ≠ none; progression ⊂ core.
 Saída: código 1 se houver erros, 2 em erro de uso.
 """
-import json, sys, collections, os, hashlib, argparse
+import json, sys, collections, os, hashlib, argparse, re, re
 try:
     import jsonschema
 except ImportError:
@@ -34,9 +34,45 @@ except ImportError:
 here = os.path.dirname(os.path.abspath(__file__))
 root = os.path.dirname(here)
 DEFAULT_ROLES = os.path.join(here, "proto0", "g0_case_roles.json")
+G0_CORE_OF = 6  # pré-registrado: seis casos core (EASY–HARD)
 KNOWN_ROLES = ("gate_core", "replication", "attribution_fidelity", "attribution_pose_delta", "attribution_sleeve_pair",
                "extreme_report_only", "ground_truth", "auditor_control")
 NC_NONE = (None, "none")
+
+
+def a_size_of(row):
+    """(largura, altura) da imagem A quando existe em disco (para conferir a grade das máscaras)."""
+    lp = (row.get("A") or {}).get("local_path")
+    if not lp:
+        return None
+    fp = os.path.join(root, lp)
+    try:
+        from PIL import Image
+        with Image.open(fp) as im:
+            return im.size
+    except Exception:
+        return None
+
+
+def mask_file_issue(fp, a_size):
+    """Máscara congelada deve ser PNG modo L/1 estritamente binário (0/255) na grade de A."""
+    try:
+        from PIL import Image
+        import numpy as np
+    except Exception:
+        return None  # sem PIL/numpy: checagem indisponível (o auditor repete a verificação em tempo de run)
+    try:
+        with Image.open(fp) as im:
+            if im.mode not in ("L", "1"):
+                return f"modo {im.mode} (esperado L/1)"
+            if a_size and im.size != a_size:
+                return f"tamanho {im.size} ≠ A {a_size}"
+            arr = np.asarray(im.convert("L"))
+    except Exception as e:
+        return f"não é PNG legível ({e})"
+    if ((arr > 0) & (arr < 255)).any():
+        return "valores não binários (esperado 0/255)"
+    return None
 
 
 def iter_sources(obj, path=""):
@@ -133,10 +169,14 @@ def main(argv=None):
                 if not args.allow_placeholders:
                     err(f"{cid}: sha256 placeholder em {sres.get('local_path') or sres.get('url')} (use --allow-placeholders só para esqueleto NÃO congelado)")
             cr = sres.get("consent_record_id")
-            if isinstance(cr, str) and "PLACEHOLDER" in cr:
+            if isinstance(cr, str) and "PLACEHOLDER" in cr.upper():
                 placeholders += 1
                 if not args.allow_placeholders:
                     err(f"{cid}: consent_record_id placeholder em {spath}")
+            lic = (sres.get("license") or "")
+            if re.search(r"self[-_ ]?captured[-_ ]?consent", lic, re.I):
+                if not isinstance(cr, str) or not cr.strip() or cr.strip().lower() in ("tbd", "n/a", "na", "none", "null", "-"):
+                    err(f"{cid}: license self-captured-consent exige consent_record_id não vazio em {spath} (valor: {cr!r})")
             if args.check_files and sres.get("local_path"):
                 fp = os.path.join(root, sres["local_path"])
                 if not os.path.exists(fp):
@@ -145,6 +185,10 @@ def main(argv=None):
                     real = hashlib.sha256(open(fp, "rb").read()).hexdigest()
                     if real != h:
                         err(f"{cid}: sha256 divergente para {sres['local_path']} (declarado {h[:12]}…, real {real[:12]}…)")
+                    if spath.startswith("expected") and fp.lower().endswith(".png") and "ground_truth" not in spath:
+                        issue = mask_file_issue(fp, a_size_of(r))
+                        if issue:
+                            err(f"{cid}: máscara {sres['local_path']} inválida — {issue}")
         for spath, sval in iter_strings(r):
             if "A PREENCHER" in sval or sval.strip() == "TBD":
                 placeholders += 1
@@ -159,6 +203,10 @@ def main(argv=None):
         if any(z.get("relation") == "front_certain" for z in zo) and r.get("coverage", {}).get("occlusion") == ["none"]:
             err(f"{cid}: coverage.occlusion=['none'] mas z_order tem elemento front_certain (contradição: eixo D não pode ser NOT_APPLICABLE)")
         occl = r.get("coverage", {}).get("occlusion")
+        if isinstance(occl, list) and "none" in occl and len(occl) > 1:
+            err(f"{cid}: coverage.occlusion mistura 'none' com outros valores ({occl})")
+        if isinstance(occl, list) and len(occl) == 0:
+            err(f"{cid}: coverage.occlusion vazio — declare ['none'] ou os oclusores")
         if not any(z.get("relation") == "front_certain" for z in zo) and occl != ["none"] and r.get("spec", {}).get("mode") in ("add", "add_over_layer"):
             err(f"{cid}: coverage.occlusion={occl} sem nenhum elemento front_certain no z_order — ou anote o oclusor como front_certain (com máscara) ou declare occlusion=['none']")
         if not any(z.get("relation") == "front_certain" for z in zo) and fa.get("front_occluders_mask"):
@@ -193,7 +241,9 @@ def main(argv=None):
         h = r.get("A", {}).get("sha256", "")
         if h and not is_placeholder_sha(h): by_A[("sha", h)].append(r["case_id"])
     for r in rows:
-        cid = r["case_id"]
+        cid = r.get("case_id")
+        if not cid:
+            continue
         shares = r.get("provenance", {}).get("shares_A_with", []) or []
         for other in shares:
             if other == cid:
@@ -209,20 +259,55 @@ def main(argv=None):
                         err(f"{cid}: usa a mesma A ({key[0]}={str(key[1])[-40:]}) que '{other}' mas não o lista em provenance.shares_A_with (deve ser o conjunto completo, em ambas as linhas)")
 
     # ---- reuso de máscaras entre casos ----------------------------------------------------------------------
+    B_DEPENDENT = ("_BMIN", "_BMAX", "_BMAXB", "_FS", "_UNC", "_BG", "_GSTAR", "_GT")  # dependem da peça B (banda, espaço livre, incerteza, máscara em B, GT)
+    def mask_suffix(base, owner):
+        stem = base[len(owner) + 1:] if owner and base.startswith(owner + "_") else base
+        return "_" + stem.split(".")[0]
+    owned_paths = {}  # (owner, basename) → local_path declarado pelo dono
     for r in rows:
-        cid = r["case_id"]
+        for spath, sres in iter_sources(r.get("expected", {}), "expected"):
+            lp = sres.get("local_path")
+            if lp and owner_prefix(os.path.basename(lp), case_ids) == r.get("case_id"):
+                owned_paths[(r.get("case_id"), os.path.basename(lp))] = (lp, sres.get("sha256", ""))
+    for r in rows:
+        cid = r.get("case_id")
+        if not cid:
+            continue
         shares = r.get("provenance", {}).get("shares_A_with", []) or []
         for spath, sres in iter_sources(r.get("expected", {}), "expected"):
             lp = sres.get("local_path")
-            if not lp: continue
+            if not lp:
+                err(f"{cid}: {spath} sem local_path — toda referência congelada sob expected precisa de arquivo local verificável (url-only não é congelável)")
+                continue
+            norm = os.path.normpath(lp).replace(os.sep, "/")
+            if os.path.isabs(lp) or norm.startswith("..") or "/../" in "/" + norm + "/":
+                err(f"{cid}: {spath} = {lp} — caminho absoluto ou com '..' não é permitido (deve ser relativo à raiz do repositório)")
+                continue
+            if r.get("split") == "proto0" and not norm.startswith("benchmark/proto0/"):
+                err(f"{cid}: {spath} = {lp} — arquivos congelados de proto0 devem estar em benchmark/proto0/")
             base = os.path.basename(lp)
             owner = owner_prefix(base, case_ids)
             if owner == cid:
                 continue
             if owner is None:
                 err(f"{cid}: {spath} = {base} não tem prefixo '<case_id>_' de nenhum caso do manifesto (máscara congelada deve ser nomeada pelo caso dono)")
-            elif owner not in shares or not same_A(r, by_id[owner]):
+                continue
+            if owner not in shares or not same_A(r, by_id[owner]):
                 err(f"{cid}: {spath} = {base} — máscara reaproveitada de outro caso sem shares_A_with / A diferente (dona: {owner})")
+                continue
+            own = owned_paths.get((owner, base))
+            if own is None:
+                err(f"{cid}: {spath} = {base} — o caso dono '{owner}' não declara esse arquivo; reuso só do arquivo congelado do dono")
+            else:
+                if own[0] != lp:
+                    err(f"{cid}: {spath} = {lp} — caminho difere do arquivo congelado do dono ({own[0]})")
+                h1, h2 = sres.get("sha256", ""), own[1]
+                if not is_placeholder_sha(h1) and not is_placeholder_sha(h2) and h1 != h2:
+                    err(f"{cid}: {spath} = {base} — sha256 difere do arquivo congelado do dono '{owner}'")
+            suf = mask_suffix(base, owner)
+            if any(suf == bd or suf.startswith(bd + "_") for bd in B_DEPENDENT):
+                if (by_id[owner].get("B", {}) or {}).get("local_path") != (r.get("B", {}) or {}).get("local_path"):
+                    err(f"{cid}: {spath} = {base} depende da peça B (banda/espaço livre/incerteza/máscara em B) e a B difere da do dono '{owner}' — precisa de arquivo próprio")
 
     # ---- anti-vazamento por ids ----------------------------------------------------------------------------
     for key in ("person_group_id", "garment_group_id", "source_group_id"):
@@ -269,6 +354,18 @@ def main(argv=None):
                 warn(f"(roles) gate={roles_doc.get('gate')!r}, esperado 'G0'")
             if roles_doc.get("frozen_before_first_run") is not True:
                 err("(roles) frozen_before_first_run deve ser true — o conjunto core é fixado antes de qualquer run")
+            if not levels:
+                err("(roles) core_rule.levels_counted ausente/vazio — deve ser exatamente EASY, MEDIUM, HARD")
+            elif levels - {"EASY", "MEDIUM", "HARD"}:
+                err(f"(roles) core_rule.levels_counted contém níveis fora de EASY/MEDIUM/HARD: {sorted(levels - {'EASY', 'MEDIUM', 'HARD'})} (EXTREME é só reporte)")
+            if of != G0_CORE_OF:
+                err(f"(roles) core_rule.of = {of!r}; o gate G0 pré-registra exatamente {G0_CORE_OF} casos core")
+            seeds_ = core_rule.get("seeds") or []
+            if not isinstance(seeds_, list) or len(set(seeds_)) < 3:
+                err(f"(roles) core_rule.seeds = {seeds_!r}; a regra 'mediana sobre seeds (≥ 2/3)' exige ≥ 3 seeds distintas")
+            for step, spec in (roles_doc.get("progression", {}) or {}).items():
+                if isinstance(seeds_, list) and spec.get("of_seeds") != len(seeds_):
+                    err(f"(roles) progression {step}: of_seeds={spec.get('of_seeds')} ≠ nº de seeds ({len(seeds_)})")
             for cid in sorted(proto_ids):
                 if cid not in roles:
                     err(f"(roles) caso proto0 '{cid}' sem papel em {os.path.basename(roles_path)}")
@@ -324,7 +421,7 @@ def main(argv=None):
                     err(f"(roles) progression {step}: min_cases={mc} maior que o número de casos listados")
             core_line = f"G0 core: {len(core_cases)} casos congelados: {', '.join(core_cases)} (regra ≥ {mp}/{of}; seeds {core_rule.get('seeds')})"
     elif proto0:
-        warn("manifesto proto0 sem arquivo de papéis do gate (use --roles ou crie benchmark/proto0/g0_case_roles.json)")
+        err("manifesto proto0 sem arquivo de papéis do gate (use --roles ou crie benchmark/proto0/g0_case_roles.json) — sem papéis congelados não há G0")
 
     if core_line:
         print(core_line)
