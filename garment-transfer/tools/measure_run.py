@@ -44,11 +44,30 @@ try:
 except ImportError:  # pragma: no cover
     psutil = None  # verificado em main(); commit_info()/_win_performance_info() não dependem de psutil
 
+import warnings
 try:
-    import pynvml  # type: ignore
+    with warnings.catch_warnings():
+        # o pacote PyPI "pynvml" está deprecado; "nvidia-ml-py" fornece o MESMO módulo `pynvml` sem o aviso. A semântica do monitor é idêntica.
+        warnings.filterwarnings("ignore", message=".*pynvml.*", category=FutureWarning)
+        warnings.filterwarnings("ignore", message=".*pynvml.*", category=DeprecationWarning)
+        warnings.filterwarnings("ignore", message=".*pynvml.*", category=UserWarning)
+        import pynvml  # type: ignore
     _NVML = True
 except Exception:
     _NVML = False
+
+
+def nvml_package_name():
+    """Qual distribuição fornece o módulo pynvml (nvidia-ml-py recomendado; pynvml deprecado)."""
+    try:
+        from importlib.metadata import distributions
+        for d in distributions():
+            name = (d.metadata["Name"] or "").lower()
+            if name in ("nvidia-ml-py", "pynvml"):
+                return f"{name}=={d.version}"
+    except Exception:
+        pass
+    return "unknown"
 
 
 COMMIT_SOURCE_REAL = "GetPerformanceInfo"
@@ -385,6 +404,7 @@ def main():
                 "cpu_count": psutil.cpu_count(logical=True),
                 "ram_total_mb": psutil.virtual_memory().total / 2**20,
                 "nvml_available": bool(handles),
+                "nvml_package": nvml_package_name(),
             },
             "commit_measurement": commit_measurement_summary(peak["commit_source"]),
             "baseline": baseline,

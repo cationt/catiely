@@ -16,12 +16,37 @@
    "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
    "requirements.txt": "d630ce071476ded337c515116e4c63c43df331f15c2a8adf08a8ca227ddcf549"
   },
-  "upstream_defaults": {"image_size": 1024, "crop_scale": 1.2, "num_inference_steps": 15, "guidance_scale": 4.0, "seed": 1, "feather": 0,
-   "prompt": "Replace the white mask of image1 with the content in image2. Preserving the background, lighting, and surrounding elements, maintain a seamless and natural result."},
+  "upstream_defaults": {
+   "image_size": 1024,
+   "crop_scale": 1.2,
+   "num_inference_steps": 15,
+   "guidance_scale": 4.0,
+   "seed": 1,
+   "feather": 0,
+   "prompt": "Replace the white mask of image1 with the content in image2. Preserving the background, lighting, and surrounding elements, maintain a seamless and natural result."
+  },
   "backends": {
-   "diffusers": {"script": "inference_diffusers.py", "pipeline": "diffusers.Flux2KleinPipeline", "lora_repo": "LiXiY/Easy-Insert", "used_by_official_demo": "https://huggingface.co/spaces/LiXiY/Easy-Insert (app.py: Flux2KleinPipeline + load_lora_weights('LiXiY/Easy-Insert'))"},
-   "diffsynth": {"script": "inference.py / low_varm_inference.py / app.py", "pipeline": "diffsynth.pipelines.flux2_image.Flux2ImagePipeline", "lora_repo": "HuanJue/Easy-Insert (ModelScope; o mesmo id NÃO existe publicamente no Hugging Face — verificado via API em 2026-10-08)", "note": "DiffSynth baixa do ModelScope por padrão (ModelConfig.parse_download_source); o modo '8 GB' usa vram_config com offload em disco e pesos float8_e4m3fn em CPU, computação bf16 em CUDA, vram_limit = VRAM livre − 0,5 GB."}
-  }
+   "diffusers": {
+    "script": "inference_diffusers.py",
+    "pipeline": "diffusers.Flux2KleinPipeline",
+    "lora_repo": "LiXiY/Easy-Insert",
+    "used_by_official_demo": "https://huggingface.co/spaces/LiXiY/Easy-Insert (app.py: Flux2KleinPipeline + load_lora_weights('LiXiY/Easy-Insert'))"
+   },
+   "diffsynth": {
+    "script": "inference.py / low_varm_inference.py / app.py",
+    "pipeline": "diffsynth.pipelines.flux2_image.Flux2ImagePipeline",
+    "lora_repo": "HuanJue/Easy-Insert (ModelScope; o mesmo id NÃO existe publicamente no Hugging Face — verificado via API em 2026-10-08)",
+    "note": "DiffSynth baixa do ModelScope por padrão (ModelConfig.parse_download_source); o modo '8 GB' usa vram_config com offload em disco e pesos float8_e4m3fn em CPU, computação bf16 em CUDA, vram_limit = VRAM livre − 0,5 GB."
+   }
+  },
+  "files_git_blob_oid": {
+   "utils.py": "70b31434ad5f88d7d2b54fe74bf0496a11fc50a2",
+   "inference_diffusers.py": "bdfb3e65ea9bf2ac0f12475b3038a1722e5c405e",
+   "README.md": "93b9f3cd028a94932309de87a14bdbd5d0042d06",
+   "LICENSE": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+   "requirements.txt": "16f50ad5dea7dd4a085968d8ed1ae781aea20e27"
+  },
+  "eol_note": "sha256 acima são do conteúdo LF (blobs do commit). Com core.autocrlf=true o working tree vira CRLF (utils.py CRLF → sha256 7aa544c68eab96e8466bb4889bea5e6293386e039c53dd40d3df55662aa0e1f7, reproduzido). A verificação usa os blob OIDs (git ls-tree) ou sha256 normalizado CRLF→LF (tools/r1ei/verify_provenance.py)."
  },
  "lora": {
   "repo": "LiXiY/Easy-Insert",
@@ -39,32 +64,87 @@
   "revision": "a3b4f4849157f664bdbc776fd7453c2783562f4d",
   "gated": false,
   "license": "apache-2.0 (LICENSE.md lido)",
-  "architecture": {"transformer": "Flux2Transformer2DModel: 5 double + 20 single blocks, 24 heads × 128, in_channels 128 (VAE 32 ch × patch 2×2), joint_attention_dim 7680, guidance_embeds false (CFG real = 2 passes/step)", "text_encoder": "Qwen3ForCausalLM (hidden 2560, 36 layers = Qwen3-4B), bf16; camadas (9, 18, 27) → 7680", "vae": "AutoencoderKLFlux2 (latent 32 ch, f8 → ×2 patch = 16 px/token; 1024² → 4096 tokens)"},
-  "files_needed_by_runner": {
-   "transformer/diffusion_pytorch_model.safetensors": {"size_bytes": 7751109744, "sha256": "e109674697ffa1a3983126e32512f5428a9442bd8df59f9c95566ee90a473bb6"},
-   "text_encoder/model-00001-of-00002.safetensors": {"size_bytes": 4967215360, "sha256": "8c0506e7f4936fa7e26183a4fd8da4e2bdbc5990ba64ae441f965d51228f36ea"},
-   "text_encoder/model-00002-of-00002.safetensors": {"size_bytes": 3077766632, "sha256": "82f2bd839378541b0557bfabaf37c7d3d637071fdcb73302dedd7cf61162ce07"},
-   "vae/diffusion_pytorch_model.safetensors": {"size_bytes": 168120878, "sha256": "ca70d2202afe6415bdbcb8793ba8cd99fd159cfe6192381504d6c4d3036e0f04"},
-   "tokenizer/tokenizer.json": {"size_bytes": 11422654, "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"}
+  "architecture": {
+   "transformer": "Flux2Transformer2DModel: 5 double + 20 single blocks, 24 heads × 128, in_channels 128 (VAE 32 ch × patch 2×2), joint_attention_dim 7680, guidance_embeds false (CFG real = 2 passes/step)",
+   "text_encoder": "Qwen3ForCausalLM (hidden 2560, 36 layers = Qwen3-4B), bf16; camadas (9, 18, 27) → 7680",
+   "vae": "AutoencoderKLFlux2 (latent 32 ch, f8 → ×2 patch = 16 px/token; 1024² → 4096 tokens)"
   },
-  "small_files_needed": ["model_index.json", "scheduler/scheduler_config.json", "transformer/config.json", "text_encoder/config.json", "text_encoder/generation_config.json", "text_encoder/model.safetensors.index.json", "tokenizer/added_tokens.json", "tokenizer/chat_template.jinja", "tokenizer/merges.txt", "tokenizer/special_tokens_map.json", "tokenizer/tokenizer_config.json", "tokenizer/vocab.json", "vae/config.json"],
-  "files_not_needed": ["flux-2-klein-base-4b.safetensors (7.75 GB, single-file para ComfyUI — NÃO baixar)", "editing.jpg", "others.jpg", "realism.jpg"],
+  "files_needed_by_runner": {
+   "transformer/diffusion_pytorch_model.safetensors": {
+    "size_bytes": 7751109744,
+    "sha256": "e109674697ffa1a3983126e32512f5428a9442bd8df59f9c95566ee90a473bb6"
+   },
+   "text_encoder/model-00001-of-00002.safetensors": {
+    "size_bytes": 4967215360,
+    "sha256": "8c0506e7f4936fa7e26183a4fd8da4e2bdbc5990ba64ae441f965d51228f36ea"
+   },
+   "text_encoder/model-00002-of-00002.safetensors": {
+    "size_bytes": 3077766632,
+    "sha256": "82f2bd839378541b0557bfabaf37c7d3d637071fdcb73302dedd7cf61162ce07"
+   },
+   "vae/diffusion_pytorch_model.safetensors": {
+    "size_bytes": 168120878,
+    "sha256": "ca70d2202afe6415bdbcb8793ba8cd99fd159cfe6192381504d6c4d3036e0f04"
+   },
+   "tokenizer/tokenizer.json": {
+    "size_bytes": 11422654,
+    "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+   }
+  },
+  "small_files_needed": [
+   "model_index.json",
+   "scheduler/scheduler_config.json",
+   "transformer/config.json",
+   "text_encoder/config.json",
+   "text_encoder/generation_config.json",
+   "text_encoder/model.safetensors.index.json",
+   "tokenizer/added_tokens.json",
+   "tokenizer/chat_template.jinja",
+   "tokenizer/merges.txt",
+   "tokenizer/special_tokens_map.json",
+   "tokenizer/tokenizer_config.json",
+   "tokenizer/vocab.json",
+   "vae/config.json"
+  ],
+  "files_not_needed": [
+   "flux-2-klein-base-4b.safetensors (7.75 GB, single-file para ComfyUI — NÃO baixar)",
+   "editing.jpg",
+   "others.jpg",
+   "realism.jpg"
+  ],
   "download_total_bytes_approx": 15987000000
  },
  "environment": {
   "python": ">=3.10 (alvo: 3.12, o mesmo do ComfyUI Desktop)",
   "torch": "mesma versão/CUDA do venv do ComfyUI Desktop (detectado pelo setup); fallback: estável mais recente do índice https://download.pytorch.org/whl/cu128 (Blackwell sm_120 exige CUDA ≥ 12.8). Os wheels Windows do PyPI são CPU-only (verificado: 118 MB, deps nvidia-* só Linux).",
   "requirements": "tools/r1ei/requirements-r1ei.txt",
-  "no_extra_kernels": "sem flash-attn/sageattention/triton: diffusers usa SDPA nativo por padrão"
+  "no_extra_kernels": "sem flash-attn/sageattention/triton: diffusers usa SDPA nativo por padrão",
+  "download_method": "huggingface_hub.snapshot_download(repo, revision, local_dir, allow_patterns) via tools/r1ei/hf_fetch.py — o CLI `hf download --include a b c` (hub 1.27) trata os padrões extras como filenames e ignora --include (reproduzido em 2026-10-08)",
+  "nvml": "nvidia-ml-py (módulo pynvml); o pacote PyPI 'pynvml' está deprecado"
  },
  "run_protocol": {
   "inputs": "mesmas A e B do benchmark klein4b_fp8_2ref_1mp + máscara de inserção em A (grade de A) + máscara da peça em B (grade de B)",
   "resolution": "crop quadrado 1024² em torno da máscara de inserção (= 1,05 MP; comparável a ~1 MP), colado de volta na A original",
-  "steps": 15, "guidance_scale": 4.0, "seed": 1, "cfg_passes_per_step": 2,
+  "steps": 15,
+  "guidance_scale": 4.0,
+  "seed": 1,
+  "cfg_passes_per_step": 2,
   "mode_default": "normal = carregamento sequencial bf16: TE Qwen3-4B → embeddings → TE liberado; transformer bf16 + LoRA + VAE residentes; transformer vai para CPU antes do decode do VAE",
   "mode_fallback": "fp8 = transformer com layerwise casting (armazenamento float8_e4m3fn, computação bf16) se o modo normal estourar 12 GB; offload = enable_sequential_cpu_offload (lento) como último recurso; diffsynth-lowvram = modo '8 GB' do upstream (exige LoRA do ModelScope)",
   "harness": "tools/measure_run.py --budget-s 3600, cold n=3 e warm n=3, mesmas métricas do klein4b",
-  "differences_vs_klein4b": ["processo próprio (venv R1-EI) em vez de ComfyUI externo → tree_private_mb passa a representar o motor", "15 passos × 2 passes (CFG 4) em vez de 4 passos destilados", "entradas adicionais obrigatórias: 2 máscaras (não existiam no klein4b)", "crop 1024² em torno da máscara em vez de A inteira a ~1 MP", "bf16 (modo normal) em vez de fp8"]
+  "differences_vs_klein4b": [
+   "processo próprio (venv R1-EI) em vez de ComfyUI externo → tree_private_mb passa a representar o motor",
+   "15 passos × 2 passes (CFG 4) em vez de 4 passos destilados",
+   "entradas adicionais obrigatórias: 2 máscaras (não existiam no klein4b)",
+   "crop 1024² em torno da máscara em vez de A inteira a ~1 MP",
+   "bf16 (modo normal) em vez de fp8"
+  ],
+  "first_measurement": {
+   "date": "2026-10-08",
+   "record": "benchmark/measurements/r1ei_kleinbase4b_easyinsert_bf16_1024_normal.json",
+   "torch": "2.12.1+cu130",
+   "status": "ELEGÍVEL por tempo; VRAM crítica (pico 12 186,7 MB de 12 227 MiB)"
+  }
  },
  "verified_on": "2026-10-08",
  "verified_from": "container (GitHub, Hugging Face API, PyPI acessíveis; ModelScope e pytorch.org bloqueados — por isso o LoRA DiffSynth do ModelScope é NV e o índice cu128 não foi testado daqui)"

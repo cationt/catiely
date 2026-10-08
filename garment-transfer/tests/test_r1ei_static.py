@@ -19,7 +19,9 @@ def main():
     vsha = fz.sha256_file(os.path.join(R1, "vendor", "easy_insert_utils.py"))
     c.ok("vendor_utils_sha_igual_ao_pin", vsha == man["easy_insert"]["files_sha256"]["utils.py"] == "d84f0cbc0a85de804ad1bf65955d6ad0fd213a4b70f9ddc620f898fd54dd300f", vsha)
     c.ok("manifest_pins_presentes", all(man[k] for k in ("easy_insert", "lora", "base_model")) and len(man["lora"]["sha256"]) == 64 and man["easy_insert"]["upstream_defaults"]["num_inference_steps"] == 15 and man["easy_insert"]["upstream_defaults"]["guidance_scale"] == 4.0, "")
-    c.ok("requirements_pinadas", all("==" in l for l in open(os.path.join(R1, "requirements-r1ei.txt")) if l.strip() and not l.startswith("#") and not l.startswith("psutil") and not l.startswith("pynvml")), "")
+    c.ok("requirements_pinadas", all("==" in l for l in open(os.path.join(R1, "requirements-r1ei.txt")) if l.strip() and not l.startswith("#") and not l.startswith("psutil") and not l.startswith("nvidia-ml-py")), "")
+    reqs = [l.strip() for l in open(os.path.join(R1, "requirements-r1ei.txt")) if l.strip() and not l.startswith("#")]
+    c.ok("requirements_nvidia_ml_py_em_vez_de_pynvml", any(l.startswith("nvidia-ml-py") for l in reqs) and not any(l.split("=")[0].split(">")[0].strip() == "pynvml" for l in reqs), reqs[-2:])
     with tempfile.TemporaryDirectory() as d:
         A = np.full((1600, 1200, 3), 190, np.uint8); A[300:1300, 300:900] = (210, 170, 150); Ap = os.path.join(d, "A.png"); Image.fromarray(A).save(Ap)
         B = np.full((1200, 900, 3), 240, np.uint8); B[200:1000, 150:750] = (30, 60, 200); Bp = os.path.join(d, "B.png"); Image.fromarray(B).save(Bp)

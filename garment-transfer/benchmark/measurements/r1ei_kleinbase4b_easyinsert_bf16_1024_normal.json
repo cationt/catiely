@@ -1,0 +1,146 @@
+{
+ "record_version": 1,
+ "evidence_level": "MEDIDO NO HARDWARE-ALVO",
+ "candidate": "R1-EI — FLUX.2-klein-base-4B + Easy-Insert (LoRA), Diffusers sequencial bf16",
+ "config_label": "r1ei_kleinbase4b_easyinsert_bf16_1024_normal",
+ "config": {
+  "base_model": "black-forest-labs/FLUX.2-klein-base-4B @ a3b4f4849157f664bdbc776fd7453c2783562f4d (bf16)",
+  "lora": "LiXiY/Easy-Insert @ dd71e3f8422135844b625b1289c38f13789ea736 (easy-insert-diffusers.safetensors, sha256 6826ffcc…)",
+  "easy_insert_code": "huan-yin/Easy-Insert @ 82094484f432b74efb6c4ccbf144c08350f02144 (utils.py verificado por blob OID / sha256 LF)",
+  "inputs": "mesmas A e B do klein4b_fp8_2ref_1mp + máscara de inserção (bbox em A) + máscara da peça (bbox em B); máscaras grosseiras de viabilidade",
+  "resolution": "crop 1024×1024 (crop_scale 1,2) em torno da máscara, colado de volta em A",
+  "steps": 15,
+  "guidance_scale": 4.0,
+  "transformer_passes": 30,
+  "seed": 1,
+  "mode": "normal (carregamento sequencial bf16: TE Qwen3-4B → embeddings → liberado; transformer bf16 + LoRA + VAE residentes; transformer → CPU antes do decode)",
+  "runner": "tools/r1ei/run_easy_insert.py em processo próprio (venv R1-EI; tree_private_mb/tree_rss_mb SÃO o motor); ComfyUI Desktop fechado",
+  "harness": "tools/measure_run.py --budget-s 3600 --interval-s 0.5 com commit real (psapi.GetPerformanceInfo)",
+  "budget_s": 3600,
+  "torch": "2.12.1+cu130 (sm_120 confirmado)",
+  "state_definitions": {
+   "cold": "process-cold: processo novo por run, pesos lidos do disco; page cache do SO NÃO esvaziado explicitamente (sem RAMMap) → rótulo cold_pagecache_unflushed",
+   "warm": "processo novo por run com cache do sistema presumivelmente aquecido; NÃO é pipeline residente (diferente do warm do klein4b, onde o ComfyUI externo mantinha modelos residentes)"
+  }
+ },
+ "hardware": {
+  "gpu": "RTX 5070 12 GB (12 227 MiB)",
+  "cpu": "Ryzen 7 7800X3D",
+  "ram_gb": 16,
+  "os": "Windows 11",
+  "pagefile": "≈ 26 GB (commit limit ≈ 42 GB)",
+  "disk": "SSD 1 TB (espaço não é restrição do projeto)"
+ },
+ "metrics_units": "wall_s em segundos; demais em MB = MiB (bytes / 2^20) como reportado por measure_run.py (picos da série amostrada)",
+ "runs": {
+  "cold": {
+   "n": 3,
+   "files": [
+    "20261008T133749Z_r1ei_kleinbase4b_easyinsert_bf16_1024_normal_cold_r1.json",
+    "20261008T134337Z_r1ei_kleinbase4b_easyinsert_bf16_1024_normal_cold_r2.json",
+    "20261008T134940Z_r1ei_kleinbase4b_easyinsert_bf16_1024_normal_cold_r3.json"
+   ],
+   "all_runs": [
+    {"run": 1, "wall_s": 222.488, "vram_used_mb": 12138.0234375, "tree_rss_mb": 8559.45703125, "tree_private_mb": 21968.98828125, "sys_ram_used_mb": 15066.53515625, "swap_used_mb": 984.4296875, "commit_total_mb": 32697.2265625, "exit_code": 0, "deadline_hit": false, "verdict": "ok"},
+    {"run": 2, "wall_s": 287.689, "vram_used_mb": 12129.40234375, "tree_rss_mb": 9293.1796875, "tree_private_mb": 23728.18359375, "sys_ram_used_mb": 15218.07421875, "swap_used_mb": 1091.75, "commit_total_mb": 34809.16015625, "exit_code": 0, "deadline_hit": false, "verdict": "ok"},
+    {"run": 3, "wall_s": 272.462, "vram_used_mb": 12136.71484375, "tree_rss_mb": 9783.38671875, "tree_private_mb": 24304.26953125, "sys_ram_used_mb": 15200.28515625, "swap_used_mb": 962.21484375, "commit_total_mb": 31613.15625, "exit_code": 0, "deadline_hit": false, "verdict": "ok"}
+   ],
+   "wall_s": [222.488, 287.689, 272.462],
+   "median": {
+    "wall_s": 272.462,
+    "vram_used_mb": 12136.71484375,
+    "tree_rss_mb": 9293.1796875,
+    "tree_private_mb": 23728.18359375,
+    "sys_ram_used_mb": 15200.28515625,
+    "swap_used_mb": 984.4296875,
+    "commit_total_mb": 32697.2265625
+   },
+   "wall_s_min_max": [222.488, 287.689]
+  },
+  "warm": {
+   "n": 3,
+   "files": [
+    "20261008T135529Z_r1ei_kleinbase4b_easyinsert_bf16_1024_normal_warm_r1.json",
+    "20261008T140056Z_r1ei_kleinbase4b_easyinsert_bf16_1024_normal_warm_r2.json",
+    "20261008T140618Z_r1ei_kleinbase4b_easyinsert_bf16_1024_normal_warm_r3.json"
+   ],
+   "all_runs": [
+    {"run": 1, "wall_s": 283.905, "vram_used_mb": 12186.65234375, "tree_rss_mb": 9081.03515625, "tree_private_mb": 20783.59375, "sys_ram_used_mb": 14422.41796875, "swap_used_mb": 1222.81640625, "commit_total_mb": 31807.69140625, "exit_code": 0, "deadline_hit": false, "verdict": "ok"},
+    {"run": 2, "wall_s": 284.508, "vram_used_mb": 12138.52734375, "tree_rss_mb": 9502.66015625, "tree_private_mb": 23728.89453125, "sys_ram_used_mb": 14935.6640625, "swap_used_mb": 1026.1640625, "commit_total_mb": 35054.8515625, "exit_code": 0, "deadline_hit": false, "verdict": "ok"},
+    {"run": 3, "wall_s": 282.808, "vram_used_mb": 12177.90234375, "tree_rss_mb": 9199.44921875, "tree_private_mb": 24019.4296875, "sys_ram_used_mb": 14896.34765625, "swap_used_mb": 942.08984375, "commit_total_mb": 35064.390625, "exit_code": 0, "deadline_hit": false, "verdict": "ok"}
+   ],
+   "wall_s": [283.905, 284.508, 282.808],
+   "median": {
+    "wall_s": 283.905,
+    "vram_used_mb": 12177.90234375,
+    "tree_rss_mb": 9199.44921875,
+    "tree_private_mb": 23728.89453125,
+    "sys_ram_used_mb": 14896.34765625,
+    "swap_used_mb": 1026.1640625,
+    "commit_total_mb": 35054.8515625
+   },
+   "wall_s_min_max": [282.808, 284.508]
+  }
+ },
+ "all_runs": {
+  "exit_code": 0,
+  "deadline_hit": false,
+  "verdict": "ok",
+  "oom": false,
+  "discarded": 0
+ },
+ "derived": {
+  "vram_peak_max_mb": 12186.65234375,
+  "vram_headroom_min_mib": 40.3,
+  "cold_wall_range_vs_median": "−18 % / +6 % (222,5–287,7 s)",
+  "warm_wall_range_vs_median": "−0,4 % / +0,2 % (282,8–284,5 s)",
+  "warm_over_cold_median": 1.042,
+  "cold_median_fraction_of_1500s": 0.182
+ },
+ "comparison_with_klein4b_fp8_2ref_1mp": {
+  "reference_record": "benchmark/measurements/klein4b_fp8_2ref_1mp.json",
+  "cold_median": {
+   "klein4b": {"wall_s": 31.849, "vram_used_mb": 11660.5, "sys_ram_used_mb": 10671.8, "commit_total_mb": 29258.5},
+   "r1ei": {"wall_s": 272.462, "vram_used_mb": 12136.71484375, "sys_ram_used_mb": 15200.28515625, "commit_total_mb": 32697.2265625},
+   "wall_ratio": 8.555,
+   "delta_vram_mb": 476.2,
+   "delta_sys_ram_mb": 4528.5,
+   "delta_sys_ram_gib": 4.42,
+   "delta_commit_mb": 3438.7
+  },
+  "caveats": [
+   "30 passes do transformer (15 passos × CFG 4) vs 4 passos destilados: a razão 8,6× é compatível com a razão de passes (7,5×) mais carga/encode por processo",
+   "warm NÃO é comparável como pipeline residente: cada warm da R1-EI é processo novo (o warm do klein4b tinha o ComfyUI externo com modelos residentes)",
+   "tree_rss_mb/tree_private_mb do klein4b não representavam o motor (ComfyUI externo); na R1-EI representam",
+   "bf16 (R1-EI) vs fp8 (klein4b); crop 1024² vs A inteira ~1 MP; 2 máscaras adicionais"
+  ]
+ },
+ "observations": [
+  "VRAM crítica: picos 12 129–12 187 MB em 6/6 runs com 12 227 MiB físicos → folga mínima ≈ 40 MiB; sem OOM, mas sem margem para QA residente e com possibilidade de eviction WDDM silenciosa (não medida)",
+  "warm ≈ cold (1,04×): consistente com processo novo por run e ≈ 16 GB de pesos que não cabem no page cache ao lado de um processo com RSS ≈ 9 GB em 16 GB de RAM — o 'warm' aqui não mede residência de modelo",
+  "cold com dispersão de −18 %/+6 % (222,5 / 287,7 / 272,5 s); nenhum run descartado; n ≥ 10 antes de percentis (03 §8 item 7)",
+  "tree_private_mb (20,8–24,3 GB) > tree_rss_mb (8,6–9,8 GB): private bytes incluem reservas virtuais de CUDA/WDDM commitadas, não RAM física tocada",
+  "commit charge do sistema 31,6–35,1 GB (RAM 16 GB + pagefile ≈ 26 GB): depende do pagefile; sys_ram_used ≈ 14,4–15,2 GB de 16 GB → RAM praticamente saturada durante o run",
+  "não há justificativa, por tempo, para fp8/offload nesta medição; fp8 continua registrado como fallback se a VRAM crítica causar OOM em entradas maiores",
+  "esta medição prova apenas viabilidade computacional; a qualidade/fidelidade do garment transfer continua a ser decidida em G0/E4"
+ ],
+ "eligibility": {
+  "criterion": "docs/03 §8 item 6: frio ≤ 1 500 s/candidato @1024 com QA → elegível",
+  "cold_median_s": 272.462,
+  "verdict": "ELEGÍVEL por tempo (≈ 18 % do teto); VRAM CRÍTICA (folga ≈ 40 MiB); commit depende de pagefile; sem OOM"
+ },
+ "setup_bugs_reproduced_before_measurement": [
+  {"id": 1, "bug": "setup_r1ei.ps1 em UTF-8 sem BOM com caracteres não ASCII → ParserError no Windows PowerShell 5.1", "fix": "todos os .ps1 em ASCII puro + BOM UTF-8; .gitattributes com *.ps1 eol=crlf; teste tests/test_r1ei_infra.py"},
+  {"id": 2, "bug": "git core.autocrlf=true converteu LF→CRLF no clone Easy-Insert (utils.py working tree sha256 7aa544c6… ≠ pin LF d84f0cbc…)", "fix": "clone com -c core.autocrlf=false; tools/r1ei/verify_provenance.py confere blob OIDs do commit (git ls-tree) + sha256 normalizado CRLF→LF; runner compara sha LF e regista working_tree_eol_converted"},
+  {"id": 3, "bug": "hf download --include a b c (huggingface_hub 1.27.0) ignorou os padrões → base incompleta (~8,23 GB) e LoRA 'Fetching 0 files'", "fix": "tools/r1ei/hf_fetch.py com huggingface_hub.snapshot_download(allow_patterns=[…], revision=pin) + verificação de tamanhos/sha256"},
+  {"id": 4, "bug": "checagem de 24 GB de disco livre bloqueou o setup", "fix": "mantida só checagem simples de segurança (20 GB) e apenas quando há download (-SkipDownload a desativa); não é restrição do projeto"},
+  {"id": 5, "bug": "aviso de deprecação do pacote pynvml em measure_run.py/torch", "fix": "dependência nvidia-ml-py (mesmo módulo pynvml, mesma semântica); import com filtro do aviso; host.nvml_package no JSON"}
+ ],
+ "source_files": {
+  "location": "máquina-alvo: C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\runs\\ (JSONs do measure_run.py) e …\\w3-measure\\r1ei\\outputs\\ (PNGs + sidecars <out>.json do runner)",
+  "excluded": [],
+  "regenerate": "python tools/r1ei/summarize_runs.py --runs-dir <W3Root>\\runs --label-prefix r1ei_kleinbase4b_easyinsert_bf16_1024_normal --sidecars-dir <W3Root>\\r1ei\\outputs --candidate \"R1-EI\" --out <arquivo.json>",
+  "note": "os JSONs brutos e os sidecars não estão no repositório (contêm caminhos locais) e não foram inspecionados a partir do container; este registro transcreve os 6 runs reportados pelo operador em 2026-10-08; as 14 medianas foram recomputadas e conferem"
+ },
+ "reported_on": "2026-10-08"
+}

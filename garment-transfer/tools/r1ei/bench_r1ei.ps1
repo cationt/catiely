@@ -1,5 +1,5 @@
-# bench_r1ei.ps1 — medição de viabilidade R1-EI com tools/measure_run.py (cold n=3, warm n=3), mesmo protocolo do klein4b_fp8_2ref_1mp.
-# SÓ EXECUTAR depois de setup_r1ei.ps1 ter terminado com "PRONTO PARA O BENCHMARK" e o output ter sido revisado.
+﻿# bench_r1ei.ps1 - medicao de viabilidade R1-EI com tools/measure_run.py (cold n=3, warm n=3), mesmo protocolo do klein4b_fp8_2ref_1mp.
+# SO EXECUTAR depois de setup_r1ei.ps1 ter terminado com "PRONTO PARA O BENCHMARK" e o output ter sido revisado.
 # Uso: powershell -ExecutionPolicy Bypass -File garment-transfer\tools\r1ei\bench_r1ei.ps1 [-W3Root ...] [-Mode normal|fp8|offload] [-N 3]
 param(
   [string]$W3Root = "C:\Users\henri\OneDrive\Documentos\w3-measure",
@@ -31,8 +31,8 @@ function Run-One($state, $i) {
 }
 function Flush-Cache {
   if ($RamMap -and (Test-Path $RamMap)) { & $RamMap -Et; Start-Sleep -Seconds 3; Write-Host "standby list esvaziada (RAMMap -Et)" }
-  else { Write-Host "AVISO: sem RAMMap — page cache do SO NÃO esvaziado; registre o run frio como cold_pagecache_unflushed" -ForegroundColor Yellow }
+  else { Write-Host "AVISO: sem RAMMap - page cache do SO NAO esvaziado; registre o run frio como cold_pagecache_unflushed" -ForegroundColor Yellow }
 }
 if (-not $WarmOnly) { for ($i = 1; $i -le $N; $i++) { Flush-Cache; Run-One "cold" $i } }
 if (-not $ColdOnly) { for ($i = 1; $i -le $N; $i++) { Run-One "warm" $i } }
-Write-Host "`nJSONs do measure_run em $runs ; saídas e sidecars em $outs" -ForegroundColor Green
+Write-Host "`nJSONs do measure_run em $runs ; saidas e sidecars em $outs" -ForegroundColor Green

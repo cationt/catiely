@@ -63,11 +63,25 @@ Leitura:
 - **Commit charge:** ≈ 29–30 GB do sistema inteiro (RAM física 16 GB) — a execução **depende do pagefile**; `tree_private_mb` do processo medido não representa o motor (ComfyUI externo).
 - **O que esta medição não diz:** nada sobre **qualidade** (criação da peça, oclusão, preservação de A) — isso é o Prototype 0 (G0). A etapa de **viabilidade** de R1 fica **fechada** com este registro; nenhuma otimização adicional de R1 antes de G0 (D-048).
 
-### 1e. R1-EI (klein-base-4B + Easy-Insert): identidade verificada e medição preparada (2026-10-08; `P` para identidade, `E` para memória)
+### 1e. R1-EI (klein-base-4B + Easy-Insert): identidade verificada e medição padronizada no hardware-alvo (2026-10-08; `P` para identidade, `MEDIDO NO HARDWARE-ALVO` para tempo/memória)
 
 Identidade confirmada em fonte primária (`research_raw/08`): `huan-yin/Easy-Insert` @ `82094484…` (Apache-2.0; sem paper) é um **LoRA** para `FLUX.2-klein-base-4B` (não gated, Apache-2.0) que faz inserção por referência — background com buraco branco + referência sobre branco como **duas imagens de edição** do `Flux2KleinPipeline` + prompt fixo; crop quadrado 1,2× → 1024²; **15 passos, CFG 4** (klein-base não é destilado → 2 passes/passo); paste-back sem feather. O nome usado pelo projeto estava correto; precisões: o "8 GB" é o modo low-VRAM do **DiffSynth** (offload em disco + pesos fp8 em CPU), o LoRA do Hugging Face (`LiXiY/Easy-Insert`, 96 MB) é em formato **diffusers** e é o da demo oficial do autor, o LoRA DiffSynth está só no ModelScope (`NV` daqui).
 
-Variante operacional escolhida para 12 GB / 16 GB: **Diffusers 0.39.0, carregamento sequencial bf16** (TE Qwen3-4B → embeddings → liberado; transformer bf16 + LoRA + VAE residentes; transformer sai da GPU antes do decode) — estimativa `E`: VRAM pico ≈ 9–10,5 GB, RAM ≈ 8–9 GB, numéricos iguais ao upstream. Rejeitadas: `pipe.to("cuda")` do upstream (≈ 15–16 GB VRAM), `enable_model_cpu_offload` (≈ 16–17 GB de RAM). Fallbacks registrados: `--mode fp8` (layerwise casting do transformer) e `--mode offload`. Protocolo comparativo com `klein4b_fp8_2ref_1mp` e as diferenças inevitáveis (processo próprio; 30 passes vs 4; bf16 vs fp8; 2 máscaras adicionais; crop 1024² vs A inteira; cold sem flush do page cache salvo RAMMap) estão em `tools/r1ei/README.md` §3. Preparação completa (manifesto de pins, runner com sidecar de proveniência, máscaras de viabilidade, `setup_r1ei.ps1`, `bench_r1ei.ps1`, testes CPU) em `tools/r1ei/`. **Nenhuma medição executada ainda.**
+Variante operacional escolhida para 12 GB / 16 GB: **Diffusers 0.39.0, carregamento sequencial bf16** (TE Qwen3-4B → embeddings → liberado; transformer bf16 + LoRA + VAE residentes; transformer sai da GPU antes do decode) — estimativa `E`: VRAM pico ≈ 9–10,5 GB, RAM ≈ 8–9 GB, numéricos iguais ao upstream. Rejeitadas: `pipe.to("cuda")` do upstream (≈ 15–16 GB VRAM), `enable_model_cpu_offload` (≈ 16–17 GB de RAM). Fallbacks registrados: `--mode fp8` (layerwise casting do transformer) e `--mode offload`. Protocolo comparativo com `klein4b_fp8_2ref_1mp` e as diferenças inevitáveis (processo próprio; 30 passes vs 4; bf16 vs fp8; 2 máscaras adicionais; crop 1024² vs A inteira; cold sem flush do page cache salvo RAMMap) estão em `tools/r1ei/README.md` §3. Preparação completa (manifesto de pins, runner com sidecar de proveniência, máscaras de viabilidade, `setup_r1ei.ps1`, `bench_r1ei.ps1`, testes CPU) em `tools/r1ei/`. A estimativa `E` acima (VRAM 9–10,5 GB) ficou **abaixo** do medido (12,1–12,2 GB): o estimador subestimou as ativações/reservas do allocator, confirmando a regra de §4 ("NEAR_LIMIT significa medir").
+
+**Medição padronizada (`MEDIDO NO HARDWARE-ALVO`, 2026-10-08)** — configuração `r1ei_kleinbase4b_easyinsert_bf16_1024_normal`: klein-base-4B **bf16** + LoRA Easy-Insert; crop **1024²** (crop_scale 1,2) em torno da máscara, colado de volta em A; **15 passos, CFG 4 = 30 passes**; seed 1; modo `normal` (sequencial bf16); **mesmas A e B** do `klein4b_fp8_2ref_1mp` + 2 máscaras grosseiras (bbox); processo **próprio** (ComfyUI Desktop fechado) → `tree_rss`/`tree_private` **são** o motor; torch 2.12.1+cu130; `measure_run.py` com commit real; deadline 3 600 s. **cold** = processo novo, pesos do disco, page cache do SO **não** esvaziado (`cold_pagecache_unflushed`); **warm** = processo novo com cache do sistema presumivelmente aquecido — **não** é pipeline residente. Registro legível por máquina: `benchmark/measurements/r1ei_kleinbase4b_easyinsert_bf16_1024_normal.json`; JSONs brutos e sidecars na máquina-alvo (`…\w3-measure\runs\`, `…\w3-measure\r1ei\outputs\`); regenerável com `tools/r1ei/summarize_runs.py`.
+
+| Estado | n | wall_s (cada run) | **mediana wall_s** | VRAM pico (mediana) | RSS árvore (mediana) | private árvore (mediana) | RAM sistema (mediana) | swap (mediana) | commit charge (mediana) | exit / deadline / OOM |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **cold** | 3 | 222,488 · 287,689 · 272,462 | **272,462 s** | 12 136,7 MB | 9 293,2 MB | 23 728,2 MB | 15 200,3 MB | 984,4 MB | 32 697,2 MB | 0 / não / não |
+| **warm** | 3 | 283,905 · 284,508 · 282,808 | **283,905 s** | 12 177,9 MB | 9 199,4 MB | 23 728,9 MB | 14 896,3 MB | 1 026,2 MB | 35 054,9 MB | 0 / não / não |
+
+Leitura:
+- **Tempo:** mediana frio **272,5 s** ≈ 18 % do teto de elegibilidade (§8 item 6: frio ≤ 1 500 s). R1-EI é **elegível por tempo**; **8,55×** mais lenta que klein 4B fp8 no frio (31,8 s) — compatível com 30 passes vs 4 (7,5×) mais carga por processo. Não há justificativa, por tempo, para `--mode fp8`/`offload`.
+- **VRAM crítica:** picos de 12 129–12 187 MB em **6/6** runs, com 12 227 MiB físicos → folga mínima **≈ 40 MiB**. Sem OOM, mas sem margem alguma para QA residente; eviction WDDM silenciosa é possível e não foi medida. É o primeiro candidato em que a VRAM, não o tempo, é a restrição operacional. Fallback `fp8` fica registrado para entradas maiores ou para liberar VRAM a estimadores.
+- **warm ≈ cold (1,04×):** esperado para processo novo por run — os ≈ 16 GB de pesos não cabem no page cache ao lado de um processo com RSS ≈ 9 GB em 16 GB de RAM. A razão warm/cold **não** mede residência de modelo (diferente do klein4b, cujo "warm" tinha o ComfyUI externo residente). Dispersão do frio −18 %/+6 %; do quente ±0,4 %; **nenhum run descartado**.
+- **RAM/commit:** `sys_ram_used` 14,4–15,2 GB de 16 GB (saturada); `tree_private` 20,8–24,3 GB > RSS 8,6–9,8 GB (reservas virtuais CUDA/WDDM commitadas); commit do sistema 31,6–35,1 GB → **depende do pagefile** (≈ 26 GB no alvo). ΔRAM vs klein4b ≈ +4,5 GB (o klein4b tinha ComfyUI + browser no baseline; comparação indicativa).
+- **O que esta medição não diz:** nada sobre **capacidade em roupa/adição** (NV) nem sobre qualidade/oclusão/preservação de A — isso é G0/E4. A **viabilidade de R1-EI fica fechada** com este registro (D-051).
 
 ### 1c. Custo do mecanismo × motor (rev. 2026-10-08, nível `E`/`P`)
 
@@ -76,7 +90,7 @@ Variante operacional escolhida para 12 GB / 16 GB: **Diffusers 0.39.0, carregame
 | máscara de latente / `InpaintModelConditioning(noise_mask)` | ×1,0 | R1, R2, R4 | `P` (core, modelo-agnóstico) |
 | `DifferentialDiffusion` (gradiente por pixel) | ×1,0 | R1, R2 | `P` (core; experimental; destilados têm só 4 degraus) |
 | LanPaint (`NumSteps`) | ×NumSteps (README: 5 = 5× mais lento); GPL-3.0; **máscara binária obrigatória** (incompatível com R(p) graduado); "degraded performance on distillation models" | só R1 (klein) como ablação secundária, NumSteps 2; **não** em R2 (×5 sobre 10–15 min excede 3 600 s) | `P` |
-| Scaffold em pixel + Easy-Insert (klein-base-4B, **15 passos × 2 passes (CFG 4)** = 30 passes; modo "8 GB" = DiffSynth low-VRAM) | ×(30/4) passes vs klein destilado | R1-EI (E4) | `P` (código lido: `inference_diffusers.py`) / `NV` (tempo) |
+| Scaffold em pixel + Easy-Insert (klein-base-4B, **15 passos × 2 passes (CFG 4)** = 30 passes; modo "8 GB" = DiffSynth low-VRAM) | ×(30/4) passes vs klein destilado; **medido: 8,55× no frio** (272,5 s vs 31,8 s) | R1-EI (E4) | `P` (código lido: `inference_diffusers.py`) / **`MEDIDO`** (tempo e VRAM, §1e) |
 | Insert Anything (Fill+Redux Nunchaku "10 GB") | NC; comparador em 2 casos | — | `P` |
 | two-pass (R3 grosseiro → R1 refino) | custo(R3) + custo(R1) | R8 | `E` |
 | ControlNet pose/depth | ×1,3–1,5 onde existir | **inexistente** para klein 4B e Edit-2511 | `P` (controlnet.py) |
@@ -148,6 +162,8 @@ Leitura (rótulos de VRAM: `FITS_RESIDENT` = cabe residente com margem; `NEAR_LI
 
 Lição registrada (D-016): "excede VRAM residente" foi lido na primeira versão deste documento como quase-inviabilidade; a observação histórica mostra que é uma questão de tempo por passo. O estimador agora separa os dois conceitos.
 
+Calibração com medições (2026-10-08): klein 4B fp8 A+B — estimado 4,2–7,5 GB (seq.) / 8,2–11,5 GB (residente), **medido 11,6 GB** (ComfyUI residente; §1d); klein-base-4B bf16 + Easy-Insert — estimado 8,9–18,7 GB (seq.), **medido 12,1–12,2 GB** (§1e). Em ambos o valor medido ficou na metade superior ou acima da banda: o estimador continua **enviesado para baixo** e só serve para triagem.
+
 ## 5. Elegibilidade provisória por candidata (consolida §2–§4; **tudo PENDENTE de medição**)
 
 | Candidata | Elegibilidade | Justificativa | O que a medição deve confirmar |
@@ -208,7 +224,7 @@ Para cada rota e resolução interna: (a) `O_null1` = `A` após encode/decode do
 
 ## 9. O que esta fase **não** sabe (honestamente)
 
-- Tempo medido só para **R1 klein 4B** (§1d); nenhuma medição ainda de R1-EI, R3, R2, R4 em 12 GB + 16 GB RAM.
+- Tempo medido só para **R1 klein 4B** (§1d) e **R1-EI** (§1e); nenhuma medição ainda de R3, R2, R4 em 12 GB + 16 GB RAM. Para R1-EI não se sabe se a folga de ≈ 40 MiB de VRAM sobrevive a máscaras maiores/outras A (eviction WDDM não medida).
 - Qual stack torch/CUDA o Comfy-Desktop 1.1.6 instala numa 5070 (cu128 vs cu130) e se SageAttention/Nunchaku wheels casam com ele.
 - Perda de qualidade de Q4/NVFP4 em **topologia e microdetalhe** de roupa (nenhum estudo).
 - Se GGUF já é suportado pelo aimdo (era "unsupported at merge").

@@ -39,6 +39,13 @@ def sha256_file(p, limit=None):
     return h.hexdigest()
 
 
+def sha256_text_lf(p):
+    """sha256 do conteúdo com EOL normalizado CRLF→LF (robusto a core.autocrlf no Windows; bug reproduzido em 2026-10-08)."""
+    b = open(p, "rb").read()
+    lf = b.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(lf).hexdigest(), lf != b
+
+
 def load_utils(easy_insert_dir):
     """Importa utils.py do clone (se dado e byte-idêntico ao pin) ou a cópia vendorada; qualquer divergência é erro."""
     candidates = []
@@ -50,13 +57,13 @@ def load_utils(easy_insert_dir):
             if src == "clone":
                 raise SystemExit(f"[r1ei] utils.py não encontrado no clone: {path}")
             continue
-        real = sha256_file(path)
-        if real != UTILS_SHA:
-            raise SystemExit(f"[r1ei] utils.py ({src}) difere do pin do upstream: {real[:16]}… ≠ {UTILS_SHA[:16]}… — não execute com pré-processamento alterado")
+        real_lf, eol_changed = sha256_text_lf(path)
+        if real_lf != UTILS_SHA:
+            raise SystemExit(f"[r1ei] utils.py ({src}) difere do pin do upstream (sha256 LF-normalizado {real_lf[:16]}… ≠ {UTILS_SHA[:16]}…) — não execute com pré-processamento alterado")
         import importlib.util
         spec = importlib.util.spec_from_file_location("easy_insert_utils", path)
         mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
-        return mod, src, path
+        return mod, src, path, eol_changed
     raise SystemExit("[r1ei] nenhum utils.py disponível")
 
 
@@ -155,7 +162,8 @@ def main():
         rec.setdefault("inputs_sha256", {})[k] = sha256_file(p)
 
     ok, pins = check_pins(args, args.verify_base_sha); rec["pin_check"] = pins
-    utils, utils_src, utils_path = load_utils(args.easy_insert_dir); rec["utils_source"] = {"from": utils_src, "path": utils_path, "sha256": UTILS_SHA}
+    utils, utils_src, utils_path, eol_changed = load_utils(args.easy_insert_dir)
+    rec["utils_source"] = {"from": utils_src, "path": utils_path, "sha256_lf": UTILS_SHA, "working_tree_eol_converted": eol_changed}
     A, background, ref, crop_box, src_mask_c, meta = preprocess(utils, args, inputs_dir); rec["preprocess"] = meta
     phases["preprocess_s"] = round(time.perf_counter() - t0, 3)
 

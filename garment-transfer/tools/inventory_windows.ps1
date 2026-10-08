@@ -1,6 +1,6 @@
-# inventory_windows.ps1 — Inventário reproduzível da máquina-alvo (Windows 11, RTX 5070, ~16 GB RAM).
-# Executar em PowerShell (não precisa de admin). Saída: inventory_<data>.json no diretório atual.
-# Objetivo: toda medição de viabilidade deve vir acompanhada deste inventário (nível de evidência MEDIDO NO HARDWARE-ALVO).
+﻿# inventory_windows.ps1 - Inventario reproduzivel da maquina-alvo (Windows 11, RTX 5070, ~16 GB RAM).
+# Executar em PowerShell (nao precisa de admin). Saida: inventory_<data>.json no diretorio atual.
+# Objetivo: toda medicao de viabilidade deve vir acompanhada deste inventario (nivel de evidencia MEDIDO NO HARDWARE-ALVO).
 
 $ErrorActionPreference = "Continue"
 $out = @{}
@@ -16,25 +16,25 @@ $out.os = @{
   free_virtual_memory_mb  = [math]::Round($os.FreeVirtualMemory/1024,1)
 }
 
-# CPU / RAM física
+# CPU / RAM fisica
 $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
 $out.cpu = @{ name = $cpu.Name; cores = $cpu.NumberOfCores; threads = $cpu.NumberOfLogicalProcessors; max_clock_mhz = $cpu.MaxClockSpeed }
 $out.ram_modules = @(Get-CimInstance Win32_PhysicalMemory | ForEach-Object { @{ capacity_mb = [math]::Round($_.Capacity/1MB); speed_mts = $_.Speed; part = $_.PartNumber } })
 
-# Pagefile (configuração e uso atual)
+# Pagefile (configuracao e uso atual)
 $out.pagefile_setting = @(Get-CimInstance Win32_PageFileSetting | ForEach-Object { @{ name=$_.Name; initial_mb=$_.InitialSize; maximum_mb=$_.MaximumSize } })
 $out.pagefile_usage   = @(Get-CimInstance Win32_PageFileUsage   | ForEach-Object { @{ name=$_.Name; allocated_mb=$_.AllocatedBaseSize; current_usage_mb=$_.CurrentUsage; peak_usage_mb=$_.PeakUsage } })
 $cs = Get-CimInstance Win32_ComputerSystem
 $out.automatic_managed_pagefile = $cs.AutomaticManagedPagefile
 
-# Memória comprometida agora (Performance Counters)
+# Memoria comprometida agora (Performance Counters)
 try {
   $out.committed_bytes_mb = [math]::Round((Get-Counter '\Memory\Committed Bytes').CounterSamples[0].CookedValue/1MB,1)
   $out.commit_limit_mb    = [math]::Round((Get-Counter '\Memory\Commit Limit').CounterSamples[0].CookedValue/1MB,1)
   $out.available_mb       = [math]::Round((Get-Counter '\Memory\Available MBytes').CounterSamples[0].CookedValue,1)
 } catch { $out.perf_counters_error = "$_" }
 
-# Discos (tipo, espaço livre) — espaço para pesos (dezenas de GB) e pagefile
+# Discos (tipo, espaco livre) - espaco para pesos (dezenas de GB) e pagefile
 $out.volumes = @(Get-Volume | Where-Object { $_.DriveLetter } | ForEach-Object { @{ letter="$($_.DriveLetter)"; fs=$_.FileSystem; size_gb=[math]::Round($_.Size/1GB,1); free_gb=[math]::Round($_.SizeRemaining/1GB,1) } })
 $out.physical_disks = @(Get-PhysicalDisk | ForEach-Object { @{ name=$_.FriendlyName; media=$_.MediaType; bus=$_.BusType; size_gb=[math]::Round($_.Size/1GB,1) } })
 
@@ -43,19 +43,19 @@ $out.gpus_wmi = @(Get-CimInstance Win32_VideoController | ForEach-Object { @{ na
 try {
   $smi = & nvidia-smi --query-gpu=name,driver_version,memory.total,memory.used,pcie.link.gen.current,pcie.link.width.current,compute_cap --format=csv,noheader 2>$null
   $out.nvidia_smi = $smi
-} catch { $out.nvidia_smi = "nvidia-smi indisponível" }
+} catch { $out.nvidia_smi = "nvidia-smi indisponivel" }
 
-# NVIDIA: política de fallback para memória do sistema (afeta OOM vs. lentidão)
+# NVIDIA: politica de fallback para memoria do sistema (afeta OOM vs. lentidao)
 try {
-  $out.nvidia_sysmem_fallback_hint = "Verificar em NVIDIA Control Panel > Manage 3D Settings > CUDA - Sysmem Fallback Policy (não exposto por WMI)"
+  $out.nvidia_sysmem_fallback_hint = "Verificar em NVIDIA Control Panel > Manage 3D Settings > CUDA - Sysmem Fallback Policy (nao exposto por WMI)"
 } catch {}
 
-# Processos que mais consomem memória agora (baseline antes da execução)
+# Processos que mais consomem memoria agora (baseline antes da execucao)
 $out.top_processes_by_ws = @(Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 15 | ForEach-Object { @{ name=$_.ProcessName; ws_mb=[math]::Round($_.WorkingSet64/1MB); private_mb=[math]::Round($_.PrivateMemorySize64/1MB) } })
 
 # ---------------------------------------------------------------------------
-# Detecção robusta de instalações do ComfyUI (Desktop novo, Desktop legado, portable, manual).
-# Não assume um único caminho. Registra TODAS as encontradas e qual foi usada para a sondagem.
+# Deteccao robusta de instalacoes do ComfyUI (Desktop novo, Desktop legado, portable, manual).
+# Nao assume um unico caminho. Registra TODAS as encontradas e qual foi usada para a sondagem.
 # Override manual: $env:COMFY_PYTHON = "C:\caminho\para\python.exe"
 # ---------------------------------------------------------------------------
 $candidates = New-Object System.Collections.Generic.List[object]
@@ -66,7 +66,7 @@ function Add-Candidate($label, $pythonPath, $comfyRoot) {
     $candidates.Add(@{ label = $label; python = "$pythonPath"; comfy_root = "$comfyRoot"; exists = $false })
   }
 }
-# 0) override explícito
+# 0) override explicito
 if ($env:COMFY_PYTHON) { Add-Candidate "env:COMFY_PYTHON" $env:COMFY_PYTHON (Split-Path (Split-Path (Split-Path $env:COMFY_PYTHON))) }
 # 1) Comfy-Desktop (app novo, 2026): %LOCALAPPDATA%\Comfy-Desktop\ComfyUI-Installs\<nome>\ComfyUI\.venv\Scripts\python.exe
 $installsRoot = Join-Path $env:LOCALAPPDATA "Comfy-Desktop\ComfyUI-Installs"
@@ -78,7 +78,7 @@ if (Test-Path $installsRoot) {
     Add-Candidate "Comfy-Desktop/ComfyUI-Installs/$($_.Name) (flat)" (Join-Path $_.FullName ".venv\Scripts\python.exe") $_.FullName
   }
 }
-# 2) Comfy-Desktop: configuração do app aponta o basePath (ler JSON se existir)
+# 2) Comfy-Desktop: configuracao do app aponta o basePath (ler JSON se existir)
 foreach ($cfg in @((Join-Path $env:APPDATA "Comfy-Desktop\config.json"), (Join-Path $env:APPDATA "ComfyUI\config.json"), (Join-Path $env:APPDATA "ComfyUI\extra_models_config.yaml"))) {
   if (Test-Path $cfg) {
     try {
@@ -100,7 +100,7 @@ foreach ($drive in (Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandPr
     if (Test-Path $pp) { Add-Candidate "portable:$drive$guess" $pp (Join-Path $drive (Join-Path $guess "ComfyUI")) }
   }
 }
-# 5) Busca rasa em LocalAppData e no perfil por ComfyUI\.venv\Scripts\python.exe (profundidade limitada para não demorar)
+# 5) Busca rasa em LocalAppData e no perfil por ComfyUI\.venv\Scripts\python.exe (profundidade limitada para nao demorar)
 foreach ($base in @($env:LOCALAPPDATA, $env:USERPROFILE)) {
   try {
     Get-ChildItem -Path $base -Directory -Depth 3 -Filter "ComfyUI" -ErrorAction SilentlyContinue | ForEach-Object {
@@ -113,7 +113,7 @@ $out.comfy_candidates = @($candidates)
 $found = $candidates | Where-Object { $_.exists } | Select-Object -First 1
 if ($found) {
   $out.comfy_used = $found
-  # versão do ComfyUI (comfyui_version.py ou pyproject.toml) e lista de custom nodes
+  # versao do ComfyUI (comfyui_version.py ou pyproject.toml) e lista de custom nodes
   try {
     $verFile = Join-Path $found.comfy_root "comfyui_version.py"
     if (Test-Path $verFile) { $out.comfy_version = (Get-Content $verFile -Raw) -replace '\s+', ' ' }
@@ -151,9 +151,9 @@ print(json.dumps(d))
   Remove-Item $tmp -Force
 } else {
   $out.comfy_used = $null
-  $out.comfy_python = "nenhuma instalação encontrada; defina `$env:COMFY_PYTHON com o caminho do python.exe do ComfyUI"
+  $out.comfy_python = "nenhuma instalacao encontrada; defina `$env:COMFY_PYTHON com o caminho do python.exe do ComfyUI"
 }
 
 $file = "inventory_$((Get-Date).ToString('yyyyMMdd_HHmmss')).json"
 $out | ConvertTo-Json -Depth 6 | Set-Content -Path $file -Encoding UTF8
-Write-Host "Inventário gravado em $file"
+Write-Host "Inventario gravado em $file"
