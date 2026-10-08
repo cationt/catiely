@@ -390,7 +390,11 @@
               "accessories",
               "shoes",
               "held_objects",
-              "kept_garments"
+              "kept_garments",
+              "forearms",
+              "upper_arms",
+              "neck",
+              "feet_shoes"
             ]
           }
         },
@@ -439,7 +443,7 @@
                   "type": "null"
                 }
               ],
-              "description": "máscara binária (grade de A) de partes de A que devem permanecer À FRENTE da nova roupa (mãos, antebraços cruzados, cabelo, objetos)."
+              "description": "FRONT_OCCLUDERS_CORE: núcleo de partes de A que DEVEM permanecer à frente da nova roupa (mãos, antebraço cruzado, cabelo frontal, objetos). Grade de A."
             },
             "body_coverable_mask": {
               "anyOf": [
@@ -450,13 +454,23 @@
                   "type": "null"
                 }
               ],
-              "description": "superfície observada de A que a nova peça está autorizada a cobrir."
+              "description": "BODY_COVERABLE: superfície observada de A que a peça PODERIA cobrir (capacidade, não predição)."
             },
             "plausible_occupancy_band": {
               "type": "object",
-              "description": "faixa plausível de ocupação do tecido novo, anotada por humano: mínimo (certamente tecido) e máximo (possivelmente tecido).",
+              "description": "Envelope de ocupação anotado ANTES da geração: min_mask = BAND_MIN (certamente tecido); max_body_mask = BAND_MAX_BODY (pele/roupa antiga que a peça PODE cobrir, condicional a atributos de B).",
               "properties": {
                 "min_mask": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/image_source"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "max_body_mask": {
                   "anyOf": [
                     {
                       "$ref": "#/$defs/image_source"
@@ -474,7 +488,8 @@
                     {
                       "type": "null"
                     }
-                  ]
+                  ],
+                  "description": "legado: união de max_body ∪ free_space; preferir campos separados"
                 }
               }
             },
@@ -494,6 +509,148 @@
             },
             "z_order_notes": {
               "type": "string"
+            },
+            "free_space_mask": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/image_source"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "FREE_SPACE: fundo/objetos atrás que o volume da peça PODE ocupar."
+            },
+            "uncertain_occupancy_mask": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/image_source"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "UNCERTAIN_OCCUPANCY: zona em que a existência de tecido é decidida pelo motor (axila, inter-membro, folga)."
+            },
+            "kept_garment_interface_mask": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/image_source"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "KEPT_GARMENT_INTERFACE: faixa ao longo da fronteira com peças mantidas (cós, alça), cujo z-order depende de spec.layering."
+            },
+            "newly_exposed_mask": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/image_source"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "NEWLY_EXPOSED: região da roupa antiga removida que não será coberta (síntese inferida)."
+            },
+            "contact_fringe_px": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "largura da franja C3 (px na grade de A) onde mudança limitada de luminância é permitida ao redor do tecido medido."
+            },
+            "envelope_class": {
+              "enum": [
+                "E1_observed_surface",
+                "E2_surface_plus_outside_silhouette",
+                "E3_background"
+              ],
+              "description": "E1: tops/justos — envelope = superfície observável ⊕ folga por fit; E2: peças soltas; E3: saias amplas/sentado — banda larga, anotação humana obrigatória."
+            },
+            "z_order": {
+              "type": "array",
+              "description": "ordem de profundidade por ELEMENTO em relação à roupa nova; só front_certain/behind_certain são eliminatórios.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "element",
+                  "relation",
+                  "basis"
+                ],
+                "properties": {
+                  "element": {
+                    "enum": [
+                      "hand_L",
+                      "hand_R",
+                      "forearm_L",
+                      "forearm_R",
+                      "upper_arm_L",
+                      "upper_arm_R",
+                      "hair_front",
+                      "hair_back",
+                      "neck",
+                      "torso_front_skin",
+                      "held_object",
+                      "bag_strap",
+                      "furniture",
+                      "kept_garment_top",
+                      "kept_garment_bottom",
+                      "other"
+                    ]
+                  },
+                  "relation": {
+                    "enum": [
+                      "front_certain",
+                      "behind_certain",
+                      "uncertain"
+                    ]
+                  },
+                  "basis": {
+                    "enum": [
+                      "observed_in_A",
+                      "category_rule",
+                      "spec_layering",
+                      "default"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "audit_targets": {
+              "enum": [
+                "engine_output",
+                "composed_output",
+                "both"
+              ],
+              "description": "em qual alvo a anotação audita (padrão: both)."
+            },
+            "mask_states": {
+              "type": "object",
+              "description": "estado por máscara: observado / inferido(conf) / desconhecido, com estimadores usados.",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "enum": [
+                      "observed",
+                      "inferred",
+                      "unknown"
+                    ]
+                  },
+                  "confidence": {
+                    "type": "number"
+                  },
+                  "estimators": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
             }
           }
         },
