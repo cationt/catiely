@@ -1,8 +1,8 @@
 # Fase 0 — Formulação do problema e contrato formal
 
 **Projeto:** Garment Transfer Local com Preservação Rigorosa (A + B → A vestindo B)
-**Status desta fase:** entregue para revisão; decisões padrão marcadas como `[PADRÃO]`, pendências como `[ABERTO]`.
-**Data:** 2026-10-07
+**Status desta fase:** entregue para revisão; **revisado em 2026-10-08 pelo red-team** (`06_RED_TEAM_REVISION.md`): a partição C1–C5 deixa de ser a representação primária (ver §4.2-R e §4.4-R). Decisões padrão marcadas como `[PADRÃO]`, pendências como `[ABERTO]`.
+**Data:** 2026-10-07 (rev. 2026-10-08)
 **Dependências:** nenhuma (este documento não pressupõe arquitetura, modelo ou máscara específica).
 
 ---
@@ -127,6 +127,22 @@ Toda região de `O` cai em exatamente uma classe. A classificação é derivada 
 | **C4 — Recém-exposto** | Regiões antes cobertas (pela roupa antiga de `A`) e agora visíveis: pele, parte do fundo, cabelo atrás. | **Informação ausente.** A síntese é inferência e é marcada como tal em `R`. Deve ser coerente com `A` (tom de pele, iluminação, continuidade do fundo), sem corrigir anatomia nem "melhorar" `A`. |
 | **C5 — Bordas e mistura** | Cabelo fino, franjas de tecido, transparência, desfoque de movimento/profundidade, pixels mistos entre C1 e C2/C4. | Tratar como mistura/incerteza com largura declarada (em px, por escala). Recorte binário inadequado é falha (`hard_edge_artifact`). C5 não é licença para alargar C2. |
 
+### 4.2-R Revisão (2026-10-08): três campos em vez de uma classe por pixel
+
+A tabela C1–C5 acima permanece como **vocabulário de auditoria**, mas **não** é mais a representação primária, por duas razões demonstradas no red-team (`06` F-01, F-04): (i) a extensão de C2 só existe depois do caimento — exigir "partição congelada antes da geração" é circular; (ii) um rótulo por pixel não expressa oclusão ("a mão é C1 **e** o tecido nasce atrás dela").
+
+A representação primária passa a ter três campos independentes, derivados de `A`, `B`, `S` **antes** da geração:
+
+| Campo | Pergunta | Valores |
+|---|---|---|
+| **Autoridade de reconstrução** `R(p) ∈ [0,1]` | o que o motor pode reescrever | 0 em `PROTECTED` e no núcleo de `FRONT_OCCLUDERS`; 1 em `BAND_MIN`; graduado em `BAND_MAX\BAND_MIN`, `UNCERTAIN`, `CONTACT_FRINGE` |
+| **Autorização de ocupação** | onde o tecido deve / pode / não pode existir | `BAND_MIN` (deve) · `BAND_MAX_BODY` (pode: pele/roupa antiga, condicional a atributos observados em `B`) · `FREE_SPACE` (pode: fundo/objetos atrás) · `UNCERTAIN_OCCUPANCY` (decidido pelo motor) · proibido = resto |
+| **Ordem de profundidade por elemento** | o que fica à frente/atrás da roupa nova | `front_certain` / `behind_certain` / `uncertain`, com `basis` ∈ {observed_in_A, category_rule, spec_layering, default}; só os dois primeiros são eliminatórios |
+
+Máscaras nomeadas do contrato, cada uma com origem (estimadores + versões), estado `observado/inferido(conf)/desconhecido` e escala: `PROTECTED`, `FRONT_OCCLUDERS_CORE`, `BAND_MIN`, `BAND_MAX_BODY`, `FREE_SPACE`, `UNCERTAIN_OCCUPANCY`, `CONTACT_FRINGE`, `KEPT_GARMENT_INTERFACE`, `NEWLY_EXPOSED`, `C5_BAND`. Classe de envelope: **E1** superfície observável (tops/justos), **E2** superfície ⊕ fora da silhueta (peças soltas), **E3** fundo (saias amplas/sentado; anotação humana obrigatória no dev).
+
+Correspondência C1–C5 ↔ campos: C1 ≡ `PROTECTED` + invariantes; C2 ≡ tecido **medido** em `O′` dentro da autorização; C3 ≡ `CONTACT_FRINGE`; C4 ≡ `NEWLY_EXPOSED`; C5 ≡ `C5_BAND`.
+
 ### 4.3 Silhueta corporal ≠ silhueta do vestuário
 
 - A **silhueta do vestuário** pode e deve mudar (C2).
@@ -134,14 +150,14 @@ Toda região de `O` cai em exatamente uma classe. A classificação é derivada 
 - `[PADRÃO]` Volume corporal não muda. Se a peça exigir deformação corporal incompatível (ex.: peça muito justa em pose em que o tecido não poderia conformar), o sistema sinaliza `fit_conflict` em `R` e **não** altera o corpo.
 - Se `A` já apresenta anatomia ambígua ou defeituosa, preservá-la. **Preservar `A` e corrigir `A` são tarefas diferentes**; a segunda não está no escopo.
 
-### 4.4 Auditoria independente das classes
+### 4.4 Auditoria independente (revisada 2026-10-08)
 
-- A partição C1–C5 é computada **a partir de `A`, `B`, `S` e de estimativas de extensão da peça**, antes da geração, e congelada como `region_contract` (com incertezas por pixel/região).
-- A saída é auditada contra o `region_contract` congelado. Se a saída altera pixels de C1, é falha — mesmo que "pareça melhor".
-- Quando a extensão de C2 é incerta (ex.: quanto fundo uma saia ampla ocupa), o contrato registra uma **banda de incerteza** (C2-possível). Alterações dentro da banda são permitidas **se e somente se** ocupadas por tecido da peça; alterações na banda sem tecido são deriva (`background_drift`).
-- O `region_contract` **nunca** é recalculado a partir de `O`.
-
----
+- O que se **congela** antes da geração (`contract_frozen.*`): `PROTECTED`, invariantes estruturais de `A` (landmarks, contorno de pele visível fora do envelope, rosto, cabelo, mãos), `FRONT_OCCLUDERS_CORE` com z-order por elemento, envelope de ocupação por classe (E1/E2/E3) com estados. **Nunca** é ampliado a partir de `O`.
+- O que se **mede** depois (`partition_measured.*`): o tecido novo `G` em `O′` (saída bruta do motor reprojetada) por segmentador **independente do gerador** (nunca a máscara/atenção do próprio gerador), com confiança calibrada contra anotação humana no dev; a franja C3 = dilatação de `G` por `r_C3` (pendência O5); C4 e C5 derivados.
+- **Regra da banda (corrigida, `06` F-09):** dentro do envelope, alterações são permitidas **se** ocupadas por tecido medido **ou** dentro da franja C3 ao redor dele (mudança limitada de luminância, sem deslocamento de borda); fora disso são deriva (`background_drift`/`unauthorized_change`). Pele coverable **não** coberta deve permanecer igual a `A`.
+- **Auditoria dupla:** toda métrica de oclusão/ocupação roda em `O′` (mede o motor) **e** em `O` (mede a entrega); em `O` composto, identidade de oclusores é trivial pela casca e não prova nada sobre o motor.
+- A auditoria julga **invariantes e envelope**, nunca "a área prevista". `UNCERTAIN` é a única zona em que a existência de tecido é decidida pelo motor; ali só se audita "não inventou terceira coisa" e "não distorceu o corpo".
+- Isto é a **hipótese estrutural H0** (`06` §3), não um requisito: o Prototype 0 pode derrubá-la.
 
 ## 5. Informação ausente, fit e identificabilidade
 
@@ -245,7 +261,8 @@ Intermediários obrigatórios (independentes de arquitetura; cada rota declara q
 |---|---|
 | `inputs/` | `A`, `B`, `S` originais + hashes. |
 | `transforms.json` | Toda transformação de grade (crop, resize, pad, rotação) com inversa exata; espaço de cor; perfil ICC original. |
-| `region_contract.*` | Partição C1–C5 congelada, com banda de incerteza, origem (quais estimadores) e versão. |
+| `contract_frozen.*` | Máscaras nomeadas congeladas (§4.2-R) com z-order por elemento, estados e origem; **nunca derivado de `O`**. |
+| `partition_measured.*` | Tecido `G` medido em `O′` por segmentador independente (+ confiança, IoU vs anotação quando houver), franja C3, C4, C5 derivados. |
 | `garment_spec.json` | Atributos da peça extraídos de `B` com estado `observado`/`inferido`/`desconhecido` e confiança. |
 | `candidates/` | Todo candidato gerado (inclusive descartados), seed, parâmetros, tempos, memória. |
 | `qa/` | Veredito por candidato, causas, métricas por eixo, mapas de diferença em C1, mapa de inferência (C4). |
@@ -276,6 +293,7 @@ Reprodução: seed registrada; **igualdade de seed não implica igualdade bit a 
 - Não comparar silhueta 2D de `B` com `O` como se as poses fossem iguais. Avaliar construção, proporções semânticas e correspondências confiáveis.
 - Atributo oculto ou irresolúvel → `não avaliável`, não aprovação.
 - VLMs locais podem checar atributos semânticos; **não** são oráculos de física/topologia. Suas respostas são evidência fraca, calibrada contra humanos na Fase 8.
+- **Auditoria em dois alvos** (`O′` do motor e `O` composto), com métricas separadas em `R` (rev. 2026-10-08).
 - Trivialidade proibida: preservação obtida deixando a roupa antiga intacta não passa (`garment_remnants`/`no_transfer`). Avaliar a composição completa (bordas, sombras, junções), não só o interior da peça.
 
 ### 9.3 Grupos mínimos de avaliação (a instanciar na Fase 5/8)
@@ -300,8 +318,8 @@ Reprodução: seed registrada; **igualdade de seed não implica igualdade bit a 
 | D2 | Substituir ou adicionar? | `replace` da mesma categoria; `add` se `A` não tem a categoria. |
 | D3 | Roupa de `A` sob a nova peça (ex.: camiseta sob jaqueta de `B`) | Mantida **só** se `mode=add_over_layer`; em `replace`, a peça de mesma categoria sai e as demais ficam. |
 | D4 | Tuck/fechamento/mangas quando `B` é ambígua | Configuração mais comum da categoria; registrado como `inferido`. |
-| D5 | Cabelo sobre a roupa | Cabelo é C1/C5: preservado; a peça passa **atrás** do cabelo visível, salvo quando `S` indicar o contrário. |
-| D6 | Mãos/objetos sobre a região da peça | Preservados (C1) e à frente da peça; a peça é sintetizada atrás deles. |
+| D5 | Cabelo sobre a roupa | **Resolução padrão de z-order `uncertain`** (rev. 2026-10-08): cabelo frontal é `front_certain` quando observado à frente do corpo coberto; cabelo vs gola/capuz é `uncertain` e, sem `S`, resolve-se como "peça atrás do cabelo" **registrado como inferência**, não invariante. |
+| D6 | Mãos/objetos sobre a região da peça | `FRONT_OCCLUDERS_CORE` (`front_certain`, basis observed_in_A quando ocluem o corpo coberto e são mais próximos): autoridade de reconstrução 0 e **entrada do motor** (não só da composição); mão no quadril vs aba de jaqueta é `uncertain`. |
 | D7 | Múltiplas pessoas em `A` | Uma pessoa-alvo; as demais C1. |
 | D8 | Fit | Intenção relativa de `B` preservada; sem tamanho comercial. |
 | D9 | Cor | Intrínseca sob iluminação de `A`. |
@@ -315,13 +333,15 @@ Reprodução: seed registrada; **igualdade de seed não implica igualdade bit a 
 |---|---|---|---|
 | O1 | Tolerância numérica de C1 em rotas que reprojetam (`near_exact`) | Depende de como a rota devolve ao canvas original. | Protótipo A: medir erro máximo/agregado em C1 por rota. |
 | O2 | Largura padrão da banda C5 por escala | Depende da resolução interna e do conteúdo (cabelo). | Protótipo A/D: calibrar com casos de cabelo solto. |
-| O3 | Como estimar a extensão de C2 para peças largas sem usar a saída | Requer estimador de "extensão possível da peça" independente do gerador. | Protótipo F: comparar estimadores (prior de categoria + corpo vs. correspondência com `B`). |
+| O3 | Como estimar o envelope por classe (E1/E2/E3) sem usar a saída | **Reformulada (rev. 2026-10-08):** envelope = partes observadas de `A` × regra da categoria × atributos observados em `B` × folga por fit; correspondência `B→A` só para comprimentos relativos. | Prototype 0 (E1) e Protótipo F (E2/E3): referência = GT real ou banda humana congelada, nunca a saída. |
 | O4 | Tamanho mínimo útil de detalhe (12/8 px) | Valores provisórios. | Protótipo B com logos/estampas de tamanhos escalonados. |
 | O5 | Política para C3 (franja de contato): largura máxima | Depende da física da peça (saia volumosa vs. top justo). | Protótipo E. |
 | O6 | Se `size_hint` será suportado | Sem evidência de que qualquer rota o respeite. | Decidir na Fase 4 (provavelmente **fora de escopo**). |
 | O7 | Multi-ref: ganho mensurável | Modo separado; medir ganho vs. A+B. | Protótipo B (variante multi-ref). |
 | O8 | Resolução interna > 1 024 dentro de 3 600 s | Depende de viabilidade (Fase 3). | Fase 3 + Protótipo B em 1 536. |
 | O9 | Conjunto de teste final: tamanho acima do mínimo (40) | Depende de cobertura e custo. | Antes da Fase 7. |
+| O11 | Valores iniciais do mapa de autoridade (0.7/0.5/0.3) e `r_C3` | sem calibração | Prototype 0 braço E2 + ablação de composição |
+| O12 | Política de oclusor para rotas por máscara (ilha / incluído+paste / suave+paste) | fora da distribuição de treino (`06` F-13) | Prototype 0, rota R4 |
 
 ---
 
@@ -343,6 +363,10 @@ Regras:
 - Metas são **provisórias** e serão justificadas (ou revistas, com justificativa registrada) **antes** do teste final, nunca depois.
 
 ---
+
+## 11-R Nota (2026-10-08)
+
+As metas por estrato acima só serão congeladas depois do Prototype 0; o eixo **adição × pose complexa** (`addition_difficulty` no benchmark) passa a ser estrato próprio na Fase 7.
 
 ## 12. Fora de escopo (explícito)
 

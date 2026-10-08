@@ -101,7 +101,7 @@ Leitura (rótulos de VRAM: `FITS_RESIDENT` = cabe residente com margem; `NEAR_LI
 - **Residentes com folga:** klein 4B fp8 (1 ref), CatVTON, Leffa, juiz Qwen3-VL-8B Q4, componentes de percepção.
 - **Perto do limite (medir):** klein 4B com 3 referências (tokens ×4 — a atenção cresce), klein 9B Q4 + TE Q4, Kontext NVFP4, Qwen-Image-2.1 fp8, FitDiT, FASHN 1.5 (pixel-space em 576×864: a banda alta reflete incerteza sobre ativações em espaço de pixel), TEMU-VTOFF.
 - **Só com offload/streaming:** QIE-2511 Q4/Q5 (+TE), QIE-2509 NVFP4, Kontext/Fill fp8, klein 9B fp8. **A evidência histórica (§1b) confirma que QIE-2511 Q5 roda assim na RTX 5070**: ~10–15 min/imagem a ~0.5 MP, o que a coloca perto/acima do teto de 1 500 s por candidato a 1 MP com QA. O veredito para essas rotas é de **tempo**, não de memória.
-- **Inviáveis (nem com offload cabem em 16 GB de RAM + 12 GB sem thrashing, por evidência `P/R`):** FLUX.2 dev (17 GB Q4 + TE 13 GB), Step1X-Edit (18 GB mínimo declarado), IDM-VTON (≥16–18 GB declarado), HiDream-E1 (≥24 GB relatado), Hunyuan 3.0, Emu3.5.
+- **Inviáveis (por evidência `P`, re-verificada em `research_raw/07`):** FLUX.2 dev (piso oficial ~18 GB só com encoder remoto; 12 GB apenas em relatos com 70–96 GB RAM), Step1X-Edit (18 GB mínimo), IDM-VTON (≥16 GB no nó ComfyUI), Hunyuan 3.0, Emu3.5. HiDream-E1: **inferência** (sem requisito declarado). OmniGen2 e BAGEL: **não** inviáveis (offload/NF4 documentados) → marginais.
 
 Lição registrada (D-016): "excede VRAM residente" foi lido na primeira versão deste documento como quase-inviabilidade; a observação histórica mostra que é uma questão de tempo por passo. O estimador agora separa os dois conceitos.
 
@@ -124,7 +124,8 @@ Lição registrada (D-016): "excede VRAM residente" foi lido na primeira versão
 | OmniVTON++ (NC) | PENDENTE | pré-processamento pesado (DensePose, TAPPS, pseudo-pessoa) | custo total; Windows |
 | Percepção (SAM 3, SAM 2, BiRefNet, DWPose, SegFormer, MoGe, DINOv2) | ELEGÍVEL | ≤ 4 GB cada (`P`/`R`); nativos no core (SAM 3, SAM 3D Body, MoGe) | SAM 3D Body: ~17 GB fp32 anedótico → usar bf16/int8 |
 | QA: Qwen3-VL-8B Q4 (Apache) | ELEGÍVEL | ~6–12 GB (`C`) → carregar **após** descarregar o gerador | tempo de julgamento por imagem |
-| FLUX.2 dev, Step1X-Edit, HiDream-E1, IDM-VTON, Hunyuan 3.0, Emu3.5, WSL2 | **INVIÁVEL** | §4; WSL2: VM 8 GB padrão, sem DynamicVRAM | — |
+| FLUX.2 dev (piso oficial ~18 GB **com encoder remoto** → rede, proibido), Step1X-Edit (18 GB mínimo, P), IDM-VTON (nó ComfyUI "**at least 16GB**", P — a citação anterior ">18 GB em #43" estava errada), HiDream-E1 (sem requisito declarado; ≥24 GB só relato), Hunyuan 3.0, Emu3.5, WSL2 | **INVIÁVEL** | `research_raw/07` cluster descartados; WSL2: VM 8 GB padrão, sem DynamicVRAM | — |
+| OmniGen2 (offload documentado ~8,5 GB / sequential <3 GB; 1024² >10 min em 3060 relatado), BAGEL (NF4 recomendado para 12–32 GB; sem multi-imagem documentada) | **MARGINAL — descarte anterior revertido** (rev. 2026-10-08) | fonte primária contradiz "inviável"; RAM 16 GB e tempo seguem riscos | medir em frio; 2.ª onda |
 
 ## 6. Windows: pagefile, commit, fallback
 

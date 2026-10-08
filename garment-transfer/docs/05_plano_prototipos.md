@@ -1,6 +1,6 @@
 # Fase 5 (plano) — Protótipos mínimos A–H, ablações e critérios de abandono
 
-**Status:** protocolo definido; execução **pendente** (depende da Fase 3 medida no hardware-alvo e da shortlist da Fase 4).
+**Status:** protocolo definido; execução **pendente**. **Revisado em 2026-10-08:** o **Prototype 0 — ADDITION / OCCUPANCY STRESS TEST** (`06` §7) precede o Protótipo A e decide H0/H11; A, D e F passam a auditoria dupla (O′ e O); H7 foi substituída por H7′ (não circular).
 **Regra geral:** nenhum pipeline amplo é integrado antes de A–H confirmarem ou derrubarem as hipóteses da shortlist. Cada protótipo altera **uma** variável por experimento, com seed registrada, baseline explícito e critério de falha fixado **antes** de rodar.
 
 As rotas sob teste (R1, R2, …) são as da shortlist em `04_selecao_provisoria.md`. Este documento define **o que** se mede e **o que decide**; não define a arquitetura.
@@ -21,7 +21,11 @@ As rotas sob teste (R1, R2, …) são as da shortlist em `04_selecao_provisoria.
 
 ---
 
-## Protótipo A — Preservação
+## Prototype 0 — ADDITION / OCCUPANCY STRESS TEST (novo; vem antes de A)
+
+Protocolo completo em `06_RED_TEAM_REVISION.md` §7; casos em `benchmark/proto0_cases.jsonl` (EASY, MEDIUM, HARD-1 braço cruzado, HARD-2 manga longa em foreshortening, EXTREME, controles: no-op, controle negativo sintético, baseline pareado do sweep histórico, par autoproduzido com GT). Variável única: mecanismo de controle espacial (E0 denoise global · E1 máscara binária = envelope · E1′/E1″ controles negativos · E2 mapa graduado via DifferentialDiffusion · E3 = E2 + condicionamento estrutural). Cinco eixos medidos separadamente (criar a peça · fidelidade · adaptação à pose · oclusão · preservação) em **O′ e O** com `tools/occupancy_audit.py` v2 e referências congeladas. Critérios PASS / FALHA-CRIAÇÃO / FALHA-OCLUSÃO / FALHA-ACOPLAMENTO pré-registrados por rota. **Decisão:** H0 sobrevive, é modificada (camadas, H13) ou cai; cada rota ganha ou perde elegibilidade para `add`.
+
+## Protótipo A — Preservação (fundido com o Prototype 0 na parte de preservação)
 
 **Hipótese (H-A):** a rota mantém os invariantes de `A` (identidade, pose, câmera, fundo) e os pixels C1 dentro da tolerância do contrato, **enquanto** altera a região da peça (não é preservação trivial).
 
@@ -30,7 +34,7 @@ As rotas sob teste (R1, R2, …) são as da shortlist em `04_selecao_provisoria.
 | Casos | 6 do `dev`: 2 EASY, 2 MEDIUM, 2 HARD; todos com cabelo sobre a roupa em ≥ 2 casos e mãos sobre a roupa em ≥ 2. |
 | Baseline | `A` inalterada (controle de trivialidade) e um "no-op" (`same_garment_noop`). |
 | Variável | Rota (R1 vs R2 …) com sua estratégia nativa de preservação; depois, ablação: com/sem composição determinística de C1 externa à rota. |
-| Controles | Mesmo `region_contract` congelado para todas as rotas; `O` reprojetada ao canvas original; PNG sem perda. |
+| Controles | Mesmo `contract_frozen` para todas as rotas; `O′` **e** `O` reprojetadas ao canvas original; PNG sem perda; métricas de oclusor em O′ (em O são triviais pela casca). |
 | Métricas | `pixel_preservation_check` em C1 (nº alterados, erro máx., MAE/RMSE); landmarks faciais/corporais normalizados (visíveis); embedding de identidade; LPIPS/DISTS no fundo fora de C2∪C3; verificação de mudança real na peça (não trivial). |
 | Critério de falha | Qualquer pixel C1 alterado em modo `exact` sem mecanismo de composição; em `near_exact`, `frac_over_tol > max_frac` (O1 calibrado aqui); `identity_drift`/`pose_drift`/`camera_drift` detectados em ≥ 2 de 6 casos; ou "preservação" obtida sem alterar a peça. |
 | Decisão | Rota reprovada em A **não** segue para integração sem um mecanismo externo de preservação verificável; se nem com composição externa preservar pose/câmera, **abandonar**. |
@@ -80,7 +84,7 @@ As rotas sob teste (R1, R2, …) são as da shortlist em `04_selecao_provisoria.
 | Casos | 6: braços cruzados sobre o tronco (2), mão na cintura/bolso (1), cabelo longo sobre o decote (1), objeto à frente (bolsa/caneca) (1), pernas cruzadas com saia/calça (1). |
 | Baseline | Caso equivalente sem oclusão (mesma peça, mesma pessoa se possível). |
 | Variável | Presença/tipo de oclusão. |
-| Métricas | Inspeção estruturada de ordem de oclusão por região (correta/incorreta/ambígua); integridade de mãos/dedos (contagem e landmarks); pixels C1 nas regiões oclusoras; detecção de tecido "por cima" de membro (`bad_occlusion`). |
+| Métricas | Inspeção estruturada de ordem por **elemento** (front_certain/behind_certain/uncertain); integridade de mãos/dedos; `front_occluder_pixel_identity` e `garment_over_front_occluders` **em O′**; `occluder_border_coherence_proxy` (junção falsa escondida pelo paste-back); tecido sobre membro (`bad_occlusion`). |
 | Critério de falha | `bad_occlusion` ou `impossible_intersection` em ≥ 2 casos; mãos/dedos alterados. |
 | Decisão | Falha aqui indica confusão corpo/roupa na rota; corrigível apenas se houver mecanismo de ordem explícito (composição por camadas com preservação de C1). Se nem com isso resolver, rota limitada a casos `occlusion: none`. |
 
@@ -109,8 +113,8 @@ As rotas sob teste (R1, R2, …) são as da shortlist em `04_selecao_provisoria.
 |---|---|
 | Casos | 6: `add_over_skin` (3), `add_over_background` (2), `add_over_layer` (1: jaqueta sobre top mantido). |
 | Baseline | Mesma peça em `replace` (A já com peça da categoria). |
-| Variável | Operação (add vs replace); estimador de extensão de C2 (prior de categoria+corpo vs correspondência com `B`) — pendência O3. |
-| Métricas | `background_drift` fora de C2∪C3; cobertura da peça (ocupou a área esperada?); pixels C1; body_distortion. |
+| Variável | Operação (add vs replace); estimador de envelope por classe E2/E3 (E1 já decidido no Prototype 0) — pendência O3 reformulada; referência **não circular** (GT real ou banda humana congelada; H7′). |
+| Métricas | `unchanged_in_band_without_garment`, `excess_on_background`, `coverage_of_band_min` vs GT/banda humana, `fabric_boundary_on_band_max_fraction`; pixels PROTECTED; body_distortion. |
 | Critério de falha | Rota só adiciona onde havia roupa (depende de roupa semelhante em `A`) em ≥ 3 casos; `background_drift`; corpo movido para "caber". |
 | Decisão | Rota incapaz de `add` é rotulada "replace-only"; se for a melhor em fidelidade, avaliar composição com uma rota de `add` (routing por operação). |
 
@@ -163,6 +167,7 @@ As rotas sob teste (R1, R2, …) são as da shortlist em `04_selecao_provisoria.
 
 Uma rota é **abandonada** (não entra na integração) se qualquer um ocorrer:
 
+0. **FALHA-CRIAÇÃO ou FALHA-ACOPLAMENTO no Prototype 0** (critérios em `06` §7).
 1. Falha em A (preservação) sem mecanismo externo verificável que a corrija.
 2. `wrong_category`/`garment_topology_mismatch` recorrentes em EASY (Protótipo B).
 3. Inviabilidade no hardware-alvo: não executa, ou excede 3 600 s na configuração mínima com QA, **medido** (não estimado).

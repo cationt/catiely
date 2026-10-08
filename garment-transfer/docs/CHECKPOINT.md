@@ -1,39 +1,39 @@
-# CHECKPOINT — estado do projeto para continuidade (2026-10-07)
+# CHECKPOINT — estado do projeto para continuidade (2026-10-08, após red-team)
 
 ## Onde estamos
-Fases **0–4 entregues em forma documental**; **nenhum protótipo executado; nenhuma medição no hardware-alvo**. A seleção da Fase 4 é provisória por definição. Próximo gate: medição no alvo (Fase 3 §8) e Protótipo A.
+Fases 0–4 entregues **e revisadas adversarialmente** (`docs/06_RED_TEAM_REVISION.md`). **Nenhum protótipo executado; nenhum modelo instalado; nenhuma medição padronizada no hardware-alvo** (existe evidência histórica não padronizada, `03` §1b). A decisão estrutural D-008 foi **rebaixada a hipótese H0**; o primeiro experimento real é o **Prototype 0 — ADDITION / OCCUPANCY STRESS TEST**.
 
 ## Estado por componente
 
 | Componente | Estado | Medido | Estimado | Não resolvido |
 |---|---|---|---|---|
-| Contrato formal (C1–C5, eliminatórias, tempo, QA) | **escrito** (`00`) | — | tolerâncias O1/O2/O4/O5 | pendências O1–O9 (tabela em `00` §10.2) |
-| Pesquisa SOTA | **escrita** (`01`, `research_raw/`) | — | — | itens NV listados em `01` §12 |
-| Comparação de famílias | **escrita** (`02`) | — | matriz de capacidade com `?` em pose difícil para todos | nenhum dado de pose difícil existe |
-| Viabilidade local | **estimada** (`03`) | **nada** | orçamentos `memory_budget.py` | tudo depende de `measure_run.py` no alvo |
-| Seleção provisória | **escrita** (`04`): casca + R1 klein 4B / R2 QIE-2511 (condicional) / R3 FASHN 1.5 / R4 try-off→VTON máscara; R5 Kontext+RefTon comparador | — | — | trilha de licença O10 (uso comercial?) |
-| Plano de protótipos A–H | **escrito** (`05`) | — | — | casos do split `dev` ainda não coletados |
-| Benchmark | **esquema + matriz + validadores** (`benchmark/`) | — | — | 0 casos reais; fontes legais definidas (Commons/autoproduzido) |
-| Ferramentas | `inventory_windows.ps1`, `measure_run.py`, `pixel_preservation_check.py`, `memory_budget.py` **testados em Linux/CPU** | smoke tests ok | — | execução no Windows/alvo |
-| Workflows ComfyUI | **não existem** | — | — | só após Protótipo A/B |
-| Custom nodes | **nenhum** (decisão: nativos + subprocessos) | — | — | — |
+| Contrato (`00`) | **revisado**: três campos (autoridade de reconstrução / autorização de ocupação / z-order por elemento); C1–C5 vira vocabulário de auditoria; auditoria dupla O′/O; regra da banda com franja C3 | — | tolerâncias O1/O2/O4/O5/O11 | O3 reformulada; O12 política de oclusor |
+| SOTA (`01`, `research_raw/`) | **revisado**: níveis de evidência corrigidos em 7 clusters (`research_raw/07`); afirmação sobre benchmarks reformulada | — | — | itens NV listados em `01` §12 e `07` |
+| Famílias (`02`) | **revisado**: casca = hipótese H0; motores = candidatos sem "principal" | — | pose difícil `?` para todos | — |
+| Viabilidade (`03`) | **revisado**: evidência histórica (QIE-2511 Q5 ~10–15 min @0,5 MP; sweep de denoise); estimador = triagem com bandas; OmniGen2/BAGEL marginais; IDM-VTON citação corrigida | **histórico não padronizado** | tudo o mais | medição com `measure_run.py` |
+| Seleção (`04`) | **revisado**: H0; canal por rota (F1 noise_mask+DifferentialDiffusion verificado; F2 política de oclusor; F3 sem canal); H7′, H11–H13; Prototype 0 antes de A | — | — | H4 (QIE tempo); trilha de licença O10 (FASHN não permissiva via parser) |
+| Plano de protótipos (`05`) | **revisado**: Prototype 0 primeiro; A/D/F com auditoria dupla | — | — | casos `dev` ainda não coletados |
+| Red-team (`06`) | **escrito** (fontes + lentes 1–2 + verificação direta); lentes 3–6 e refutações **pendentes de incorporação** | — | — | ver §11 de `06` |
+| Benchmark | schema v3 (consentimento obrigatório; `proto0`; `frozen_annotation` com FREE_SPACE/UNCERTAIN/z-order/estados); 6 casos proto0 esqueleto validados | — | — | imagens e máscaras reais ainda não produzidas |
+| Ferramentas | `inventory_windows.ps1` (multi-caminho), `measure_run.py`, `pixel_preservation_check.py`, `memory_budget.py` (triagem), `occupancy_audit.py` v2 (alvos duplos; 5 testes sintéticos ok) | smoke tests CPU | — | execução no Windows/alvo |
+| Workflows ComfyUI / custom nodes | **não existem** (por decisão) | — | — | só após Prototype 0 |
 
-## O que foi medido nesta sessão
-Apenas smoke tests dos scripts (CPU, sem GPU). Nada sobre a RTX 5070.
+## O que foi medido
+Nada na RTX 5070 nesta sessão. Histórico não padronizado: QIE-2511 Q5 @~544×960 ≈ 10–15 min/imagem; sweep de denoise 0.18–1.00 (`03` §1b).
 
 ## O que permanece estimado
-Toda VRAM/RAM/tempo de rotas (`03` §4–§5); baseline de RAM do Windows+ComfyUI (4.5 GB assumido); utilizável VRAM (~11.3 GB).
+VRAM/RAM/tempo de todas as rotas; VRAM de FASHN (não declarada); valores do mapa de autoridade (0.7/0.5/0.3) e r_C3.
 
 ## O que não foi resolvido
-- Desempenho de qualquer rota em HARD/EXTREME (desconhecido para toda a literatura).
-- Viabilidade de QIE-2511 em 16 GB RAM (H4).
-- Licença dos pesos FASHN 1.5, RefTon, Any2AnyTryon, SegFormer-B2-clothes (cards não acessíveis).
-- Se GGUF é suportado pelo DynamicVRAM atual; stack torch do Comfy-Desktop 1.1.6 numa 5070.
-- Intenção de uso (comercial vs. não) → trilha de licença.
+- H0/H11: se força graduada no latente desacopla criar-roupa de reconstruir-A (destilados têm 4 degraus).
+- z-order `uncertain` indecidível a priori (cabelo vs gola; cós vs bainha).
+- Confiabilidade do segmentador G sobre tecido alucinado (calibração obrigatória).
+- Licenças: FASHN parser NC; SAM/DINOv3 proprietárias revogáveis; SegFormer-B2-clothes herança NVIDIA; intenção de uso (O10).
+- Nenhum benchmark externo com GT real de adição sobre pele em pose difícil.
 
 ## Como retomar
-1. Ler `docs/04_selecao_provisoria.md` §7 e `docs/03_viabilidade_local.md` §8.
-2. Rodar `tools/inventory_windows.ps1` no alvo e anexar o JSON em `runs/`.
-3. Medir R1 e R3 em frio; depois R2 (gate H4) e R4.
-4. Coletar 24 casos `dev` conforme `benchmark/coverage_matrix.md`; validar com `benchmark/validate_manifest.py`.
-5. Executar Protótipo A; registrar em `docs/DECISION_LOG.md`.
+1. Ler `docs/06_RED_TEAM_REVISION.md` §6–§10 e `docs/04_selecao_provisoria.md` §7.
+2. Incorporar lentes 3–6 + refutações (se ainda pendentes) em `06` e docs 00–05.
+3. Rodar `tools/inventory_windows.ps1` no alvo; medir klein 4B, FASHN 1.5 e QIE-2511 Q5 (mesma A/B do sweep) com `measure_run.py` em frio.
+4. Produzir as imagens e máscaras congeladas dos 6 casos `proto0` (+ controle negativo sintético + par com GT) e validar.
+5. Executar o Prototype 0 (Gate G0) e aplicar os critérios pré-registrados; registrar em `DECISION_LOG.md`.
