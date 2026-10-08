@@ -1,6 +1,6 @@
 # Fase 3 — Viabilidade local: RTX 5070 12 GB · ~16 GB RAM · Windows 11 · ComfyUI Desktop
 
-**Data:** 2026-10-07. **Status global: PENDENTE DE MEDIÇÃO NO HARDWARE-ALVO.** Esta sessão rodou em contêiner Linux sem GPU; **nenhum número abaixo é "MEDIDO NO HARDWARE-ALVO"**. O que existe é: fatos de código/documentação (`P`), relatos de usuários em hardware parecido (`R`), estimativas com hipóteses explícitas (`E`) e inferências (`I`). O procedimento de medição reproduzível está em §8 e nos scripts de `tools/`.
+**Data:** 2026-10-07 (revisado 2026-10-08). **Status global: PENDENTE DE MEDIÇÃO PADRONIZADA NO HARDWARE-ALVO.** Esta sessão rodou em contêiner Linux sem GPU. Existe, porém, **evidência experimental histórica da própria RTX 5070 do usuário** (§1b), registrada com o nível `MEDIDO/OBSERVADO NO HARDWARE-ALVO — HISTÓRICO NÃO PADRONIZADO`: ela não substitui a medição com `tools/measure_run.py` (sem inventário, sem versão do ComfyUI, sem pico de memória), mas é a única medida real disponível e orienta a prioridade dos experimentos. O restante é: fatos de código/documentação (`P`), relatos de usuários em hardware parecido (`R`), estimativas com hipóteses explícitas (`E`) e inferências (`I`). O procedimento de medição reproduzível está em §8 e nos scripts de `tools/`.
 
 ---
 
@@ -18,6 +18,31 @@
 | ComfyUI core | v0.39.0 (2026-10-05); **DynamicVRAM (comfy-aimdo) padrão** em NVIDIA com torch ≥ 2.8 | `P` |
 | ComfyUI Desktop | app legado arquivado (2026-06-26); **Comfy-Desktop v1.1.6 (2026-10-03)**: Python 3.13.12 + uv; documenta stacks cu126/cu128 com torch 2.11.0; **qual stack instala numa 5070: NV** | `P` |
 | Atenção/kernels Windows | SageAttention 2.2.0 wheels Windows (sm89/sm120, CUDA ≥ 12.8); triton-windows 3.6; SageAttention 3 (FP4) Windows: NV; xformers sm_120 Windows: NV; FlashAttention 2.8.4 wheels comunitárias | `P`/`NV` |
+
+
+## 1b. Evidência histórica no hardware-alvo (`MEDIDO/OBSERVADO — HISTÓRICO NÃO PADRONIZADO`)
+
+Relato do operador sobre execuções anteriores na **RTX 5070 12 GB** (data, versão do ComfyUI, flags, RAM/commit e pico de VRAM **não registrados**; por isso não é uma medição padronizada):
+
+| Item | Observação |
+|---|---|
+| Modelo | Qwen-Image-Edit-2511, GGUF **Q5** |
+| Resolução | ~544×960 |
+| Tempo | **~10–15 min por imagem** |
+| Técnica | Edição por **denoise global** (img2img sobre A inteira) com a roupa de B como referência |
+
+Sweep de denoise observado (mesma A/B):
+
+| Denoise | A (pose/corpo/câmera) | Roupa de B | Observação |
+|---|---|---|---|
+| 0.18 · 0.22 · 0.26 · 0.30 · 0.50 | preservadas | **praticamente não aparece** | — |
+| 0.70 | razoavelmente preservada | começa a aparecer | geometria/drape **incorretos** |
+| 0.80 | idem | idem | mesmo problema estrutural |
+| 1.00 | reconstrução de pose/corpo/câmera **aumenta** | mais forte | — |
+
+**Interpretação (registrada como hipótese fundamentada, não como fato geral):** o denoise global acopla duas liberdades que o contrato exige separadas — a liberdade para *construir a roupa* (que precisa ser alta onde a peça nasce, inclusive sobre pele e fundo) e a liberdade para *reconstruir A* (que precisa ser ~zero). Um único escalar não pode satisfazer ambas: abaixo de ~0.7 a roupa não nasce; em ~0.7–0.8 nasce com geometria errada; em 1.0 A deriva. Consequências para a Fase 4/5: (a) qualquer rota baseada em regeneração global tem de ser testada com mecanismos que **separem espacialmente** essas liberdades (máscara/força por região, condicionamento de pose/profundidade de A, inpainting com referência, geração em camadas), não com um denoise global; (b) o custo de ~10–15 min/imagem em Q5 a ~0.5 MP sugere que, a 1 MP e com QA, QIE-2511 fica perto ou acima do teto de 1 500 s por candidato — **H4 continua decisiva**; (c) esta observação é a evidência mais direta de que "preservar A" e "criar roupa" não podem ser deixadas ao mesmo controle, o que motiva o Prototype 0 (ver `docs/06_RED_TEAM_REVISION.md`).
+
+O que falta para promover a `MEDIDO NO HARDWARE-ALVO`: repetir com `measure_run.py` (frio/quente), `inventory_windows.ps1`, versão do ComfyUI/flags, pico de VRAM/commit, e as mesmas A/B usadas no Prototype 0.
 
 ## 2. Como o ComfyUI 2026 gerencia memória (muda as regras de viabilidade)
 
@@ -47,36 +72,38 @@
 
 ## 4. Orçamento de memória estimado por candidata (nível **ESTIMADO**)
 
-Gerado por `tools/memory_budget.py --config tools/budget_configs.json`. Hipóteses: bytes/param por formato (fp8 1.0; NVFP4 0.56; Q4_K_M 0.58; Q5_K_M 0.69), 1024² → 4 096 tokens latentes (×4 para 3 referências), CFG batch 2, SDPA, VRAM utilizável 11.2 GB, baseline RAM (SO+ComfyUI) 4.5 GB. **"RAM pico load" vale para o caminho legado com cópia/conversão; com DynamicVRAM/mmap, pesos são páginas file-backed e não entram no commit — a coluna fica pessimista nesse caso.** A estimativa de ativações é de ordem de grandeza: FitDiT, por exemplo, reporta ~19.5 GB fp16 em 1024×768 (paper) contra 10.2 GB estimados aqui — prova de que o estimador **não substitui medição**.
+Gerado por `tools/memory_budget.py --config tools/budget_configs.json --markdown` (**modelo de triagem grosseira**; faixa de ativações [0.5×, 4×]; "CLEARLY_FITS" exige banda alta ≤ 70 % do disponível porque o estimador subestima — FitDiT: ~13 GB na banda alta vs 19.5 GB reportados). **NEAR_LIMIT significa medir, nunca descartar.** Hipóteses: bytes/param por formato (fp8 1.0; NVFP4 0.56; Q4_K_M 0.58; Q5_K_M 0.69), 1024² → 4 096 tokens latentes (×4 para 3 referências), CFG batch 2, SDPA, VRAM utilizável 11.2 GB, baseline RAM (SO+ComfyUI) 4.5 GB. **"RAM pico load" vale para o caminho legado com cópia/conversão; com DynamicVRAM/mmap, pesos são páginas file-backed e não entram no commit — a coluna fica pessimista nesse caso.** A estimativa de ativações é de ordem de grandeza e **enviesada para baixo**: FitDiT reporta ~19.5 GB fp16 em 1024×768 (paper) contra ~10 GB central / ~13 GB banda alta aqui — prova de que o estimador **não pode descartar candidatas perto do limite**; só a medição decide.
 
-| Candidata (precisão) | Pesos modelo | TE | VRAM tudo residente | VRAM sequencial | RAM pico load | RAM offload total | Cabe VRAM seq.? | Cabe RAM load? |
-|---|---|---|---|---|---|---|---|---|
-| FLUX.2 klein 4B bf16 + Qwen3-4B fp8 | 7.5 | 3.7 | 12.1 | 8.1 | 11.7 | 15.7 | sim | NÃO |
-| FLUX.2 klein 4B fp8 + Qwen3-4B fp8 | 3.7 | 3.7 | 8.4 | 4.4 | 7.8 | 12.0 | sim | sim |
-| FLUX.2 klein 4B fp8 + 3 refs (tokens x4) | 3.7 | 3.7 | 10.4 | 6.4 | 7.8 | 12.0 | sim | sim |
-| FLUX.2 klein 9B fp8 + Qwen3-8B fp8 | 8.4 | 7.5 | 17.0 | 9.3 | 16.6 | 20.3 | sim | NÃO |
-| FLUX.2 klein 9B Q4_K_M + Qwen3-8B Q4_K_M | 4.9 | 4.3 | 10.4 | 5.7 | 9.6 | 13.7 | sim | sim |
-| Qwen-Image-Edit-2511 fp8 + Qwen2.5-VL-7B fp8 | 18.6 | 6.5 | 26.1 | 19.3 | 26.4 | 29.6 | NÃO | NÃO |
-| Qwen-Image-Edit-2511 Q4_K_M + VL-7B Q4_K_M | 10.8 | 3.8 | 15.6 | 11.5 | 15.3 | 19.1 | NÃO | NÃO |
-| Qwen-Image-Edit-2511 Q4_K_M + 3 refs (tokens x4) | 10.8 | 3.8 | 17.5 | 13.4 | 15.3 | 19.1 | NÃO | NÃO |
-| Qwen-Image-Edit-2509 Nunchaku NVFP4 + VL-7B Q4 | 10.4 | 3.8 | 15.2 | 11.1 | 14.9 | 18.7 | sim | NÃO |
-| Qwen-Image-2.1 fp8 (7B) + Qwen3-VL-8B fp8 [research-only] | 6.5 | 7.5 | 14.9 | 7.5 | 14.7 | 18.5 | sim | NÃO |
-| FLUX.1 Kontext dev fp8 + T5-XXL fp8 (RefTon/LoRAs) | 11.2 | 4.4 | 16.5 | 11.8 | 16.3 | 20.1 | NÃO | NÃO |
-| FLUX.1 Kontext dev Nunchaku NVFP4 + T5 fp8 | 6.3 | 4.4 | 11.6 | 6.9 | 11.2 | 15.1 | sim | sim |
-| FLUX.1 Fill dev fp8 + LoRA (OmniTry/UniFit/CatVTON-FLUX) + T5 fp8 | 11.2 | 4.4 | 17.2 | 12.5 | 16.3 | 20.1 | NÃO | NÃO |
-| FLUX.2 dev 32B Q4_K_M + Mistral-24B Q4_K_M | 17.3 | 13.0 | 31.9 | 18.6 | 31.8 | 34.7 | NÃO | NÃO |
-| CatVTON SD1.5-inp fp16 (+SCHP+DensePose) | 1.7 | 0.0 | 2.2 | 1.9 | 1.8 | 6.2 | sim | sim |
-| Leffa SD1.5-inp + ref UNet fp16 | 3.4 | 0.0 | 3.9 | 3.6 | 3.5 | 7.9 | sim | sim |
-| FitDiT SD3-M dual DiT fp16 (paper ~19.5 GB sem offload) | 7.5 | 1.9 | 10.2 | 8.0 | 9.8 | 13.8 | sim | sim |
-| FASHN VTON 1.5 pixel-space bf16 (~1B) + DWPose + parser | 1.9 | 0.0 | 3.2 | 2.9 | 2.0 | 6.4 | sim | sim |
-| TEMU-VTOFF SD3-M dual DiT fp16 + Qwen2.5-VL-7B Q4 (legenda) | 7.5 | 3.8 | 11.8 | 7.7 | 11.8 | 15.7 | sim | NÃO |
-| QA: Qwen3-VL-8B Q4_K_M (juiz local) | 4.3 | 0.0 | 5.1 | 4.8 | 4.5 | 8.8 | sim | sim |
+| Candidata (precisão) | Pesos modelo GB | TE GB | VRAM seq. GB [baixo–central–alto] | VRAM tudo residente GB [baixo–alto] | Triagem VRAM seq. | RAM load legado GB | Triagem RAM (legado) |
+|---|---|---|---|---|---|---|---|
+| FLUX.2 klein 4B bf16 + Qwen3-4B fp8 | 7.5 | 3.7 | 7.9–8.4–11.2 | 12.0–15.2 | NEAR_LIMIT | 11.7 | NEAR_LIMIT |
+| FLUX.2 klein 4B fp8 + Qwen3-4B fp8 | 3.7 | 3.7 | 4.2–4.7–7.5 | 8.2–11.5 | FITS_RESIDENT | 7.8 | CLEARLY_FITS |
+| FLUX.2 klein 4B fp8 + 3 refs (tokens x4) | 3.7 | 3.7 | 5.6–7.5–18.7 | 9.6–22.8 | NEAR_LIMIT | 7.8 | CLEARLY_FITS |
+| FLUX.2 klein 9B fp8 + Qwen3-8B fp8 | 8.4 | 7.5 | 9.2–10.0–14.9 | 17.0–22.6 | NEAR_LIMIT | 16.6 | CLEARLY_EXCEEDS |
+| FLUX.2 klein 9B Q4_K_M + Qwen3-8B Q4_K_M | 4.9 | 4.3 | 5.7–6.5–11.4 | 10.3–16.0 | NEAR_LIMIT | 9.6 | CLEARLY_FITS |
+| Qwen-Image-Edit-2511 fp8 + Qwen2.5-VL-7B fp8 | 18.6 | 6.5 | 19.7–20.7–26.9 | 26.5–33.7 | NEEDS_OFFLOAD | 26.4 | CLEARLY_EXCEEDS |
+| Qwen-Image-Edit-2511 Q4_K_M + VL-7B Q4_K_M | 10.8 | 3.8 | 11.8–12.9–19.1 | 15.9–23.1 | NEEDS_OFFLOAD | 15.3 | CLEARLY_EXCEEDS |
+| Qwen-Image-Edit-2511 Q4_K_M + 3 refs (tokens x4) | 10.8 | 3.8 | 14.9–19.1–43.8 | 19.0–47.9 | NEEDS_OFFLOAD | 15.3 | CLEARLY_EXCEEDS |
+| Qwen-Image-Edit-2509 Nunchaku NVFP4 + VL-7B Q4 | 10.4 | 3.8 | 11.5–12.5–18.7 | 15.6–22.8 | NEEDS_OFFLOAD | 14.9 | NEAR_LIMIT |
+| Qwen-Image-2.1 fp8 (7B) + Qwen3-VL-8B fp8 [research-only] | 6.5 | 7.5 | 7.5–7.7–11.4 | 14.9–19.2 | NEAR_LIMIT | 14.7 | NEAR_LIMIT |
+| FLUX.1 Kontext dev fp8 + T5-XXL fp8 (RefTon/LoRAs) | 11.2 | 4.4 | 12.2–13.2–19.4 | 16.9–24.1 | NEEDS_OFFLOAD | 16.3 | CLEARLY_EXCEEDS |
+| FLUX.1 Kontext dev Nunchaku NVFP4 + T5 fp8 | 6.3 | 4.4 | 7.3–8.3–14.5 | 12.0–19.2 | NEAR_LIMIT | 11.2 | CLEARLY_FITS |
+| FLUX.1 Fill dev fp8 + LoRA (OmniTry/UniFit/CatVTON-FLUX) + T5 fp8 | 11.2 | 4.4 | 13.2–15.3–27.7 | 17.9–32.4 | NEEDS_OFFLOAD | 16.3 | CLEARLY_EXCEEDS |
+| FLUX.2 dev 32B Q4_K_M + Mistral-24B Q4_K_M | 17.3 | 13.0 | 19.1–20.8–31.5 | 32.3–44.8 | NEEDS_OFFLOAD | 31.8 | CLEARLY_EXCEEDS |
+| CatVTON SD1.5-inp fp16 (+SCHP+DensePose) | 1.7 | 0.0 | 1.8–1.9–2.5 | 2.1–2.8 | FITS_RESIDENT | 1.8 | CLEARLY_FITS |
+| Leffa SD1.5-inp + ref UNet fp16 | 3.4 | 0.0 | 3.5–3.6–4.2 | 3.8–4.5 | FITS_RESIDENT | 3.5 | CLEARLY_FITS |
+| FitDiT SD3-M dual DiT fp16 (paper ~19.5 GB sem offload) | 7.5 | 1.9 | 7.8–8.2–10.6 | 10.0–12.8 | NEAR_LIMIT | 9.8 | CLEARLY_FITS |
+| FASHN VTON 1.5 pixel-space bf16 (~1B) + DWPose + parser | 1.9 | 0.0 | 2.6–3.4–8.0 | 2.9–8.3 | NEAR_LIMIT | 2.0 | CLEARLY_FITS |
+| TEMU-VTOFF SD3-M dual DiT fp16 + Qwen2.5-VL-7B Q4 (legenda) | 7.5 | 3.8 | 7.6–7.8–8.9 | 11.7–13.0 | NEAR_LIMIT | 11.8 | NEAR_LIMIT |
+| QA: Qwen3-VL-8B Q4_K_M (juiz local) | 4.3 | 0.0 | 4.7–5.1–7.6 | 5.0–7.9 | FITS_RESIDENT | 4.5 | CLEARLY_FITS |
 
-Leitura:
-- **Cabem com folga (VRAM e RAM):** klein 4B fp8, CatVTON, Leffa, FASHN 1.5, TEMU-VTOFF (sequencial), juiz Qwen3-VL-8B Q4, componentes de percepção.
-- **Cabem só com offload/sequencial:** klein 9B (fp8 ou Q4 + TE Q4), Kontext/Fill fp8 (ou NVFP4 sem offload), FitDiT (offload), Qwen-Image-2.1 fp8.
-- **Marginais (excedem VRAM utilizável mesmo em Q4 e dependem de DynamicVRAM re-lendo pesos a cada passo):** QIE-2511 Q4 (10.8 GB pesos + ativações + TE), QIE-2509 NVFP4 (10.4 GB; TE separado). Com 3 referências, tokens ×4 → ativações crescem; **o tempo por passo será dominado por I/O** e é o que precisa ser medido primeiro.
-- **Inviáveis:** FLUX.2 dev (17 GB Q4 + TE 13 GB), Step1X-Edit (18 GB mínimo), IDM-VTON (≥16–18 GB), HiDream-E1 (≥24 GB relatado), Hunyuan 3.0, Emu3.5.
+Leitura (rótulos de VRAM: `FITS_RESIDENT` = cabe residente com margem; `NEAR_LIMIT` = medir; `NEEDS_OFFLOAD` = roda **só** com offload/streaming via DynamicVRAM, portanto **mais lento, não inviável**):
+- **Residentes com folga:** klein 4B fp8 (1 ref), CatVTON, Leffa, juiz Qwen3-VL-8B Q4, componentes de percepção.
+- **Perto do limite (medir):** klein 4B com 3 referências (tokens ×4 — a atenção cresce), klein 9B Q4 + TE Q4, Kontext NVFP4, Qwen-Image-2.1 fp8, FitDiT, FASHN 1.5 (pixel-space em 576×864: a banda alta reflete incerteza sobre ativações em espaço de pixel), TEMU-VTOFF.
+- **Só com offload/streaming:** QIE-2511 Q4/Q5 (+TE), QIE-2509 NVFP4, Kontext/Fill fp8, klein 9B fp8. **A evidência histórica (§1b) confirma que QIE-2511 Q5 roda assim na RTX 5070**: ~10–15 min/imagem a ~0.5 MP, o que a coloca perto/acima do teto de 1 500 s por candidato a 1 MP com QA. O veredito para essas rotas é de **tempo**, não de memória.
+- **Inviáveis (nem com offload cabem em 16 GB de RAM + 12 GB sem thrashing, por evidência `P/R`):** FLUX.2 dev (17 GB Q4 + TE 13 GB), Step1X-Edit (18 GB mínimo declarado), IDM-VTON (≥16–18 GB declarado), HiDream-E1 (≥24 GB relatado), Hunyuan 3.0, Emu3.5.
+
+Lição registrada (D-016): "excede VRAM residente" foi lido na primeira versão deste documento como quase-inviabilidade; a observação histórica mostra que é uma questão de tempo por passo. O estimador agora separa os dois conceitos.
 
 ## 5. Elegibilidade provisória por candidata (consolida §2–§4; **tudo PENDENTE de medição**)
 

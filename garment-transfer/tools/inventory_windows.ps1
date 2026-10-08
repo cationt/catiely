@@ -53,30 +53,106 @@ try {
 # Processos que mais consomem memória agora (baseline antes da execução)
 $out.top_processes_by_ws = @(Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 15 | ForEach-Object { @{ name=$_.ProcessName; ws_mb=[math]::Round($_.WorkingSet64/1MB); private_mb=[math]::Round($_.PrivateMemorySize64/1MB) } })
 
-# Python/Torch do ComfyUI Desktop (caminho padrão; ajuste se instalado em outro lugar)
-$comfyPy = Join-Path $env:USERPROFILE "Documents\ComfyUI\.venv\Scripts\python.exe"
-if (Test-Path $comfyPy) {
+# ---------------------------------------------------------------------------
+# Detecção robusta de instalações do ComfyUI (Desktop novo, Desktop legado, portable, manual).
+# Não assume um único caminho. Registra TODAS as encontradas e qual foi usada para a sondagem.
+# Override manual: $env:COMFY_PYTHON = "C:\caminho\para\python.exe"
+# ---------------------------------------------------------------------------
+$candidates = New-Object System.Collections.Generic.List[object]
+function Add-Candidate($label, $pythonPath, $comfyRoot) {
+  if ($pythonPath -and (Test-Path $pythonPath)) {
+    $candidates.Add(@{ label = $label; python = $pythonPath; comfy_root = $comfyRoot; exists = $true })
+  } else {
+    $candidates.Add(@{ label = $label; python = "$pythonPath"; comfy_root = "$comfyRoot"; exists = $false })
+  }
+}
+# 0) override explícito
+if ($env:COMFY_PYTHON) { Add-Candidate "env:COMFY_PYTHON" $env:COMFY_PYTHON (Split-Path (Split-Path (Split-Path $env:COMFY_PYTHON))) }
+# 1) Comfy-Desktop (app novo, 2026): %LOCALAPPDATA%\Comfy-Desktop\ComfyUI-Installs\<nome>\ComfyUI\.venv\Scripts\python.exe
+$installsRoot = Join-Path $env:LOCALAPPDATA "Comfy-Desktop\ComfyUI-Installs"
+if (Test-Path $installsRoot) {
+  Get-ChildItem -Path $installsRoot -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+    $root = Join-Path $_.FullName "ComfyUI"
+    Add-Candidate "Comfy-Desktop/ComfyUI-Installs/$($_.Name)" (Join-Path $root ".venv\Scripts\python.exe") $root
+    # variante sem subpasta ComfyUI
+    Add-Candidate "Comfy-Desktop/ComfyUI-Installs/$($_.Name) (flat)" (Join-Path $_.FullName ".venv\Scripts\python.exe") $_.FullName
+  }
+}
+# 2) Comfy-Desktop: configuração do app aponta o basePath (ler JSON se existir)
+foreach ($cfg in @((Join-Path $env:APPDATA "Comfy-Desktop\config.json"), (Join-Path $env:APPDATA "ComfyUI\config.json"), (Join-Path $env:APPDATA "ComfyUI\extra_models_config.yaml"))) {
+  if (Test-Path $cfg) {
+    try {
+      $txt = Get-Content $cfg -Raw
+      $m = [regex]::Matches($txt, '([A-Za-z]:\\[^"\r\n]*?ComfyUI[^"\r\n]*)')
+      foreach ($mm in $m) {
+        $bp = $mm.Groups[1].Value.TrimEnd('\')
+        Add-Candidate "config:$([System.IO.Path]::GetFileName($cfg))" (Join-Path $bp ".venv\Scripts\python.exe") $bp
+      }
+    } catch {}
+  }
+}
+# 3) Desktop legado (Comfy-Org/desktop, arquivado 2026-06): %USERPROFILE%\Documents\ComfyUI\.venv
+Add-Candidate "desktop-legado/Documents" (Join-Path $env:USERPROFILE "Documents\ComfyUI\.venv\Scripts\python.exe") (Join-Path $env:USERPROFILE "Documents\ComfyUI")
+# 4) Portable: <raiz>\python_embeded\python.exe ao lado de ComfyUI\
+foreach ($drive in (Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Root)) {
+  foreach ($guess in @("ComfyUI_windows_portable", "ComfyUI", "AI\ComfyUI_windows_portable")) {
+    $pp = Join-Path $drive (Join-Path $guess "python_embeded\python.exe")
+    if (Test-Path $pp) { Add-Candidate "portable:$drive$guess" $pp (Join-Path $drive (Join-Path $guess "ComfyUI")) }
+  }
+}
+# 5) Busca rasa em LocalAppData e no perfil por ComfyUI\.venv\Scripts\python.exe (profundidade limitada para não demorar)
+foreach ($base in @($env:LOCALAPPDATA, $env:USERPROFILE)) {
+  try {
+    Get-ChildItem -Path $base -Directory -Depth 3 -Filter "ComfyUI" -ErrorAction SilentlyContinue | ForEach-Object {
+      $pp = Join-Path $_.FullName ".venv\Scripts\python.exe"
+      if ((Test-Path $pp) -and -not ($candidates | Where-Object { $_.python -eq $pp })) { Add-Candidate "busca:$($_.FullName)" $pp $_.FullName }
+    }
+  } catch {}
+}
+$out.comfy_candidates = @($candidates)
+$found = $candidates | Where-Object { $_.exists } | Select-Object -First 1
+if ($found) {
+  $out.comfy_used = $found
+  # versão do ComfyUI (comfyui_version.py ou pyproject.toml) e lista de custom nodes
+  try {
+    $verFile = Join-Path $found.comfy_root "comfyui_version.py"
+    if (Test-Path $verFile) { $out.comfy_version = (Get-Content $verFile -Raw) -replace '\s+', ' ' }
+    $pyproj = Join-Path $found.comfy_root "pyproject.toml"
+    if (Test-Path $pyproj) { $out.comfy_pyproject_version = ((Select-String -Path $pyproj -Pattern '^version\s*=\s*"(.+)"').Matches | Select-Object -First 1).Groups[1].Value }
+    $cn = Join-Path $found.comfy_root "custom_nodes"
+    if (Test-Path $cn) { $out.custom_nodes = @(Get-ChildItem -Path $cn -Directory | Select-Object -ExpandProperty Name) }
+    $models = Join-Path $found.comfy_root "models"
+    if (Test-Path $models) {
+      $out.models_dir_size_gb = [math]::Round(((Get-ChildItem -Path $models -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum)/1GB, 1)
+    }
+  } catch { $out.comfy_meta_error = "$_" }
   $probe = @'
-import json, sys
-d = {"python": sys.version.split()[0]}
+import json, sys, platform
+d = {"python": sys.version.split()[0], "executable": sys.executable, "platform": platform.platform()}
 try:
     import torch; d["torch"]=torch.__version__; d["cuda"]=torch.version.cuda; d["cudnn"]=torch.backends.cudnn.version()
     d["cuda_available"]=torch.cuda.is_available()
     if torch.cuda.is_available():
         p=torch.cuda.get_device_properties(0); d["gpu"]=p.name; d["sm"]=f"{p.major}.{p.minor}"; d["vram_total_mb"]=round(p.total_memory/2**20)
         d["arch_list"]=torch.cuda.get_arch_list()
+        try:
+            free,total=torch.cuda.mem_get_info(); d["vram_free_mb_now"]=round(free/2**20)
+        except Exception as e: d["mem_get_info_error"]=str(e)
 except Exception as e: d["torch_error"]=str(e)
-for m in ["xformers","sageattention","triton","flash_attn","nunchaku","gguf"]:
+for m in ["xformers","sageattention","triton","flash_attn","nunchaku","gguf","comfy_aimdo","comfy_kitchen","onnxruntime","psutil","pynvml"]:
     try:
-        mod=__import__(m); d[m]=getattr(mod,"__version__","?")
+        mod=__import__(m); d[m]=getattr(mod,"__version__","present")
     except Exception as e: d[m]=None
 print(json.dumps(d))
 '@
   $tmp = New-TemporaryFile
   Set-Content -Path $tmp -Value $probe -Encoding UTF8
-  try { $out.comfy_python = (& $comfyPy -I $tmp.FullName) | ConvertFrom-Json } catch { $out.comfy_python_error = "$_" }
+  try { $out.comfy_python = (& $found.python -I $tmp.FullName) | ConvertFrom-Json } catch { $out.comfy_python_error = "$_" }
   Remove-Item $tmp -Force
-} else { $out.comfy_python = "não encontrado em $comfyPy (ajuste o caminho)" }
+} else {
+  $out.comfy_used = $null
+  $out.comfy_python = "nenhuma instalação encontrada; defina `$env:COMFY_PYTHON com o caminho do python.exe do ComfyUI"
+}
 
 $file = "inventory_$((Get-Date).ToString('yyyyMMdd_HHmmss')).json"
 $out | ConvertTo-Json -Depth 6 | Set-Content -Path $file -Encoding UTF8
