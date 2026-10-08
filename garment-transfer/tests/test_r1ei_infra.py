@@ -93,7 +93,10 @@ def main():
         bad = json.loads(json.dumps(fake)); bad["easy_insert"]["commit"] = "0" * 40
         rep3 = vp.verify_clone(g, bad)
         c.ok("verify_clone_rejeita_commit_pinado_ausente", (not rep3["ok"]) and "git_ls_tree_failed" in rep3["method"], rep3["method"])
-        shutil.rmtree(os.path.join(g, ".git"))
+        # Fixture sem .git: nao apagar objetos read-only do Git no Windows.
+        no_git = os.path.join(d, "clone_without_git")
+        shutil.copytree(g, no_git, ignore=shutil.ignore_patterns(".git"))
+        g = no_git
         rep4 = vp.verify_clone(g, fake)
         c.ok("verify_clone_sem_git_usa_sha_lf", rep4["ok"] and rep4["method"] == ["no_git", "sha256_lf_normalized"], rep4["method"])
         os.remove(os.path.join(g, "LICENSE"))

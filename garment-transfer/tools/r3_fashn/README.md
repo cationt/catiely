@@ -28,7 +28,7 @@ Preservado: **mesmas A e B**; `tools/measure_run.py` (commit real via `GetPerfor
 | Diferença | klein4b / R1-EI | R3 | Consequência |
 |---|---|---|---|
 | Resolução | ~1 MP (klein) / crop 1024² (R1-EI) | canvas **fixo 576×864** (checkpoint); A pré-redimensionada para caber em 864 sem upsampling; saída = tamanho de A pré-redimensionada | **não comparável em MP**; sidecar grava tamanhos originais, pré-redimensionados, canvas e saída |
-| Entradas | A + B (+ 2 máscaras na R1-EI) | A + B + **categoria** + `garment_photo_type` declarados pelo operador | `inputs_decision.json` (setup); nada é inferido automaticamente |
+| Entradas | A + B (+ 2 máscaras na R1-EI) | mesmas A/B por SHA256 + **`tops` / `model`** | `inputs_decision.json` (setup); subtarefa nativa de custo, sem transferência integral do conjunto |
 | Componentes | 1 motor | motor + DWPose (ONNX/CUDA EP) + SegFormer | fases separadas no sidecar; providers efetivos registrados |
 | Cold | processo novo; page cache não esvaziado salvo RAMMap | idem (`cold_pagecache_unflushed` no `--note`) | igual à R1-EI |
 | Warm | processo novo com cache do SO aquecido (R1-EI) / ComfyUI residente (klein) | processo novo com cache do SO aquecido — **não** residente | igual à R1-EI |
@@ -37,7 +37,19 @@ Elegibilidade (`03` §8 item 6): cold ≤ 1 500 s elegível; 1 500–3 000 s mar
 
 ## 4. Decisão de categoria e tipo de foto de B
 
-A categoria **não está documentada** formalmente nos registros anteriores (klein4b/R1-EI usaram A + B sem categoria). O operador determina-a **a partir da mesma B** e passa `-Category` ao setup: `tops` (parte de cima: camiseta, blusa, jaqueta), `bottoms` (calça, saia, short), `one-pieces` (vestido, macacão). `garment_photo_type`: **`model`** se B mostra a peça vestida em outra pessoa (caso do projeto), `flat-lay` só para foto de produto. O setup grava `W3Root\r3\inputs\inputs_decision.json` e o bench lê-o. Não inventar categoria para facilitar.
+B é um **biquíni preto de duas peças (top + bottom), vestido por outra pessoa**, conforme esclarecido pelo operador. A leitura dos commits pinados confirma: [`labels.py` do parser](https://github.com/fashn-AI/fashn-human-parser/blob/f2771f2fb8655349e87e2869bbde7ace0bd06f2c/src/fashn_human_parser/labels.py) mapeia `tops → upper`, `bottoms → lower`, `one-pieces → full`; [`TryOnPipeline.__call__`](https://github.com/fashn-AI/fashn-vton-1.5/blob/7c0f10af3f91ad4048fe9729c470a13ef905d25a/src/fashn_vton/pipeline.py) usa a categoria para selecionar os labels de B **e** enviar `garment_categories` (1/2/3) ao modelo; [`TryOnModel`](https://github.com/fashn-AI/fashn-vton-1.5/blob/7c0f10af3f91ad4048fe9729c470a13ef905d25a/src/fashn_vton/tryon_mmdit.py) aplica `y_embedder` (`nn.Embedding`). A união dos labels em `full` não demonstra equivalência semântica entre `one-pieces` e um conjunto two-piece.
+
+**Política R3 baseline (D-053):** um passe nativo `tops`, `garment_photo_type=model`, nos modos `segfree` e `masked`, mantendo a mesma B inteira como arquivo de entrada (o upstream extrai os labels de upper). Mede custo computacional do FASHN nessa subtarefa; **não mede transferência integral do biquíni nem qualidade/adequação do parser ao top**. `tops → bottoms` altera a arquitetura, o custo total e a entrada do segundo passe: exige avaliação separada, fora deste baseline. Não usar `one-pieces` para o biquíni sem evidência semântica adicional. Setup e bench rejeitam categorias/tipos de foto fora dessa política; o runner genérico continua expondo as categorias nativas para outros usos.
+
+**Identidade das entradas:** `expected_inputs.json` registra SHA256 reais, calculados em 2026-10-08 dos arquivos locais do Klein (`ComfyUI-Shared/input/w3_measure/A.jpg`, `B.png`) e R1-EI (`w3-measure/r1ei/inputs/A.png`, `B.png`), e conferidos nos seis sidecars R1-EI normal cold/warm r1–r3. Os pares são byte-idênticos; a extensão `.png` de A na R1-EI não representa recodificação. A: `f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b`; B: `666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296`. Setup confere a fonte antes de preparar o ambiente, registra hashes das cópias em `inputs_decision.json` e verifica as cópias; bench e runner (`--inputs-decision`) conferem novamente contra a referência versionada. Nome/caminho ou um JSON antigo sem hashes não bastam.
+
+Comando Windows, na raiz deste checkout `catiely` (prepara e faz smoke GPU de **1 passo por modo**, sem benchmark):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\garment-transfer\tools\r3_fashn\setup_r3.ps1 -W3Root "C:\Users\henri\OneDrive\Documentos\w3-measure" -A "C:\Users\henri\OneDrive\Documentos\w3-measure\r1ei\inputs\A.png" -B "C:\Users\henri\OneDrive\Documentos\w3-measure\r1ei\inputs\B.png" -Category tops -GarmentPhotoType model
+```
+
+O bench interrompe no primeiro exit não zero, deadline, relatório ausente/inválido ou sidecar sem verdict `ok`; **sem retry/fallback após OOM/falha**. Um identificador único por lote preserva saídas/erros anteriores. `summarize_runs.py` seleciona os runs por prefixo delimitado e vincula cada sidecar ao `--out` do comando medido; smoke, outro modo e arquivos órfãos não entram no resumo. Associações ausentes ficam explícitas.
 
 ## 5. Offline e proveniência (lições da R1-EI aplicadas)
 
@@ -51,7 +63,7 @@ A categoria **não está documentada** formalmente nos registros anteriores (kle
 ## 6. Risco CUDA / ONNX Runtime / Blackwell
 
 - `onnxruntime-gpu==1.30.0` (PyPI) é **build CUDA 13.0** (`build_and_package_info.cuda_version='13.0'`, lido do wheel) → casa com `torch 2.12.1+cu130` do alvo (mesma major; `preload_dlls` usa `torch\lib`). Se o torch do alvo fosse cu128, o setup troca automaticamente para `onnxruntime-gpu==1.26.0` (CUDA 12.8).
-- As arquiteturas CUDA compiladas no wheel oficial **não** estão declaradas nos docs lidos; sm_120 é inferido das notas de release ("Fixed Windows CUDA 12.9 SM120 compilation"). Por isso o setup **testa empiricamente** (passo 8: sessão CUDA + inferência yolox 640²) e o smoke test registra os providers. Se o CUDA EP falhar: o runner reprova; a alternativa (DWPose em CPU, `--ort-provider cpu`) é uma **mudança de configuração registrada**, nunca silenciosa.
+- As arquiteturas CUDA compiladas no wheel oficial **não** estão declaradas nos docs lidos; sm_120 é inferido das notas de release ("Fixed Windows CUDA 12.9 SM120 compilation"). Por isso o setup **testa empiricamente** (passo 8: sessão CUDA + inferência yolox 640²) e os smokes segfree/masked registram os providers. Se o CUDA EP falhar, o baseline reprova. **`--ort-provider` removido:** não alterava o DWPose, cujo provider acompanha `--device` no upstream. `--device cpu` coloca o pipeline inteiro em CPU; não existe aqui uma configuração implementada de try-on CUDA + DWPose CPU. `--allow-ort-cpu-fallback` é diagnóstico explícito fora do baseline, nunca passado pelo setup/bench.
 - cuDNN: ORT 1.30 exige cuDNN 9.x; torch cu130 traz cuDNN 9 em `torch\lib`.
 
 ## 7. Arquivos
@@ -62,11 +74,13 @@ A categoria **não está documentada** formalmente nos registros anteriores (kle
 | `requirements-r3.txt` | deps pinadas (sem torch e sem os pacotes upstream, instalados à parte) |
 | `fetch_weights.py` | download determinístico (`hf_hub_download` + `revision`) e verificação (`--verify-only --verify-sha`) |
 | `verify_provenance.py` | provenance dos clones robusta a EOL (blob OIDs + sha256 LF) |
+| `expected_inputs.json` / `verify_inputs.py` | identidade A/B por SHA256 e política baseline, validadas sem GPU |
 | `run_fashn_vton.py` | runner (processo próprio, offline, sidecar; `--dry-run`, `--smoke`) |
-| `setup_r3.ps1` | venv `W3Root\r3\.venv`, torch CUDA (casa com o ComfyUI), deps, clone pinado + `--no-deps`, pesos, sha256, **teste do CUDA EP**, dry-run e smoke (1 passo) — **não roda o benchmark** |
+| `setup_r3.ps1` | venv `W3Root\r3\.venv`, torch CUDA (casa com o ComfyUI), deps, clone pinado + `--no-deps`, pesos, sha256, **teste do CUDA EP**, dry-run e smoke (1 passo) **em ambos os modos** — **não roda o benchmark**; `-SkipSmoke` deixa preparação parcial |
 | `bench_r3.ps1` | 2 modos × (cold×N + warm×N) com `measure_run.py` — só depois do setup revisado |
 | `../r1ei/summarize_runs.py` | gera o registro `benchmark/measurements/*.json` a partir dos JSONs (um por modo: prefixos `r3_fashn15_bf16_576x864_segfree` / `_masked`) |
 | `tests/test_r3_static.py` | testes CPU/estáticos (manifesto, hashes, dry-run com pesos esparsos, geometria, offline guard, BOM/ASCII, bench) |
+| `tests/test_r3_review.py` | regressões CPU: identidade A/B, isolamento dos sidecars, interrupção do bench com processos simulados, parser PowerShell 5.1 |
 
 ## 8. Sidecar do runner (`<out>.png.json`)
 

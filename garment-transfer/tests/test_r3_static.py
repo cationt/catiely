@@ -211,7 +211,7 @@ def main():
         c.ok(f"ps1_bom_ascii_balanceado:{name}", b.startswith(BOM) and all(x < 0x80 for x in body) and code.count("{") == code.count("}") and code.count("(") == code.count(")"), (b[:3], sum(x >= 0x80 for x in body)))
     setup = open(os.path.join(R3, "setup_r3.ps1"), "rb").read().decode("ascii", errors="replace")
     c.ok("setup_r3_fluxo_essencial", all(k in setup for k in ("fetch_weights.py", "verify_provenance.py", "--no-deps fashn-human-parser==0.1.1", "pip install --no-deps $CloneDir", "core.autocrlf=false", "preload_dlls()", "CUDAExecutionProvider", "--dry-run", "--smoke", "inputs_decision.json", "requirements-r3.txt")) and "hf download" not in setup and "measure_run.py" not in setup, "")
-    c.ok("setup_r3_categoria_obrigatoria_e_validada", '"tops", "bottoms", "one-pieces"' in setup and "-Category e obrigatoria" in setup, "")
+    c.ok("setup_r3_baseline_tops_model_e_hashes", '$Category -ne "tops"' in setup and '$GarmentPhotoType -ne "model"' in setup and "Get-FileHash" in setup and "expected_inputs.json" in setup and "--inputs-decision" in setup, "")
     c.ok("setup_r3_fallback_ort_cuda12", "onnxruntime-gpu==1.26.0" in setup and '$torchCuda -eq "12"' in setup, "")
     bench = open(os.path.join(R3, "bench_r3.ps1"), "rb").read().decode("ascii", errors="replace")
     c.ok("bench_r3_protocolo", all(k in bench for k in ('"segfree", "masked"', "--num-timesteps", '"30"', "--guidance-scale", '"1.5"', "--seed", '"42"', "--num-samples", '"1"', "--budget-s $BudgetS", "--interval-s 0.5", "r3_fashn15_bf16_576x864", "cold_pagecache_unflushed", "inputs_decision.json")) and "[int]$BudgetS = 3600" in bench and "[int]$N = 3" in bench, "")

@@ -7,7 +7,8 @@ Uso: python summarize_runs.py --runs-dir <W3Root\\runs> --label-prefix r1ei_klei
 Métricas por run: wall_s, peak.vram_used_mb, peak.tree_rss_mb, peak.tree_private_mb, peak.sys_ram_used_mb, peak.swap_used_mb, peak.commit_total_mb,
 exit_code, deadline_hit, verdict, commit_source. Sidecars: phases, vram_peak_overall_mb, versions, gpu.
 """
-import argparse, glob, json, os, statistics as st, sys
+import argparse, glob, json, os, shlex, statistics as st, sys
+from pathlib import PureWindowsPath
 
 KEYS = {"wall_s": ("wall_s",), "vram_used_mb": ("peak", "vram_used_mb"), "tree_rss_mb": ("peak", "tree_rss_mb"), "tree_private_mb": ("peak", "tree_private_mb"),
         "sys_ram_used_mb": ("peak", "sys_ram_used_mb"), "swap_used_mb": ("peak", "swap_used_mb"), "commit_total_mb": ("peak", "commit_total_mb")}
@@ -25,17 +26,18 @@ def load_runs(runs_dir, label_prefix):
     runs = {"cold": [], "warm": []}
     for p in sorted(glob.glob(os.path.join(runs_dir, "*.json"))):
         try:
-            j = json.load(open(p, encoding="utf-8"))
+            with open(p, encoding="utf-8-sig") as f:
+                j = json.load(f)
         except Exception:
             continue
         lab = str(j.get("label", ""))
-        if not lab.startswith(label_prefix):
+        if lab != label_prefix and not lab.startswith(label_prefix + "_"):
             continue
         state = j.get("state") or ("cold" if "cold" in lab else "warm" if "warm" in lab else None)
         if state not in runs:
             continue
         rec = {"file": os.path.basename(p), "label": lab, "exit_code": j.get("exit_code"), "deadline_hit": j.get("deadline_hit"), "verdict": j.get("verdict"),
-               "commit_source": dig(j, ("commit_measurement", "source"))}
+               "commit_source": dig(j, ("commit_measurement", "source")), "command": j.get("command")}
         for k, path in KEYS.items():
             rec[k] = dig(j, path)
         runs[state].append(rec)
@@ -58,15 +60,33 @@ def summarize(runs):
     return out
 
 
-def load_sidecars(sidecars_dir):
+def load_sidecars(sidecars_dir, runs):
+    """Associe somente --out dos runs selecionados; nunca varra todos os PNGs.
+
+    measure_run serializa command com shlex.quote, inclusive no Windows.
+    PureWindowsPath aceita separadores Windows/POSIX ao recuperar o basename.
+    """
     res = []
-    for p in sorted(glob.glob(os.path.join(sidecars_dir, "*.png.json"))):
-        try:
-            j = json.load(open(p, encoding="utf-8"))
-        except Exception:
-            continue
-        res.append({"file": os.path.basename(p), "verdict": j.get("verdict"), "mode": j.get("mode"), "phases": j.get("phases"), "vram_peak_overall_mb": j.get("vram_peak_overall_mb"),
-                    "vram_reserved_peak_denoise_mb": j.get("vram_reserved_peak_denoise_mb"), "versions": j.get("versions"), "gpu": j.get("gpu"), "pin_check_ok": (j.get("pin_check") or {}).get("ok")})
+    for lst in runs.values():
+        for run in lst:
+            cmd = shlex.split(run.get("command") or "")
+            if "--out" not in cmd or cmd.index("--out") + 1 >= len(cmd):
+                res.append({"measure_file": run["file"], "status": "unlinked:no_command_out"})
+                continue
+            name = PureWindowsPath(cmd[cmd.index("--out") + 1]).name + ".json"
+            p = os.path.join(sidecars_dir, name)
+            if not os.path.isfile(p):
+                res.append({"measure_file": run["file"], "file": name, "status": "missing"})
+                continue
+            with open(p, encoding="utf-8-sig") as f:
+                j = json.load(f)
+            mode = ("segfree" if "--segmentation-free" in cmd else "masked" if "--masked" in cmd
+                    else cmd[cmd.index("--mode") + 1] if "--mode" in cmd else None)
+            if mode is not None and j.get("mode") != mode:
+                raise ValueError("sidecar com modo divergente do run: " + name)
+            res.append({"measure_file": run["file"], "file": name, "status": "linked", "verdict": j.get("verdict"), "mode": j.get("mode"), "phases": j.get("phases"), "vram_peak_overall_mb": j.get("vram_peak_overall_mb"),
+                        "vram_reserved_peak_denoise_mb": j.get("vram_reserved_peak_denoise_mb"), "versions": j.get("versions"), "gpu": j.get("gpu"), "pin_check_ok": (j.get("pin_check") or {}).get("ok"),
+                        "inputs_sha256": j.get("inputs_sha256"), "input_check": j.get("input_check"), "params": j.get("params"), "torch_vram": j.get("torch_vram")})
     return res
 
 
@@ -84,7 +104,7 @@ def main():
     if a.config_json:
         rec.update(json.load(open(a.config_json, encoding="utf-8")))
     if a.sidecars_dir and os.path.isdir(a.sidecars_dir):
-        rec["sidecars"] = load_sidecars(a.sidecars_dir)
+        rec["sidecars"] = load_sidecars(a.sidecars_dir, runs)
     os.makedirs(os.path.dirname(os.path.abspath(a.out)) or ".", exist_ok=True)
     json.dump(rec, open(a.out, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     for state, s in rec["runs"].items():

@@ -151,13 +151,14 @@
   "offline": "runner: HF_HUB_OFFLINE=1, TRANSFORMERS_OFFLINE=1, HF_DATASETS_OFFLINE=1, HF_HUB_DISABLE_TELEMETRY=1, DISABLE_TELEMETRY=1, HF_HOME=<weights-dir>\\hf_home (determinístico, vazio) definidos ANTES dos imports + guarda de rede (socket.connect fora de loopback → exceção) salvo --allow-online; parser carregado de diretório local"
  },
  "run_protocol": {
-  "inputs": "mesmas A e B do klein4b_fp8_2ref_1mp e da R1-EI; categoria e garment_photo_type declarados pelo operador (inputs_decision.json); B vestida em pessoa → 'model'",
+  "inputs": "mesmas A e B do klein4b_fp8_2ref_1mp e da R1-EI, SHA256 reais em expected_inputs.json; copias/hashes/decisao registrados no setup e revalidados por run; B = biquini preto two-piece em outra pessoa",
+  "category_policy": "baseline tops/model: um passe nativo como subtarefa de viabilidade computacional, nao transferencia integral do conjunto; tops -> bottoms = arquitetura separada; one-pieces nao e substituto sem evidencia semantica (D-053)",
   "modes": {"segfree": "--segmentation-free (parser executado; masking da pessoa desabilitado)", "masked": "--masked (parser executado; masking da pessoa habilitado)"},
   "fixed_params": {"num_samples": 1, "num_timesteps": 30, "guidance_scale": 1.5, "seed": 42, "skip_cfg_last_n_steps": 1},
   "resolution": "canvas do modelo 576×864 (fixo pelo checkpoint); A pré-redimensionada para caber em 864 sem upsampling → NÃO comparável em MP com klein4b/R1-EI (~1 MP)",
   "harness": "tools/measure_run.py --budget-s 3600 --interval-s 0.5; cold n=3 e warm n=3 por modo (12 runs); processo novo por run",
   "state_definitions": {"cold": "process-cold: processo novo, pesos lidos do disco; page cache do SO NÃO esvaziado salvo -RamMap (rótulo cold_pagecache_unflushed)", "warm": "processo novo com cache do SO presumivelmente aquecido; NÃO é pipeline residente"},
-  "labels": "r3_fashn15_bf16_576x864_<segfree|masked>_<cold|warm>",
+  "labels": "r3_fashn15_bf16_576x864_<segfree|masked>_<cold|warm>_r<N>_<batch-guid>; interromper no primeiro erro/deadline/sidecar sem verdict ok",
   "eligibility": "docs/03 §8 item 6: cold ≤ 1 500 s elegível; 1 500–3 000 marginal; > 3 000 ou OOM/thrashing inviável; o watchdog de 3 600 s é só o limite do benchmark isolado",
   "status": "PREPARADA, NÃO MEDIDA (2026-10-08)"
  },

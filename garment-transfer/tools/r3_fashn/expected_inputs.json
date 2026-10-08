@@ -1,0 +1,13 @@
+{
+ "benchmark": "klein4b_fp8_2ref_1mp / r1ei_kleinbase4b_easyinsert_bf16_1024_normal",
+ "verified_on": "2026-10-08",
+ "provenance": "SHA256 calculados dos arquivos locais do Klein (ComfyUI-Shared/input/w3_measure/A.jpg e B.png) e R1-EI (w3-measure/r1ei/inputs/A.png e B.png): bytes identicos. Conferidos tambem nos seis sidecars R1-EI normal cold/warm r1-r3, todos verdict ok. A.png da R1-EI e uma copia byte a byte de A.jpg, sem recodificacao. Imagens nao versionadas.",
+ "inputs_sha256": {
+  "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+  "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+ },
+ "category": "tops",
+ "garment_photo_type": "model",
+ "scope": "native_single_pass_compute_only",
+ "reference_description": "B: biquini preto de duas pecas (top + bottom), vestido por outra pessoa; descricao confirmada pelo operador. Baseline mede a subtarefa tops, nao a transferencia integral do conjunto."
+}

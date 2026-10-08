@@ -154,7 +154,7 @@ def main():
     ap.add_argument("--num-samples", type=int, default=1); ap.add_argument("--num-timesteps", type=int, default=30); ap.add_argument("--guidance-scale", type=float, default=1.5)
     ap.add_argument("--skip-cfg-last-n-steps", type=int, default=1); ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", required=True); ap.add_argument("--device", default="cuda")
-    ap.add_argument("--ort-provider", choices=["cuda", "cpu"], default="cuda", help="provider exigido para o DWPose (cuda = CUDAExecutionProvider)")
+    ap.add_argument("--inputs-decision", help="decisão do setup R3: exige tops/model e SHA256 das A/B Klein/R1-EI")
     ap.add_argument("--allow-ort-cpu-fallback", action="store_true", help="não reprovar se o ORT cair para CPU (sempre registrado)")
     ap.add_argument("--verify-sha", action="store_true", help="sha256 completo dos pesos (lento; o setup faz isso; o bench confere tamanhos)")
     ap.add_argument("--allow-code-mismatch", action="store_true"); ap.add_argument("--allow-online", action="store_true", help="NÃO usar no benchmark")
@@ -192,6 +192,17 @@ def main():
         print(f"[r3] {verdict} → {out_json}")
         if code is not None:
             sys.exit(code)
+
+    if args.inputs_decision:
+        sys.path.insert(0, HERE)
+        from verify_inputs import verify
+        try:
+            if args.category != "tops" or args.garment_photo_type != "model":
+                raise ValueError("baseline R3 exige tops/model; two-pass e outra arquitetura")
+            rec["input_check"] = verify(args.person, args.garment, args.inputs_decision)
+        except (OSError, ValueError, KeyError) as e:
+            rec["input_check"] = {"ok": False, "error": str(e)}
+            dump("FAIL:entradas_baseline_divergentes", 2)
 
     weights_ok = check_weights(args, rec); code_ok = check_code(rec)
     if not weights_ok:
@@ -265,10 +276,10 @@ def main():
         rec["dtype"] = str(pipe.inference_dtype)
         # providers efetivos do ORT (DWPose): sessões criadas em wholebody.Wholebody
         wb = pipe.pose_model.pose_estimation
-        prov = {"requested": ["CUDAExecutionProvider"] if (want_cuda and args.ort_provider == "cuda") else ["CPUExecutionProvider"],
+        prov = {"requested": ["CUDAExecutionProvider"] if want_cuda else ["CPUExecutionProvider"],
                 "effective_det": wb.session_det.get_providers(), "effective_pose": wb.session_pose.get_providers()}
         prov["cuda_effective"] = prov["effective_det"][0] == "CUDAExecutionProvider" and prov["effective_pose"][0] == "CUDAExecutionProvider"
-        prov["fallback_to_cpu"] = (args.ort_provider == "cuda" and want_cuda and not prov["cuda_effective"])
+        prov["fallback_to_cpu"] = want_cuda and not prov["cuda_effective"]
         rec["onnx_providers"] = prov
         if prov["fallback_to_cpu"] and not args.allow_ort_cpu_fallback:
             dump("FAIL:ort_cuda_fallback_para_cpu", 5)

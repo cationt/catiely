@@ -4,13 +4,13 @@
 # upstream, download deterministico dos pesos (hf_hub_download com revision), sha256, verificacao do CUDAExecutionProvider do ONNX Runtime,
 # dry-run e smoke test (1 passo) do runner. Arquivo em ASCII puro + BOM UTF-8 (Windows PowerShell 5.1).
 # Uso (PowerShell, pasta do repo catiely):
-#   powershell -ExecutionPolicy Bypass -File garment-transfer\tools\r3_fashn\setup_r3.ps1 -A <A.png> -B <B.png> -Category tops|bottoms|one-pieces [-GarmentPhotoType model|flat-lay] [-W3Root C:\...\w3-measure]
+#   powershell -ExecutionPolicy Bypass -File garment-transfer\tools\r3_fashn\setup_r3.ps1 -A <A.png> -B <B.png> -Category tops -GarmentPhotoType model [-W3Root C:\...\w3-measure]
 param(
   [string]$W3Root = "C:\Users\henri\OneDrive\Documentos\w3-measure",
   [string]$A = "",
   [string]$B = "",
-  [string]$Category = "",                       # OBRIGATORIO com -A/-B: tops | bottoms | one-pieces (determinado a partir de B; registrado em inputs_decision.json)
-  [string]$GarmentPhotoType = "model",          # model = B vestida em pessoa (caso das A/B do projeto); flat-lay = foto de produto
+  [string]$Category = "tops",                   # baseline: subtarefa nativa, nao transferencia integral do biquini two-piece
+  [string]$GarmentPhotoType = "model",          # B vestida em outra pessoa
   [string]$PythonExe = "",                      # opcional: interpretador para criar o venv (padrao: py -3.12 -> python do ComfyUI -> python)
   [string]$TorchIndex = "",                     # opcional: ex. https://download.pytorch.org/whl/cu130 (padrao: deduzido do torch do ComfyUI)
   [switch]$SkipDownload,
@@ -30,9 +30,11 @@ New-Item -ItemType Directory -Force -Path $R3, $WeightsDir | Out-Null
 Start-Transcript -Path $Log -Force | Out-Null
 function Step($m) { Write-Host ("`n=== " + $m + " ===") -ForegroundColor Cyan }
 function Fail($m) { Write-Host ("FALHA: " + $m) -ForegroundColor Red; Stop-Transcript | Out-Null; exit 1 }
-if ($Category -and ($Category -notin @("tops", "bottoms", "one-pieces"))) { Fail "-Category deve ser tops, bottoms ou one-pieces" }
-if ($GarmentPhotoType -notin @("model", "flat-lay")) { Fail "-GarmentPhotoType deve ser model ou flat-lay" }
-if (($A -or $B) -and -not $Category) { Fail "-Category e obrigatoria quando -A/-B sao informados (determine a partir de B; nao invente)" }
+if ($Category -ne "tops" -or $GarmentPhotoType -ne "model") { Fail "baseline R3 exige tops/model: B e um biquini two-piece; dois passes sao outra arquitetura" }
+if (-not $A -or -not $B) { Fail "informe -A e -B: mesmas entradas do Klein/R1-EI" }
+$expected = Get-Content (Join-Path $Tools "expected_inputs.json") -Raw | ConvertFrom-Json
+if ((Get-FileHash -LiteralPath $A -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected.inputs_sha256.person -or
+    (Get-FileHash -LiteralPath $B -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected.inputs_sha256.garment) { Fail "SHA256 de A/B diverge do Klein/R1-EI (expected_inputs.json)" }
 
 Step "0. Espaco em disco e inventario minimo"
 $drive = (Get-Item $W3Root).PSDrive.Name
@@ -148,23 +150,26 @@ $eap = $ErrorActionPreference; $ErrorActionPreference = "Continue"   # stderr de
 & $py -c "import sys, torch, onnxruntime as ort; ort.preload_dlls(); sys.stderr = sys.stdout; ort.print_debug_info()" 2>&1 | Out-File -Encoding utf8 (Join-Path $R3 "ort_debug_info.txt")
 $ErrorActionPreference = $eap
 
-Step "9. Entradas A/B + decisao de categoria + dry-run do runner (sem GPU) + smoke test (1 passo, GPU)"
+Step "9. Entradas A/B verificadas + subtarefa tops + dry-run e smoke de ambos os modos"
 $inputs = Join-Path $R3 "inputs"; New-Item -ItemType Directory -Force -Path $inputs | Out-Null
-if (-not $A -or -not $B) { Write-Host "A/B nao informados: pulei dry-run/smoke (passe -A e -B com as MESMAS imagens do klein4b_fp8_2ref_1mp e -Category)" -ForegroundColor Yellow }
-else {
-  Copy-Item $A (Join-Path $inputs "A.png") -Force; Copy-Item $B (Join-Path $inputs "B.png") -Force
-  $decision = @{ category = $Category; garment_photo_type = $GarmentPhotoType; decided_on = (Get-Date -Format "yyyy-MM-dd"); rule = "categoria determinada pelo operador a partir da MESMA B dos benchmarks klein4b/R1-EI (tops: parte de cima; bottoms: parte de baixo; one-pieces: vestido/macacao); garment_photo_type=model porque B mostra a peca vestida em pessoa; flat-lay so para foto de produto"; A = (Join-Path $inputs "A.png"); B = (Join-Path $inputs "B.png") }
-  $decision | ConvertTo-Json | Out-File -Encoding ascii (Join-Path $inputs "inputs_decision.json")
-  $common = @("--person", (Join-Path $inputs "A.png"), "--garment", (Join-Path $inputs "B.png"), "--weights-dir", $WeightsDir, "--category", $Category, "--garment-photo-type", $GarmentPhotoType)
-  & $py (Join-Path $Tools "run_fashn_vton.py") @common --segmentation-free --out (Join-Path $R3 "dryrun\segfree.png") --dry-run
-  if ($LASTEXITCODE -ne 0) { Fail "dry-run (segfree)" }
-  & $py (Join-Path $Tools "run_fashn_vton.py") @common --masked --out (Join-Path $R3 "dryrun\masked.png") --dry-run
-  if ($LASTEXITCODE -ne 0) { Fail "dry-run (masked)" }
-  if (-not $SkipSmoke) {
-    & $py (Join-Path $Tools "run_fashn_vton.py") @common --segmentation-free --out (Join-Path $R3 "smoke\segfree_1step.png") --smoke
-    if ($LASTEXITCODE -ne 0) { Fail "smoke test (1 passo) falhou - ver smoke\segfree_1step.png.json (providers, versoes, erro)" }
-    Get-Content (Join-Path $R3 "smoke\segfree_1step.png.json") | ConvertFrom-Json | Select-Object verdict, dtype, onnx_providers, phases, torch_vram, geometry | ConvertTo-Json -Depth 4
-  }
+Copy-Item $A (Join-Path $inputs "A.png") -Force; Copy-Item $B (Join-Path $inputs "B.png") -Force
+$decisionPath = Join-Path $inputs "inputs_decision.json"
+$decision = @{ category = $Category; garment_photo_type = $GarmentPhotoType; scope = $expected.scope; decided_on = (Get-Date -Format "yyyy-MM-dd"); rule = "B = biquini preto two-piece em outra pessoa. tops = subtarefa nativa de custo, nao transferencia integral; tops -> bottoms = arquitetura separada; one-pieces nao autorizado como substituto"; A = (Join-Path $inputs "A.png"); B = (Join-Path $inputs "B.png"); source_A = (Resolve-Path -LiteralPath $A).Path; source_B = (Resolve-Path -LiteralPath $B).Path; inputs_sha256 = @{ person = (Get-FileHash -LiteralPath (Join-Path $inputs "A.png") -Algorithm SHA256).Hash.ToLowerInvariant(); garment = (Get-FileHash -LiteralPath (Join-Path $inputs "B.png") -Algorithm SHA256).Hash.ToLowerInvariant() } }
+$decision | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 $decisionPath
+& $py (Join-Path $Tools "verify_inputs.py") --person (Join-Path $inputs "A.png") --garment (Join-Path $inputs "B.png") --decision $decisionPath
+if ($LASTEXITCODE -ne 0) { Fail "A/B copiadas ou decisao divergentes" }
+$common = @("--person", (Join-Path $inputs "A.png"), "--garment", (Join-Path $inputs "B.png"), "--weights-dir", $WeightsDir, "--category", $Category, "--garment-photo-type", $GarmentPhotoType, "--inputs-decision", $decisionPath)
+& $py (Join-Path $Tools "run_fashn_vton.py") @common --segmentation-free --out (Join-Path $R3 "dryrun\segfree.png") --dry-run
+if ($LASTEXITCODE -ne 0) { Fail "dry-run (segfree)" }
+& $py (Join-Path $Tools "run_fashn_vton.py") @common --masked --out (Join-Path $R3 "dryrun\masked.png") --dry-run
+if ($LASTEXITCODE -ne 0) { Fail "dry-run (masked)" }
+if (-not $SkipSmoke) {
+  & $py (Join-Path $Tools "run_fashn_vton.py") @common --segmentation-free --out (Join-Path $R3 "smoke\segfree_1step.png") --smoke
+  if ($LASTEXITCODE -ne 0) { Fail "smoke test (1 passo) falhou - ver smoke\segfree_1step.png.json (providers, versoes, erro)" }
+  Get-Content (Join-Path $R3 "smoke\segfree_1step.png.json") | ConvertFrom-Json | Select-Object verdict, dtype, onnx_providers, phases, torch_vram, geometry | ConvertTo-Json -Depth 4
+  & $py (Join-Path $Tools "run_fashn_vton.py") @common --masked --out (Join-Path $R3 "smoke\masked_1step.png") --smoke
+  if ($LASTEXITCODE -ne 0) { Fail "smoke test masked (1 passo) falhou - ver smoke\masked_1step.png.json" }
+  Get-Content (Join-Path $R3 "smoke\masked_1step.png.json") | ConvertFrom-Json | Select-Object verdict, dtype, onnx_providers, phases, torch_vram, geometry | ConvertTo-Json -Depth 4
 }
 
 Step "10. Resumo"
@@ -174,5 +179,6 @@ Write-Host ("clone:         " + $CloneDir + "  (provenance_vton.json)")
 Write-Host ("ORT:           ort_debug_info.txt em " + $R3)
 Write-Host ("entradas:      " + $inputs + "  (inputs_decision.json)")
 Write-Host ("log:           " + $Log)
-Write-Host "`nPRONTO PARA O BENCHMARK (nao executado). Revise o output acima e so entao rode bench_r3.ps1." -ForegroundColor Green
+if ($SkipSmoke) { Write-Host "`nPREPARACAO PARCIAL: smoke segfree/masked pendente; execute novamente sem -SkipSmoke." -ForegroundColor Yellow }
+else { Write-Host "`nPRONTO PARA O BENCHMARK (nao executado). Revise o output acima e so entao rode bench_r3.ps1." -ForegroundColor Green }
 Stop-Transcript | Out-Null

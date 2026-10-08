@@ -20,29 +20,42 @@ $WeightsDir = Join-Path $W3Root "models\fashn-vton-1.5"
 $inputs = Join-Path $R3 "inputs"; $runs = Join-Path $W3Root "runs"; $outs = Join-Path $R3 "outputs"
 New-Item -ItemType Directory -Force -Path $runs, $outs | Out-Null
 foreach ($f in @("A.png", "B.png")) { if (-not (Test-Path (Join-Path $inputs $f))) { throw "entrada ausente: $f (rode setup_r3.ps1 com -A/-B/-Category)" } }
-if (-not $Category -or -not $GarmentPhotoType) {
-  $dec = Join-Path $inputs "inputs_decision.json"
-  if (-not (Test-Path $dec)) { throw "inputs_decision.json ausente: passe -Category e -GarmentPhotoType ou rode setup_r3.ps1 com -Category" }
-  $d = Get-Content $dec -Raw | ConvertFrom-Json
-  if (-not $Category) { $Category = $d.category }
-  if (-not $GarmentPhotoType) { $GarmentPhotoType = $d.garment_photo_type }
-}
-if ($Category -notin @("tops", "bottoms", "one-pieces")) { throw "categoria invalida: $Category" }
+$dec = Join-Path $inputs "inputs_decision.json"
+if (-not (Test-Path $dec)) { throw "inputs_decision.json ausente: rode setup_r3.ps1" }
+$d = Get-Content $dec -Raw | ConvertFrom-Json
+if (-not $Category) { $Category = $d.category }
+if (-not $GarmentPhotoType) { $GarmentPhotoType = $d.garment_photo_type }
+if ($Category -ne "tops" -or $GarmentPhotoType -ne "model") { throw "baseline R3 exige tops/model (subtarefa de custo; two-pass e outra arquitetura)" }
+& $py (Join-Path $GT "tools\r3_fashn\verify_inputs.py") --person (Join-Path $inputs "A.png") --garment (Join-Path $inputs "B.png") --decision $dec
+if ($LASTEXITCODE -ne 0) { throw "A/B ou decisao divergentes do baseline; benchmark interrompido" }
+if ($N -lt 1 -or $BudgetS -le 0 -or ($WarmOnly -and $ColdOnly)) { throw "N/BudgetS/estados invalidos" }
 foreach ($m in $Modes) { if ($m -notin @("segfree", "masked")) { throw "modo invalido: $m (segfree|masked)" } }
 $labelBase = "r3_fashn15_bf16_576x864"
+$batchId = [guid]::NewGuid().ToString("N")   # preserva falhas e impede reutilizar sidecar de execucao anterior
 $noteBase = "R3 FASHN VTON 1.5 (fashn_vton @ 7c0f10af; model.safetensors d6cd3828...); num_samples 1; 30 passos; CFG 1.5; seed 42; category=$Category; garment_photo_type=$GarmentPhotoType; processo proprio (tree_private/tree_rss = motor); offline (HF_HUB_OFFLINE=1 + guarda de rede; parser local); DWPose em CUDAExecutionProvider exigido; mesmas A/B do klein4b_fp8_2ref_1mp; cold = process-cold (page cache do SO NAO esvaziado salvo RAMMap); warm = processo novo com cache do SO aquecido (NAO residente)"
 
 function Run-One($mode, $state, $i) {
   $label = "{0}_{1}" -f $labelBase, $mode
-  $out = Join-Path $outs ("{0}_{1}_r{2}.png" -f $label, $state, $i)
+  $runLabel = "{0}_{1}_r{2}_{3}" -f $label, $state, $i, $batchId
+  $out = Join-Path $outs ($runLabel + ".png")
+  if ((Test-Path $out) -or (Test-Path ($out + ".json"))) { throw "saida ja existe: $out" }
   $modeFlag = if ($mode -eq "segfree") { "--segmentation-free" } else { "--masked" }
-  $cmd = @((Join-Path $GT "tools\r3_fashn\run_fashn_vton.py"), "--person", (Join-Path $inputs "A.png"), "--garment", (Join-Path $inputs "B.png"), "--weights-dir", $WeightsDir, "--category", $Category, "--garment-photo-type", $GarmentPhotoType, $modeFlag, "--num-samples", "1", "--num-timesteps", "30", "--guidance-scale", "1.5", "--seed", "42", "--out", $out, "--mode-label", $mode)
+  $cmd = @((Join-Path $GT "tools\r3_fashn\run_fashn_vton.py"), "--person", (Join-Path $inputs "A.png"), "--garment", (Join-Path $inputs "B.png"), "--weights-dir", $WeightsDir, "--category", $Category, "--garment-photo-type", $GarmentPhotoType, "--inputs-decision", $dec, $modeFlag, "--num-samples", "1", "--num-timesteps", "30", "--guidance-scale", "1.5", "--seed", "42", "--out", $out, "--mode-label", $mode)
   $note = $noteBase + "; mode=" + $mode + " (" + $(if ($mode -eq "segfree") { "parser executado, masking da pessoa desabilitado" } else { "parser executado, masking da pessoa habilitado" }) + ")"
   if ($state -eq "cold" -and -not ($RamMap -and (Test-Path $RamMap))) { $note += "; cold_pagecache_unflushed" }
   Write-Host ("`n### {0} {1} run {2}/{3}" -f $mode, $state, $i, $N) -ForegroundColor Cyan
-  & $py (Join-Path $GT "tools\measure_run.py") --label ("{0}_{1}" -f $label, $state) --state $state --budget-s $BudgetS --interval-s 0.5 --out $runs --note $note -- $py @cmd
-  Write-Host ("exit measure_run: " + $LASTEXITCODE)
-  if (Test-Path ($out + ".json")) { Get-Content ($out + ".json") | ConvertFrom-Json | Select-Object verdict, dtype, phases, torch_vram, onnx_providers | ConvertTo-Json -Depth 4 }
+  $note += "; scope=native_single_pass_compute_only; tops nao mede transferencia integral do biquini"
+  & $py (Join-Path $GT "tools\measure_run.py") --label $runLabel --state $state --budget-s $BudgetS --interval-s 0.5 --out $runs --note $note -- $py @cmd
+  $measureExit = $LASTEXITCODE
+  if ($measureExit -ne 0) { throw "measure_run exit $measureExit; interrompido, sem retry/fallback" }
+  # measure_run pode sair com 0 mesmo se o filho falhar: o JSON e obrigatorio.
+  $reports = @(Get-ChildItem -LiteralPath $runs -Filter ("*_" + $runLabel + ".json"))
+  if ($reports.Count -ne 1) { throw "relatorio measure_run ausente/ambiguo para $runLabel" }
+  $report = Get-Content -LiteralPath $reports[0].FullName -Raw | ConvertFrom-Json
+  if ($report.label -ne $runLabel -or $report.state -ne $state -or $report.exit_code -ne 0 -or $report.deadline_hit -ne $false -or $report.verdict -cne "ok") { throw "measure_run falhou/deadline: $($report.verdict); interrompido, sem retry/fallback" }
+  $sidecar = Get-Content -LiteralPath ($out + ".json") -Raw | ConvertFrom-Json
+  if ($sidecar.verdict -cne "ok" -or $sidecar.mode -ne $mode) { throw "sidecar invalido: $($sidecar.verdict); interrompido, sem retry/fallback" }
+  $sidecar | Select-Object verdict, dtype, phases, torch_vram, onnx_providers | ConvertTo-Json -Depth 4
 }
 function Flush-Cache {
   if ($RamMap -and (Test-Path $RamMap)) { & $RamMap -Et; Start-Sleep -Seconds 3; Write-Host "standby list esvaziada (RAMMap -Et)" }
