@@ -109,7 +109,7 @@ def main():
     json.dump(rec, open(a.out, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     for state, s in rec["runs"].items():
         print(f"[summarize_runs] {state}: n={s['n']} wall mediana={s['median'].get('wall_s')} VRAM={s['median'].get('vram_used_mb')} commit={s['median'].get('commit_total_mb')} exit0={s['all_exit_zero']} deadline={s['any_deadline']}")
-    print(f"[summarize_runs] → {a.out}")
+    print(f"[summarize_runs] -> {a.out}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,673 @@
+{
+ "record_version": 1,
+ "evidence_level": "MEDIDO NO HARDWARE-ALVO",
+ "candidate": "R3 FASHN VTON 1.5 segfree",
+ "config_label": "r3_fashn15_bf16_576x864_segfree",
+ "generated_from": {
+  "runs_dir": "C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\runs",
+  "n_files": 6,
+  "sidecars_dir": "C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\outputs"
+ },
+ "runs": {
+  "cold": {
+   "n": 3,
+   "runs": [
+    {
+     "file": "20261008T205751Z_r3_fashn15_bf16_576x864_segfree_cold_r1_0116eaf737f64b66a2b1207a5cb6ae32.json",
+     "label": "r3_fashn15_bf16_576x864_segfree_cold_r1_0116eaf737f64b66a2b1207a5cb6ae32",
+     "exit_code": 0,
+     "deadline_hit": false,
+     "verdict": "ok",
+     "commit_source": "GetPerformanceInfo",
+     "command": "'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\.venv\\Scripts\\python.exe' 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\run_fashn_vton.py' --person 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\A.png' --garment 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\B.png' --weights-dir 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\models\\fashn-vton-1.5' --category tops --garment-photo-type model --inputs-decision 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\inputs_decision.json' --segmentation-free --num-samples 1 --num-timesteps 30 --guidance-scale 1.5 --seed 42 --out 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\outputs\\r3_fashn15_bf16_576x864_segfree_cold_r1_0116eaf737f64b66a2b1207a5cb6ae32.png' --mode-label segfree",
+     "wall_s": 54.715,
+     "vram_used_mb": 8065.51171875,
+     "tree_rss_mb": 6324.734375,
+     "tree_private_mb": 11239.734375,
+     "sys_ram_used_mb": 14130.73828125,
+     "swap_used_mb": 1216.6640625,
+     "commit_total_mb": 27024.02734375
+    },
+    {
+     "file": "20261008T205846Z_r3_fashn15_bf16_576x864_segfree_cold_r2_0116eaf737f64b66a2b1207a5cb6ae32.json",
+     "label": "r3_fashn15_bf16_576x864_segfree_cold_r2_0116eaf737f64b66a2b1207a5cb6ae32",
+     "exit_code": 0,
+     "deadline_hit": false,
+     "verdict": "ok",
+     "commit_source": "GetPerformanceInfo",
+     "command": "'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\.venv\\Scripts\\python.exe' 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\run_fashn_vton.py' --person 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\A.png' --garment 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\B.png' --weights-dir 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\models\\fashn-vton-1.5' --category tops --garment-photo-type model --inputs-decision 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\inputs_decision.json' --segmentation-free --num-samples 1 --num-timesteps 30 --guidance-scale 1.5 --seed 42 --out 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\outputs\\r3_fashn15_bf16_576x864_segfree_cold_r2_0116eaf737f64b66a2b1207a5cb6ae32.png' --mode-label segfree",
+     "wall_s": 39.169,
+     "vram_used_mb": 8030.10546875,
+     "tree_rss_mb": 5339.109375,
+     "tree_private_mb": 11337.171875,
+     "sys_ram_used_mb": 12845.3515625,
+     "swap_used_mb": 1167.94140625,
+     "commit_total_mb": 25656.921875
+    },
+    {
+     "file": "20261008T205926Z_r3_fashn15_bf16_576x864_segfree_cold_r3_0116eaf737f64b66a2b1207a5cb6ae32.json",
+     "label": "r3_fashn15_bf16_576x864_segfree_cold_r3_0116eaf737f64b66a2b1207a5cb6ae32",
+     "exit_code": 0,
+     "deadline_hit": false,
+     "verdict": "ok",
+     "commit_source": "GetPerformanceInfo",
+     "command": "'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\.venv\\Scripts\\python.exe' 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\run_fashn_vton.py' --person 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\A.png' --garment 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\B.png' --weights-dir 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\models\\fashn-vton-1.5' --category tops --garment-photo-type model --inputs-decision 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\inputs_decision.json' --segmentation-free --num-samples 1 --num-timesteps 30 --guidance-scale 1.5 --seed 42 --out 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\outputs\\r3_fashn15_bf16_576x864_segfree_cold_r3_0116eaf737f64b66a2b1207a5cb6ae32.png' --mode-label segfree",
+     "wall_s": 39.226,
+     "vram_used_mb": 8014.38671875,
+     "tree_rss_mb": 6020.9375,
+     "tree_private_mb": 10931.48828125,
+     "sys_ram_used_mb": 13563.24609375,
+     "swap_used_mb": 1116.0859375,
+     "commit_total_mb": 26032.52734375
+    }
+   ],
+   "median": {
+    "wall_s": 39.226,
+    "vram_used_mb": 8030.10546875,
+    "tree_rss_mb": 6020.9375,
+    "tree_private_mb": 11239.734375,
+    "sys_ram_used_mb": 13563.24609375,
+    "swap_used_mb": 1167.94140625,
+    "commit_total_mb": 26032.52734375
+   },
+   "all_exit_zero": true,
+   "any_deadline": false,
+   "wall_s_min_max": [
+    39.169,
+    54.715
+   ]
+  },
+  "warm": {
+   "n": 3,
+   "runs": [
+    {
+     "file": "20261008T210006Z_r3_fashn15_bf16_576x864_segfree_warm_r1_0116eaf737f64b66a2b1207a5cb6ae32.json",
+     "label": "r3_fashn15_bf16_576x864_segfree_warm_r1_0116eaf737f64b66a2b1207a5cb6ae32",
+     "exit_code": 0,
+     "deadline_hit": false,
+     "verdict": "ok",
+     "commit_source": "GetPerformanceInfo",
+     "command": "'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\.venv\\Scripts\\python.exe' 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\run_fashn_vton.py' --person 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\A.png' --garment 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\B.png' --weights-dir 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\models\\fashn-vton-1.5' --category tops --garment-photo-type model --inputs-decision 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\inputs_decision.json' --segmentation-free --num-samples 1 --num-timesteps 30 --guidance-scale 1.5 --seed 42 --out 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\outputs\\r3_fashn15_bf16_576x864_segfree_warm_r1_0116eaf737f64b66a2b1207a5cb6ae32.png' --mode-label segfree",
+     "wall_s": 39.1,
+     "vram_used_mb": 8006.66796875,
+     "tree_rss_mb": 5255.0234375,
+     "tree_private_mb": 11336.7265625,
+     "sys_ram_used_mb": 12932.8203125,
+     "swap_used_mb": 1116.40625,
+     "commit_total_mb": 26447.55859375
+    },
+    {
+     "file": "20261008T210045Z_r3_fashn15_bf16_576x864_segfree_warm_r2_0116eaf737f64b66a2b1207a5cb6ae32.json",
+     "label": "r3_fashn15_bf16_576x864_segfree_warm_r2_0116eaf737f64b66a2b1207a5cb6ae32",
+     "exit_code": 0,
+     "deadline_hit": false,
+     "verdict": "ok",
+     "commit_source": "GetPerformanceInfo",
+     "command": "'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\.venv\\Scripts\\python.exe' 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\run_fashn_vton.py' --person 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\A.png' --garment 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\B.png' --weights-dir 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\models\\fashn-vton-1.5' --category tops --garment-photo-type model --inputs-decision 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\inputs_decision.json' --segmentation-free --num-samples 1 --num-timesteps 30 --guidance-scale 1.5 --seed 42 --out 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\outputs\\r3_fashn15_bf16_576x864_segfree_warm_r2_0116eaf737f64b66a2b1207a5cb6ae32.png' --mode-label segfree",
+     "wall_s": 38.598,
+     "vram_used_mb": 8012.66796875,
+     "tree_rss_mb": 5641.41015625,
+     "tree_private_mb": 10539.31640625,
+     "sys_ram_used_mb": 12876.5625,
+     "swap_used_mb": 1115.90234375,
+     "commit_total_mb": 25688.015625
+    },
+    {
+     "file": "20261008T210124Z_r3_fashn15_bf16_576x864_segfree_warm_r3_0116eaf737f64b66a2b1207a5cb6ae32.json",
+     "label": "r3_fashn15_bf16_576x864_segfree_warm_r3_0116eaf737f64b66a2b1207a5cb6ae32",
+     "exit_code": 0,
+     "deadline_hit": false,
+     "verdict": "ok",
+     "commit_source": "GetPerformanceInfo",
+     "command": "'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\.venv\\Scripts\\python.exe' 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\run_fashn_vton.py' --person 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\A.png' --garment 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\B.png' --weights-dir 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\models\\fashn-vton-1.5' --category tops --garment-photo-type model --inputs-decision 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\inputs\\inputs_decision.json' --segmentation-free --num-samples 1 --num-timesteps 30 --guidance-scale 1.5 --seed 42 --out 'C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\r3\\outputs\\r3_fashn15_bf16_576x864_segfree_warm_r3_0116eaf737f64b66a2b1207a5cb6ae32.png' --mode-label segfree",
+     "wall_s": 38.571,
+     "vram_used_mb": 8018.66796875,
+     "tree_rss_mb": 5469.54296875,
+     "tree_private_mb": 10557.09765625,
+     "sys_ram_used_mb": 12634.2109375,
+     "swap_used_mb": 1115.90234375,
+     "commit_total_mb": 25549.4609375
+    }
+   ],
+   "median": {
+    "wall_s": 38.598,
+    "vram_used_mb": 8012.66796875,
+    "tree_rss_mb": 5469.54296875,
+    "tree_private_mb": 10557.09765625,
+    "sys_ram_used_mb": 12876.5625,
+    "swap_used_mb": 1115.90234375,
+    "commit_total_mb": 25688.015625
+   },
+   "all_exit_zero": true,
+   "any_deadline": false,
+   "wall_s_min_max": [
+    38.571,
+    39.1
+   ]
+  }
+ },
+ "sidecars": [
+  {
+   "measure_file": "20261008T205751Z_r3_fashn15_bf16_576x864_segfree_cold_r1_0116eaf737f64b66a2b1207a5cb6ae32.json",
+   "file": "r3_fashn15_bf16_576x864_segfree_cold_r1_0116eaf737f64b66a2b1207a5cb6ae32.png.json",
+   "status": "linked",
+   "verdict": "ok",
+   "mode": "segfree",
+   "phases": {
+    "load_tryon_s": 6.617,
+    "load_dwpose_s": 0.538,
+    "load_human_parser_s": 0.797,
+    "load_total_s": 7.953,
+    "pose_A_s": 0.65,
+    "pose_B_s": 0.025,
+    "parse_A_s": 0.185,
+    "parse_B_s": 0.033,
+    "preprocessing_s": 0.019,
+    "sampling_s": 26.264,
+    "postprocess_s": 0.001,
+    "pose_draw_before_parse_s": 0.005,
+    "call_total_s": 27.254,
+    "save_s": 0.04,
+    "process_total_s_since_torch_import": 52.911,
+    "steps_executed": 30
+   },
+   "vram_peak_overall_mb": null,
+   "vram_reserved_peak_denoise_mb": null,
+   "versions": {
+    "torch": "2.12.1+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "onnxruntime": "1.30.0",
+    "onnxruntime_build": {
+     "package": "onnxruntime-gpu",
+     "cuda_version": "13.0",
+     "cudnn_version": null
+    },
+    "onnxruntime_available_providers": [
+     "TensorrtExecutionProvider",
+     "CUDAExecutionProvider",
+     "CPUExecutionProvider"
+    ],
+    "onnxruntime_device": "GPU",
+    "preload_dlls": {
+     "called": true
+    },
+    "transformers": "5.15.0",
+    "numpy": "2.5.2",
+    "opencv": "4.14.0",
+    "fashn_vton": "1.5.0",
+    "fashn_human_parser": "0.1.0",
+    "python": "3.12.10"
+   },
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 5070",
+    "total_mem_mb": 12199.4,
+    "sm": "12.0",
+    "bf16_supported": true
+   },
+   "pin_check_ok": true,
+   "inputs_sha256": {
+    "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+    "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+   },
+   "input_check": {
+    "ok": true,
+    "expected_source": "C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\expected_inputs.json",
+    "inputs_sha256": {
+     "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+     "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+    },
+    "scope": "native_single_pass_compute_only"
+   },
+   "params": {
+    "category": "tops",
+    "garment_photo_type": "model",
+    "segmentation_free": true,
+    "num_samples": 1,
+    "num_timesteps": 30,
+    "guidance_scale": 1.5,
+    "skip_cfg_last_n_steps": 1,
+    "seed": 42
+   },
+   "torch_vram": {
+    "max_allocated_mb": 3727.8,
+    "max_reserved_mb": 5238.0
+   }
+  },
+  {
+   "measure_file": "20261008T205846Z_r3_fashn15_bf16_576x864_segfree_cold_r2_0116eaf737f64b66a2b1207a5cb6ae32.json",
+   "file": "r3_fashn15_bf16_576x864_segfree_cold_r2_0116eaf737f64b66a2b1207a5cb6ae32.png.json",
+   "status": "linked",
+   "verdict": "ok",
+   "mode": "segfree",
+   "phases": {
+    "load_tryon_s": 4.75,
+    "load_dwpose_s": 0.356,
+    "load_human_parser_s": 0.414,
+    "load_total_s": 5.52,
+    "pose_A_s": 0.402,
+    "pose_B_s": 0.025,
+    "parse_A_s": 0.099,
+    "parse_B_s": 0.033,
+    "preprocessing_s": 0.012,
+    "sampling_s": 26.463,
+    "postprocess_s": 0.001,
+    "pose_draw_before_parse_s": 0.003,
+    "call_total_s": 27.064,
+    "save_s": 0.041,
+    "process_total_s_since_torch_import": 38.169,
+    "steps_executed": 30
+   },
+   "vram_peak_overall_mb": null,
+   "vram_reserved_peak_denoise_mb": null,
+   "versions": {
+    "torch": "2.12.1+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "onnxruntime": "1.30.0",
+    "onnxruntime_build": {
+     "package": "onnxruntime-gpu",
+     "cuda_version": "13.0",
+     "cudnn_version": null
+    },
+    "onnxruntime_available_providers": [
+     "TensorrtExecutionProvider",
+     "CUDAExecutionProvider",
+     "CPUExecutionProvider"
+    ],
+    "onnxruntime_device": "GPU",
+    "preload_dlls": {
+     "called": true
+    },
+    "transformers": "5.15.0",
+    "numpy": "2.5.2",
+    "opencv": "4.14.0",
+    "fashn_vton": "1.5.0",
+    "fashn_human_parser": "0.1.0",
+    "python": "3.12.10"
+   },
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 5070",
+    "total_mem_mb": 12199.4,
+    "sm": "12.0",
+    "bf16_supported": true
+   },
+   "pin_check_ok": true,
+   "inputs_sha256": {
+    "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+    "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+   },
+   "input_check": {
+    "ok": true,
+    "expected_source": "C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\expected_inputs.json",
+    "inputs_sha256": {
+     "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+     "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+    },
+    "scope": "native_single_pass_compute_only"
+   },
+   "params": {
+    "category": "tops",
+    "garment_photo_type": "model",
+    "segmentation_free": true,
+    "num_samples": 1,
+    "num_timesteps": 30,
+    "guidance_scale": 1.5,
+    "skip_cfg_last_n_steps": 1,
+    "seed": 42
+   },
+   "torch_vram": {
+    "max_allocated_mb": 3727.8,
+    "max_reserved_mb": 5238.0
+   }
+  },
+  {
+   "measure_file": "20261008T205926Z_r3_fashn15_bf16_576x864_segfree_cold_r3_0116eaf737f64b66a2b1207a5cb6ae32.json",
+   "file": "r3_fashn15_bf16_576x864_segfree_cold_r3_0116eaf737f64b66a2b1207a5cb6ae32.png.json",
+   "status": "linked",
+   "verdict": "ok",
+   "mode": "segfree",
+   "phases": {
+    "load_tryon_s": 4.999,
+    "load_dwpose_s": 0.378,
+    "load_human_parser_s": 0.438,
+    "load_total_s": 5.817,
+    "pose_A_s": 0.427,
+    "pose_B_s": 0.025,
+    "parse_A_s": 0.098,
+    "parse_B_s": 0.033,
+    "preprocessing_s": 0.011,
+    "sampling_s": 26.05,
+    "postprocess_s": 0.001,
+    "pose_draw_before_parse_s": 0.003,
+    "call_total_s": 26.679,
+    "save_s": 0.04,
+    "process_total_s_since_torch_import": 38.276,
+    "steps_executed": 30
+   },
+   "vram_peak_overall_mb": null,
+   "vram_reserved_peak_denoise_mb": null,
+   "versions": {
+    "torch": "2.12.1+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "onnxruntime": "1.30.0",
+    "onnxruntime_build": {
+     "package": "onnxruntime-gpu",
+     "cuda_version": "13.0",
+     "cudnn_version": null
+    },
+    "onnxruntime_available_providers": [
+     "TensorrtExecutionProvider",
+     "CUDAExecutionProvider",
+     "CPUExecutionProvider"
+    ],
+    "onnxruntime_device": "GPU",
+    "preload_dlls": {
+     "called": true
+    },
+    "transformers": "5.15.0",
+    "numpy": "2.5.2",
+    "opencv": "4.14.0",
+    "fashn_vton": "1.5.0",
+    "fashn_human_parser": "0.1.0",
+    "python": "3.12.10"
+   },
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 5070",
+    "total_mem_mb": 12199.4,
+    "sm": "12.0",
+    "bf16_supported": true
+   },
+   "pin_check_ok": true,
+   "inputs_sha256": {
+    "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+    "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+   },
+   "input_check": {
+    "ok": true,
+    "expected_source": "C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\expected_inputs.json",
+    "inputs_sha256": {
+     "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+     "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+    },
+    "scope": "native_single_pass_compute_only"
+   },
+   "params": {
+    "category": "tops",
+    "garment_photo_type": "model",
+    "segmentation_free": true,
+    "num_samples": 1,
+    "num_timesteps": 30,
+    "guidance_scale": 1.5,
+    "skip_cfg_last_n_steps": 1,
+    "seed": 42
+   },
+   "torch_vram": {
+    "max_allocated_mb": 3727.8,
+    "max_reserved_mb": 5238.0
+   }
+  },
+  {
+   "measure_file": "20261008T210006Z_r3_fashn15_bf16_576x864_segfree_warm_r1_0116eaf737f64b66a2b1207a5cb6ae32.json",
+   "file": "r3_fashn15_bf16_576x864_segfree_warm_r1_0116eaf737f64b66a2b1207a5cb6ae32.png.json",
+   "status": "linked",
+   "verdict": "ok",
+   "mode": "segfree",
+   "phases": {
+    "load_tryon_s": 4.814,
+    "load_dwpose_s": 0.364,
+    "load_human_parser_s": 0.412,
+    "load_total_s": 5.591,
+    "pose_A_s": 0.41,
+    "pose_B_s": 0.025,
+    "parse_A_s": 0.1,
+    "parse_B_s": 0.034,
+    "preprocessing_s": 0.012,
+    "sampling_s": 26.149,
+    "postprocess_s": 0.001,
+    "pose_draw_before_parse_s": 0.003,
+    "call_total_s": 26.761,
+    "save_s": 0.04,
+    "process_total_s_since_torch_import": 37.931,
+    "steps_executed": 30
+   },
+   "vram_peak_overall_mb": null,
+   "vram_reserved_peak_denoise_mb": null,
+   "versions": {
+    "torch": "2.12.1+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "onnxruntime": "1.30.0",
+    "onnxruntime_build": {
+     "package": "onnxruntime-gpu",
+     "cuda_version": "13.0",
+     "cudnn_version": null
+    },
+    "onnxruntime_available_providers": [
+     "TensorrtExecutionProvider",
+     "CUDAExecutionProvider",
+     "CPUExecutionProvider"
+    ],
+    "onnxruntime_device": "GPU",
+    "preload_dlls": {
+     "called": true
+    },
+    "transformers": "5.15.0",
+    "numpy": "2.5.2",
+    "opencv": "4.14.0",
+    "fashn_vton": "1.5.0",
+    "fashn_human_parser": "0.1.0",
+    "python": "3.12.10"
+   },
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 5070",
+    "total_mem_mb": 12199.4,
+    "sm": "12.0",
+    "bf16_supported": true
+   },
+   "pin_check_ok": true,
+   "inputs_sha256": {
+    "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+    "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+   },
+   "input_check": {
+    "ok": true,
+    "expected_source": "C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\expected_inputs.json",
+    "inputs_sha256": {
+     "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+     "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+    },
+    "scope": "native_single_pass_compute_only"
+   },
+   "params": {
+    "category": "tops",
+    "garment_photo_type": "model",
+    "segmentation_free": true,
+    "num_samples": 1,
+    "num_timesteps": 30,
+    "guidance_scale": 1.5,
+    "skip_cfg_last_n_steps": 1,
+    "seed": 42
+   },
+   "torch_vram": {
+    "max_allocated_mb": 3727.8,
+    "max_reserved_mb": 5238.0
+   }
+  },
+  {
+   "measure_file": "20261008T210045Z_r3_fashn15_bf16_576x864_segfree_warm_r2_0116eaf737f64b66a2b1207a5cb6ae32.json",
+   "file": "r3_fashn15_bf16_576x864_segfree_warm_r2_0116eaf737f64b66a2b1207a5cb6ae32.png.json",
+   "status": "linked",
+   "verdict": "ok",
+   "mode": "segfree",
+   "phases": {
+    "load_tryon_s": 4.747,
+    "load_dwpose_s": 0.273,
+    "load_human_parser_s": 0.401,
+    "load_total_s": 5.422,
+    "pose_A_s": 0.399,
+    "pose_B_s": 0.025,
+    "parse_A_s": 0.098,
+    "parse_B_s": 0.033,
+    "preprocessing_s": 0.012,
+    "sampling_s": 26.064,
+    "postprocess_s": 0.001,
+    "pose_draw_before_parse_s": 0.003,
+    "call_total_s": 26.662,
+    "save_s": 0.039,
+    "process_total_s_since_torch_import": 37.546,
+    "steps_executed": 30
+   },
+   "vram_peak_overall_mb": null,
+   "vram_reserved_peak_denoise_mb": null,
+   "versions": {
+    "torch": "2.12.1+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "onnxruntime": "1.30.0",
+    "onnxruntime_build": {
+     "package": "onnxruntime-gpu",
+     "cuda_version": "13.0",
+     "cudnn_version": null
+    },
+    "onnxruntime_available_providers": [
+     "TensorrtExecutionProvider",
+     "CUDAExecutionProvider",
+     "CPUExecutionProvider"
+    ],
+    "onnxruntime_device": "GPU",
+    "preload_dlls": {
+     "called": true
+    },
+    "transformers": "5.15.0",
+    "numpy": "2.5.2",
+    "opencv": "4.14.0",
+    "fashn_vton": "1.5.0",
+    "fashn_human_parser": "0.1.0",
+    "python": "3.12.10"
+   },
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 5070",
+    "total_mem_mb": 12199.4,
+    "sm": "12.0",
+    "bf16_supported": true
+   },
+   "pin_check_ok": true,
+   "inputs_sha256": {
+    "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+    "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+   },
+   "input_check": {
+    "ok": true,
+    "expected_source": "C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\expected_inputs.json",
+    "inputs_sha256": {
+     "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+     "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+    },
+    "scope": "native_single_pass_compute_only"
+   },
+   "params": {
+    "category": "tops",
+    "garment_photo_type": "model",
+    "segmentation_free": true,
+    "num_samples": 1,
+    "num_timesteps": 30,
+    "guidance_scale": 1.5,
+    "skip_cfg_last_n_steps": 1,
+    "seed": 42
+   },
+   "torch_vram": {
+    "max_allocated_mb": 3727.8,
+    "max_reserved_mb": 5238.0
+   }
+  },
+  {
+   "measure_file": "20261008T210124Z_r3_fashn15_bf16_576x864_segfree_warm_r3_0116eaf737f64b66a2b1207a5cb6ae32.json",
+   "file": "r3_fashn15_bf16_576x864_segfree_warm_r3_0116eaf737f64b66a2b1207a5cb6ae32.png.json",
+   "status": "linked",
+   "verdict": "ok",
+   "mode": "segfree",
+   "phases": {
+    "load_tryon_s": 4.764,
+    "load_dwpose_s": 0.267,
+    "load_human_parser_s": 0.401,
+    "load_total_s": 5.433,
+    "pose_A_s": 0.398,
+    "pose_B_s": 0.025,
+    "parse_A_s": 0.099,
+    "parse_B_s": 0.034,
+    "preprocessing_s": 0.012,
+    "sampling_s": 26.075,
+    "postprocess_s": 0.001,
+    "pose_draw_before_parse_s": 0.003,
+    "call_total_s": 26.673,
+    "save_s": 0.04,
+    "process_total_s_since_torch_import": 37.623,
+    "steps_executed": 30
+   },
+   "vram_peak_overall_mb": null,
+   "vram_reserved_peak_denoise_mb": null,
+   "versions": {
+    "torch": "2.12.1+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "onnxruntime": "1.30.0",
+    "onnxruntime_build": {
+     "package": "onnxruntime-gpu",
+     "cuda_version": "13.0",
+     "cudnn_version": null
+    },
+    "onnxruntime_available_providers": [
+     "TensorrtExecutionProvider",
+     "CUDAExecutionProvider",
+     "CPUExecutionProvider"
+    ],
+    "onnxruntime_device": "GPU",
+    "preload_dlls": {
+     "called": true
+    },
+    "transformers": "5.15.0",
+    "numpy": "2.5.2",
+    "opencv": "4.14.0",
+    "fashn_vton": "1.5.0",
+    "fashn_human_parser": "0.1.0",
+    "python": "3.12.10"
+   },
+   "gpu": {
+    "name": "NVIDIA GeForce RTX 5070",
+    "total_mem_mb": 12199.4,
+    "sm": "12.0",
+    "bf16_supported": true
+   },
+   "pin_check_ok": true,
+   "inputs_sha256": {
+    "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+    "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+   },
+   "input_check": {
+    "ok": true,
+    "expected_source": "C:\\Users\\henri\\OneDrive\\Documentos\\w3-measure\\catiely\\garment-transfer\\tools\\r3_fashn\\expected_inputs.json",
+    "inputs_sha256": {
+     "person": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b",
+     "garment": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+    },
+    "scope": "native_single_pass_compute_only"
+   },
+   "params": {
+    "category": "tops",
+    "garment_photo_type": "model",
+    "segmentation_free": true,
+    "num_samples": 1,
+    "num_timesteps": 30,
+    "guidance_scale": 1.5,
+    "skip_cfg_last_n_steps": 1,
+    "seed": 42
+   },
+   "torch_vram": {
+    "max_allocated_mb": 3727.8,
+    "max_reserved_mb": 5238.0
+   }
+  }
+ ]
+}

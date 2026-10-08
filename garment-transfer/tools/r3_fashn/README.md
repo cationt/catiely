@@ -1,6 +1,6 @@
-# R3 — FASHN VTON v1.5: preparação da medição de viabilidade (dois modos)
+# R3 — FASHN VTON v1.5: medição de viabilidade (dois modos)
 
-Estado: **preparada, não medida** (2026-10-08). Nada aqui mede qualidade; isso é o Prototype 0 / G0. Verificação em fonte primária em `research_raw/09_fashn_vton_verificacao.md`; pins em `r3_manifest.json`.
+Estado: **MEDIDO NO HARDWARE-ALVO** (2026-10-08; D-054) — elegível por tempo nos dois modos. Nada aqui mede qualidade; isso é o Prototype 0 / G0. Verificação em fonte primária em `research_raw/09_fashn_vton_verificacao.md`; pins em `r3_manifest.json`.
 
 ## 1. O que é (identidade verificada)
 
@@ -86,6 +86,31 @@ O bench interrompe no primeiro exit não zero, deadline, relatório ausente/inv�
 
 `route/mode`, `pins` (commits, revisões, sha do modelo), `inputs_sha256` (A, B), `params` (categoria, `garment_photo_type`, `segmentation_free`, timesteps, CFG, seed, `skip_cfg_last_n_steps`, `num_samples`), `geometry` (A/B originais, pré-redimensionadas, canvas 576×864, padding, saída), `versions` (torch/CUDA/cuDNN/onnxruntime + build CUDA/transformers/numpy/opencv/fashn_vton/parser), `gpu`, `onnx_providers` (pedidos/efetivos/fallback), `phases` (load_tryon/dwpose/human_parser/total, pose_A, pose_B, parse_A, parse_B, preprocessing, sampling, postprocess, call_total, save), `torch_vram` (max allocated/reserved), `output` (caminho, tamanho, sha256), `offline` (env, guarda, tentativas bloqueadas), `code_check`, `pin_check`, `verdict`/`error`.
 
-## 9. Memória: conhecido × desconhecido
+## 9. Memória: conhecido × medido
 
-Conhecido: pesos 1,94 GB (bf16) + 0,26 GB (parser fp32) + 0,35 GB (ONNX); única medição publicada 3,04 GiB de pico (Apple M4 Max, FP16, sem parser; PR #6). Desconhecido: VRAM e RAM reais no alvo, workspace do cuDNN nas sessões ORT, RAM do processo. Estimativa `E`: VRAM 3–6 GB, RAM 4–8 GB, tempo de segundos a poucas dezenas de segundos por run frio. **Só a medição decide.**
+Pesos: 1,94 GB (bf16) + 0,26 GB (parser) + 0,35 GB (ONNX). No hardware-alvo, a medição externa do `measure_run.py` registrou ≈8,0 GB de VRAM usada nos dois modos, RAM de sistema mediana ≈12,7–13,6 GB e commit mediano ≈25,5–26,0 GB. O contador interno do torch registrou `max_allocated_mb=3727.8` e `max_reserved_mb=5238.0`; a diferença para o contador externo inclui componentes fora do allocator PyTorch, incluindo ONNX/CUDA.
+
+## 10. Resultado da medição (`MEDIDO NO HARDWARE-ALVO`, 2026-10-08)
+
+Configuração: RTX 5070 12 GB · torch 2.12.1+cu130 · CUDA 13.0 · bf16 · canvas 576×864 · mesmas A/B por SHA256 · `tops` / `garment_photo_type=model` · 30 passos · CFG 1,5 · seed 42 · 1 amostra · processo novo por run · `measure_run.py` com commit real (`GetPerformanceInfo`).
+
+Semântica de cache: **cold** = processo novo com page cache do SO não forçadamente esvaziado (`cold_pagecache_unflushed`; RAMMap indisponível); **warm** = outro processo novo com cache do SO presumivelmente aquecido. Warm não significa modelo/pipeline residente.
+
+Setup e smokes confirmaram CUDA EP efetivo. O benchmark formal executou **12/12 runs sem OOM, deadline ou exit não zero**.
+
+| Modo | Estado | n | wall mediana | VRAM mediana | RAM sistema mediana | commit mediano |
+|---|---|---:|---:|---:|---:|---:|
+| segfree | cold | 3 | **39,226 s** | **8 030,1 MB** | 13 563,2 MB | 26 032,5 MB |
+| segfree | warm | 3 | **38,598 s** | **8 012,7 MB** | 12 876,6 MB | 25 688,0 MB |
+| masked | cold | 3 | **38,590 s** | **8 016,1 MB** | 12 708,1 MB | 25 537,8 MB |
+| masked | warm | 3 | **38,555 s** | **8 002,1 MB** | 12 746,0 MB | 25 566,8 MB |
+
+Todos os 12 sidecars foram associados 1:1 aos runs selecionados (`status=linked`, `verdict=ok`). Nenhum run foi descartado.
+
+**Veredito:** R3 é **elegível por tempo** com ampla folga frente ao teto cold de 1 500 s. A viabilidade computacional do baseline D-053 está fechada.
+
+Registros:
+- `benchmark/measurements/r3_fashn15_bf16_576x864_segfree.json`
+- `benchmark/measurements/r3_fashn15_bf16_576x864_masked.json`
+
+Escopo: esta medição cobre apenas a subtarefa nativa `tops/model` em um passe. Não mede transferência integral do biquíni two-piece nem qualidade; `tops → bottoms` permanece uma arquitetura separada.

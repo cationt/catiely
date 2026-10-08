@@ -126,7 +126,17 @@ def main():
         hp_src = os.environ.get("R3_HP_SRC") or (os.path.join(os.path.dirname(os.path.dirname(src_env)), "..", "fashn-human-parser", "src") if src_env else None)
         base = [sys.executable, os.path.join(R3, "run_fashn_vton.py"), "--person", Ap, "--garment", Bp, "--weights-dir", wd, "--category", "tops"]
         # (a) sem pacote fashn_vton instalado: dry-run reprova por código divergente/ausente (exit 3) sem tocar em torch
-        envno = dict(os.environ); envno["PYTHONPATH"] = os.path.join(d, "empty"); os.makedirs(os.path.join(d, "empty"), exist_ok=True)
+        envno = dict(os.environ)
+        empty = os.path.join(d, "empty")
+        os.makedirs(empty, exist_ok=True)
+        # O teste pode estar rodando dentro do proprio venv R3, onde os
+        # pacotes upstream estao instalados. PYTHONPATH vazio nao os esconde.
+        # Stubs de modulo no inicio do sys.path simulam de fato "pacote ausente":
+        # find_spec encontra o stub, mas package_dir() o rejeita porque ele nao
+        # possui submodule_search_locations.
+        open(os.path.join(empty, "fashn_vton.py"), "w", encoding="utf-8").write("# fixture: shadow installed package\n")
+        open(os.path.join(empty, "fashn_human_parser.py"), "w", encoding="utf-8").write("# fixture: shadow installed package\n")
+        envno["PYTHONPATH"] = empty
         sparse(os.path.join(wd, "fashn-human-parser", "config.json"), comps["human_parser"]["files"]["config.json"]["size_bytes"])
         r = run(base + ["--segmentation-free", "--out", os.path.join(d, "o0.png"), "--dry-run"], env=envno)
         j0 = json.load(open(os.path.join(d, "o0.png.json"))) if os.path.exists(os.path.join(d, "o0.png.json")) else {}

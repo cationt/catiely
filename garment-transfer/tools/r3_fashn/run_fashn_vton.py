@@ -189,7 +189,7 @@ def main():
     def dump(verdict, code=None):
         rec["verdict"] = verdict; rec["net_attempts_blocked"] = list(NET_ATTEMPTS); rec["finished_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         json.dump(rec, open(out_json, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-        print(f"[r3] {verdict} → {out_json}")
+        print(f"[r3] {verdict} -> {out_json}")
         if code is not None:
             sys.exit(code)
 

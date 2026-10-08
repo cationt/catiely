@@ -169,11 +169,11 @@ def main():
 
     if not ok:
         rec["verdict"] = "FAIL:pins_divergentes_ou_arquivos_ausentes"; json.dump(rec, open(out_json, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-        print(json.dumps({k: v for k, v in pins.items()}, indent=1, ensure_ascii=False)[:4000]); print(f"[r1ei] {rec['verdict']} → {out_json}"); sys.exit(3)
+        print(json.dumps({k: v for k, v in pins.items()}, indent=1, ensure_ascii=False)[:4000]); print(f"[r1ei] {rec['verdict']} -> {out_json}"); sys.exit(3)
     if args.dry_run:
         rec["verdict"] = "DRY_RUN_OK"; rec["phases"] = phases
         rec["plan"] = {"image1": "background com buraco branco (1024²)", "image2": "referência sobre branco (1024²)", "steps": args.steps, "guidance_scale": args.cfg, "transformer_passes": args.steps * (2 if args.cfg > 1 else 1), "mode": args.mode}
-        json.dump(rec, open(out_json, "w", encoding="utf-8"), indent=1, ensure_ascii=False); print(f"[r1ei] DRY_RUN_OK → {out_json} (entradas em {inputs_dir})"); return 0
+        json.dump(rec, open(out_json, "w", encoding="utf-8"), indent=1, ensure_ascii=False); print(f"[r1ei] DRY_RUN_OK -> {out_json} (entradas em {inputs_dir})"); return 0
 
     # ------------------------------------------------------------------ execução real
     import torch
@@ -239,14 +239,14 @@ def main():
         phases["total_s"] = round(time.perf_counter() - t0, 3)
         rec.update({"phases": phases, "vram_peak_overall_mb": round(max(rec.get("vram_peak_after_text_encoder_mb", 0), rec.get("vram_peak_denoise_mb", 0)), 1), "output": args.out, "verdict": "ok"})
         json.dump(rec, open(out_json, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-        print(f"[r1ei] ok total={phases['total_s']} s (TE {phases['load_text_encoder_s']}+{phases['encode_prompt_s']}; DiT load {phases['load_transformer_lora_vae_s']}; denoise {phases['denoise_s']}; decode {phases['decode_s']}) VRAM pico {rec['vram_peak_overall_mb']} MB → {args.out}")
+        print(f"[r1ei] ok total={phases['total_s']} s (TE {phases['load_text_encoder_s']}+{phases['encode_prompt_s']}; DiT load {phases['load_transformer_lora_vae_s']}; denoise {phases['denoise_s']}; decode {phases['decode_s']}) VRAM pico {rec['vram_peak_overall_mb']} MB -> {args.out}")
         return 0
     except Exception as e:  # OOM e outras falhas ficam registradas no sidecar, com exit 4
         import traceback
         rec.update({"phases": phases, "verdict": f"FAIL:{type(e).__name__}", "error": str(e)[:2000], "traceback": traceback.format_exc()[-4000:],
                     "vram_peak_mb_at_failure": round(torch.cuda.max_memory_allocated() / 2**20, 1) if torch.cuda.is_available() else None})
         json.dump(rec, open(out_json, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-        print(f"[r1ei] {rec['verdict']}: {str(e)[:300]} → {out_json}", file=sys.stderr); return 4
+        print(f"[r1ei] {rec['verdict']}: {str(e)[:300]} -> {out_json}", file=sys.stderr); return 4
 
 
 if __name__ == "__main__":
