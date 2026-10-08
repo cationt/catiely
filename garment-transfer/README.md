@@ -2,7 +2,7 @@
 
 Sistema (em investigação) para: dada **A** (pessoa-alvo) e **B** (roupa de referência, inclusive vestida em outra pessoa), produzir uma fotografia convincente da **mesma pessoa de A, na mesma pose, câmera e cena**, usando a peça de **B** — tudo local, em RTX 5070 12 GB + ~16 GB RAM, ≤ 60 min por imagem, orquestrado por ComfyUI Desktop.
 
-Estado atual: **Fases 0–4 (formulação, pesquisa, comparação, viabilidade estimada, shortlist provisória)**. Nenhuma arquitetura foi escolhida de forma irrevogável; nenhum workflow de produção existe ainda. Ver `docs/CHECKPOINT.md`.
+Estado atual (2026-10-07): **Fases 0–4 entregues em forma documental** — contrato formal, estado da arte com fontes, comparação de famílias, viabilidade **estimada** (nenhuma medição no hardware-alvo ainda) e shortlist **provisória** (casca de preservação + motores R1 FLUX.2 klein 4B / R2 Qwen-Image-Edit-2511 condicional / R3 FASHN VTON 1.5 / R4 try-off→VTON por máscara). Nenhum protótipo foi executado; nenhum workflow de produção existe. Ver `docs/CHECKPOINT.md` e `docs/DECISION_LOG.md`.
 
 ## Mapa
 
