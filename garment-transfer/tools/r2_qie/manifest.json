@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "prompt": "Edit Picture 1: dress the person in the black two-piece bikini shown in Picture 2. Keep the person, pose, camera and background from Picture 1.",
+  "negative_prompt": "",
+  "status": "PREPARED_NOT_MEASURED",
+  "decision": "D-055",
+  "image_nodes": [
+    "A",
+    "B"
+  ],
+  "configurations": {
+    "qie2511_q5_2ref_1mp_40steps": {
+      "enabled": true,
+      "workflow": "workflow_1mp_api.json",
+      "sha256": "2b918916e00b58968e6fe05535f3d6dbdfeecb533da32137754066cdd9c77d31",
+      "cold": 3,
+      "warm": 3,
+      "resolution": "FluxKontextImageScale official ~1MP"
+    },
+    "qie2511_q5_2ref_0p5mp_40steps": {
+      "enabled": true,
+      "workflow": "workflow_0p5mp_api.json",
+      "sha256": "7f620ed4fecbc9f34784dd69e32db691de2731e59f52e518ce291efb17d2936f",
+      "cold": 3,
+      "warm": 0,
+      "resolution": [
+        544,
+        960
+      ],
+      "resize": "lanczos center, same policy as official scale"
+    },
+    "qie2511_q5_2ref_1mp_20steps": {
+      "enabled": false,
+      "reason": "Deferred conditional cold x3; never automatic; projection cannot decide H4"
+    }
+  },
+  "sampling": {
+    "steps": 40,
+    "cfg": 4,
+    "sampler": "euler",
+    "scheduler": "simple",
+    "shift": 3.1,
+    "denoise": 1,
+    "reference_method": "index_timestep_zero",
+    "cfg_norm_strength": 1,
+    "pre_cfg": false,
+    "seed": 42,
+    "batch": 1,
+    "num_images": 1,
+    "lightning": false
+  },
+  "inputs": {
+    "A": {
+      "root": "shared",
+      "path": "input/w3_measure/A.jpg",
+      "sha256": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b"
+    },
+    "B": {
+      "root": "shared",
+      "path": "input/w3_measure/B.png",
+      "sha256": "666c4a96eff5218171b1183d8b88223bd51f90d3d02852a6260ab3c37fdeb296"
+    }
+  },
+  "weights": {
+    "unet": {
+      "root": "core",
+      "path": "models/unet/qwen-image-edit-2511-Q5_K_M.gguf",
+      "size": 15027501664,
+      "sha256": "c257def934d25562e1dcb7e8710eb5457a23c1ae7218f7a5ea3174e773421d29",
+      "repo": "unsloth/Qwen-Image-Edit-2511-GGUF",
+      "revision": "0d33d9692b4b26212297240d87b0d4719aa4fd06",
+      "repo_path": "qwen-image-edit-2511-Q5_K_M.gguf",
+      "quantization": "Q5_K_M"
+    },
+    "clip": {
+      "root": "core",
+      "path": "models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "size": 9384670680,
+      "sha256": "cb5636d852a0ea6a9075ab1bef496c0db7aef13c02350571e388aea959c5c0b4",
+      "repo": "Comfy-Org/Qwen-Image_ComfyUI",
+      "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc",
+      "repo_path": "split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "quantization": "scaled FP8 E4M3; mixed BF16/F32, native CLIPLoader required"
+    },
+    "vae": {
+      "root": "shared",
+      "path": "models/diffusion_models/vae/qwen_image_vae.safetensors",
+      "size": 253806246,
+      "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f",
+      "repo": "Comfy-Org/Qwen-Image_ComfyUI",
+      "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc",
+      "repo_path": "split_files/vae/qwen_image_vae.safetensors",
+      "quantization": "BF16"
+    }
+  },
+  "identity_basis": "Local SHA256 and byte counts equal HF LFS metadata at revisions; original download history not reconstructed",
+  "runtime": {
+    "core_version": "0.38.2",
+    "core_commit": "daeb5e53681e2b10a3f0727d9ec5bc90784bee10",
+    "python": "3.13.12",
+    "desktop": {
+      "product_version": "1.1.6.0",
+      "file_version": "261003uci82pdkd",
+      "relative_to_localappdata": "Programs/Comfy Desktop/Comfy Desktop.exe",
+      "sha256": "3ddf9dbacad49d2269b255e0c9a1a0d5f56c831971e07ead8f0692d00cbf7312"
+    },
+    "packages": {
+      "torch": "2.12.1+cu130",
+      "psutil": "7.2.2",
+      "Pillow": "12.3.0",
+      "aiohttp": "3.14.3",
+      "comfyui_frontend_package": "1.53.6",
+      "comfyui_workflow_templates": "0.11.74",
+      "comfyui_workflow_templates_json": "0.1.100"
+    },
+    "gguf": {
+      "path": "custom_nodes/ComfyUI-GGUF",
+      "registry_version": "1.1.10",
+      "repo": "city96/ComfyUI-GGUF",
+      "commit": null,
+      "tracking_sha256": "3589b8a01c191cbfc634e3be978290e20625194f49c68c8dfc38cde0db0252d8",
+      "aggregate_sha256": "e1f55512745887bf2b23168e19b49e51c8327af17813aa5f35e1ef040995b97d",
+      "aggregate_algorithm": "sha256(UTF8 concat sorted tracking paths: SHA256 + two spaces + relative path + LF); all 17 entries, exact bytes"
+    },
+    "core_sha256": {
+      "main.py": "c53127164070bdb209401967faea6d4d458780d8f3518126339393fcaae90019",
+      "execution.py": "c9ef8ea11b8cb7aa80d05f670ca457211869d27623991b66d0014fb9b33fb246",
+      "comfy_execution/caching.py": "edc554b1348f4c5dae50c022b061399ab5be5e06872d73c5c1fedca9bba45ce2",
+      "comfy_extras/nodes_qwen.py": "54ce02aa9e167c0b497ce026ac6b558f539427d2d1ed4fc1fcc2ec8e6bc529da",
+      "comfy_extras/nodes_flux.py": "71c9d804a9acfb7a828fecb8fcc4b93e28f4417f0c4259a68910f4027059741f",
+      "comfy_extras/nodes_cfg.py": "688a73094509efcc81bf22bf0e77b2cd8c9f1726f455ed55f6f9747dec656e99",
+      "comfy_extras/nodes_model_advanced.py": "34c5065756d925791c7a238f084eefd5ff912e1e84976a2dbe94432deea8ffcc",
+      "nodes.py": "fe624b0c1b6a3cd124a2214e5700b61337589144c2f0668900a04f8ccc031e38",
+      "comfy/cli_args.py": "70be4fb6830ccd7e43df06330f6da31f76c0ad11ee135d04913f5d8c1d9f4cde",
+      "folder_paths.py": "b748be5d1e068ad673f6c4de069fb6b7b723405c40ae3c3c44465d416f7df2db",
+      "server.py": "12545dbc44f56ce4c8ae696832925baedf0eecd2879c4e23bae3469411d7593c"
+    }
+  },
+  "source_template": {
+    "repo": "Comfy-Org/workflow_templates",
+    "revision": "8be1f8c4b5af2d550d70922a23b79cee599e1f3e",
+    "path": "templates/image_qwen_image_edit_2511.json",
+    "blob_oid": "e532d3473143202fe40b5cee91c1cff5da92d74a",
+    "installed_path": ".venv/Lib/site-packages/comfyui_workflow_templates_json/templates/image_qwen_image_edit_2511.json",
+    "sha256": "b23103935f437e1fe3184247fa5bafb891a28113d0c63de7449b7cdfb0419111",
+    "workflow_id": "ad18abd3-bdee-4f80-8fae-d15d4f845b9d",
+    "subgraph_id": "cdb2cf24-c432-439b-b5c8-5f69838580c9",
+    "executable_sampler_node": 169,
+    "effective_steps_source": "PrimitiveInt166 -> switch167(false) -> link355 -> KSampler169: 40",
+    "effective_cfg_source": "PrimitiveFloat154 -> switch164(false) -> link356 -> KSampler169: 4 (stored widget3 inactive)",
+    "lightning_source": "PrimitiveBoolean168=false; switch163 selects model without LoRA153",
+    "text_note_divergence": "MarkdownNote157 table says Comfy20 versus Qwen40; executable40 is primary, per architect",
+    "blueprint_path": "blueprints/Image Edit (Qwen 2511).json",
+    "blueprint_sha256": "f5339d66f11772e28b2c16c47f1ab3d638c88fc0b8d5379ce9f285ad43f6ede9"
+  },
+  "diffusers_reference": {
+    "url": "https://github.com/huggingface/diffusers/blob/main/src/diffusers/pipelines/qwenimage/pipeline_qwenimage_edit_plus.py",
+    "checked": "2026-10-08",
+    "call_defaults": {
+      "num_inference_steps": 50,
+      "true_cfg_scale": 4
+    },
+    "role": "additional source; not execution engine or baseline"
+  },
+  "cache": {
+    "rule": "reflexive downstream closure of the two LoadImage nodes must reexecute; complement may cache only accepted model-side classes",
+    "cold": "empty execution_cached required",
+    "warm": "same server/model manager; byte-identical A/B unique uploads; seed unchanged; compare 3 cache sets, divergence recorded but not invalid by itself"
+  },
+  "monitor": {
+    "budget_s": 3600,
+    "interval_s": 0.5,
+    "engine_external": true,
+    "tree_private_covers_engine": false
+  },
+  "smoke": {
+    "steps": 1,
+    "phases": [
+      "fresh cold",
+      "identical payload positive cache control",
+      "byte-identical renamed warm"
+    ],
+    "is_benchmark": false
+  }
+}

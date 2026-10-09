@@ -104,6 +104,47 @@ Resultados: **12/12 exit 0**, nenhum deadline/OOM, todos os 12 sidecars `linked`
 
 Pelo critério §8 item 6 (cold ≤ 1 500 s), **R3 é ELEGÍVEL por tempo com ampla folga**. A viabilidade computacional da R3 fica fechada. Registros versionados: `benchmark/measurements/r3_fashn15_bf16_576x864_segfree.json` e `benchmark/measurements/r3_fashn15_bf16_576x864_masked.json`.
 
+### 1g. R2 QIE-2511 Q5 — PREPARADA, NÃO MEDIDA (D-055)
+
+Infraestrutura em `tools/r2_qie/`: provenance/pins locais, dois workflows API
+congelados por SHA256, cliente ComfyUI externo, sidecars vinculados, scripts
+PS 5.1 e testes CPU/mock. **Nenhum setup real, smoke GPU ou benchmark R2
+executado nesta preparação. H4 não decidida; D-056 reservado ao resultado.**
+
+Primária `qie2511_q5_2ref_1mp_40steps`: mesmas A/B Klein/R1-EI por SHA256,
+A primeiro/B segundo, modo nativo denoise 1, 40 steps, CFG 4, Euler/Simple,
+shift 3.1, `index_timestep_zero`, CFGNorm 1, seed 42, batch 1, uma imagem,
+sem Lightning; cold ×3 + warm ×3 futuros. Escala oficial ~1 MP (688×1504 para
+A pinada). Secundária `qie2511_q5_2ref_0p5mp_40steps`: 544×960, cold ×3,
+padroniza a evidência histórica de §1b, sem substituir a primária. O encode
+oficial mantém rescaling interno das referências ~1024² também na secundária.
+
+O ramo executável do template oficial usa **40/CFG 4**; a nota de **20 steps**
+diverge dele, e não é o baseline. Blueprint local também usa 40; Diffusers
+tem default adicional de 50/true CFG 4. Identidades, versões, SHA e links de
+origem estão no manifesto/README; não copiamos parâmetros de workflows antigos.
+
+Cold = servidor novo já pronto/ocioso e sem modelos; startup separado do wall,
+`cold_pagecache_unflushed`. Warm = mesmo servidor/model manager, aliases A/B
+byte-idênticos únicos via upload, seed fixa, sem free/cache-none. O cliente
+deriva `must_reexecute` do fecho dos dois LoadImage e `allowed_cached` do
+complemento, com gate explícito das classes de modelo. Cold exige cache vazio;
+warm proíbe cache no fecho; `FAIL:cached_result` tem exit 23. Sidecars registram
+conjuntos/classes, events/history, sampling_s, steps, per_step_s e logs DEBUG
+próprios; divergência dos três conjuntos warm é sinalizada para revisão.
+**Os warm antigos da Klein precedem esta regra e não foram auditados quanto
+a `execution_cached`; não foram remedidos agora.**
+
+H4: 40 steps é primária. Mediana cold ≤1500 s, 6/6 exit 0, sem OOM/thrashing
+passa sem medir 20. Se 40 falhar 1500 s mas projeção linear de sampling para
+20 sugerir ≤1500 s, não decidir pela projeção: devolver para medição condicional
+posterior `qie2511_q5_2ref_1mp_20steps`, cold ×3, atualmente desabilitada.
+Faixa 1500–3000 s marginal; >3000/OOM/deadline/thrashing falha conforme handoff,
+com a condição de 20 registrada, nunca automática. Monitor externo intacto:
+3600 s/0,5 s, VRAM/commit sistêmicos; tree_private não cobre o motor. Produção
+continua limitada a 3600 s por imagem final. Próximo passo: operador executar
+setup/smoke conforme `tools/r2_qie/README.md`, revisar e só depois medir.
+
 ### 1c. Custo do mecanismo × motor (rev. 2026-10-08, nível `E`/`P`)
 
 | Mecanismo de separação espacial | Fator de custo | Aplicável a | Evidência |

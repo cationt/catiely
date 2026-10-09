@@ -1,0 +1,192 @@
+{
+  "unet": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": {
+      "unet_name": "qwen-image-edit-2511-Q5_K_M.gguf"
+    }
+  },
+  "clip": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    }
+  },
+  "vae": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    }
+  },
+  "A": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__A__"
+    }
+  },
+  "B": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__B__"
+    }
+  },
+  "shift": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "model": [
+        "unet",
+        0
+      ],
+      "shift": 3.1,
+      "sampling": "flow"
+    }
+  },
+  "norm": {
+    "class_type": "CFGNorm",
+    "inputs": {
+      "model": [
+        "shift",
+        0
+      ],
+      "strength": 1,
+      "pre_cfg": false
+    }
+  },
+  "scale": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": {
+      "image": [
+        "A",
+        0
+      ]
+    }
+  },
+  "positive": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "clip": [
+        "clip",
+        0
+      ],
+      "vae": [
+        "vae",
+        0
+      ],
+      "image1": [
+        "scale",
+        0
+      ],
+      "image2": [
+        "B",
+        0
+      ],
+      "prompt": "Edit Picture 1: dress the person in the black two-piece bikini shown in Picture 2. Keep the person, pose, camera and background from Picture 1."
+    }
+  },
+  "negative": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "clip": [
+        "clip",
+        0
+      ],
+      "vae": [
+        "vae",
+        0
+      ],
+      "image1": [
+        "scale",
+        0
+      ],
+      "image2": [
+        "B",
+        0
+      ],
+      "prompt": ""
+    }
+  },
+  "pos_ref": {
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "inputs": {
+      "conditioning": [
+        "positive",
+        0
+      ],
+      "reference_latents_method": "index_timestep_zero"
+    }
+  },
+  "neg_ref": {
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "inputs": {
+      "conditioning": [
+        "negative",
+        0
+      ],
+      "reference_latents_method": "index_timestep_zero"
+    }
+  },
+  "latent": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "scale",
+        0
+      ],
+      "vae": [
+        "vae",
+        0
+      ]
+    }
+  },
+  "sampler": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "norm",
+        0
+      ],
+      "positive": [
+        "pos_ref",
+        0
+      ],
+      "negative": [
+        "neg_ref",
+        0
+      ],
+      "latent_image": [
+        "latent",
+        0
+      ],
+      "seed": 42,
+      "steps": 40,
+      "cfg": 4,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    }
+  },
+  "decode": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "sampler",
+        0
+      ],
+      "vae": [
+        "vae",
+        0
+      ]
+    }
+  },
+  "save": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "decode",
+        0
+      ],
+      "filename_prefix": "__OUTPUT__"
+    }
+  }
+}
