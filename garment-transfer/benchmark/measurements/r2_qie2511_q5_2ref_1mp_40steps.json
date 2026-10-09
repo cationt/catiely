@@ -1,0 +1,148 @@
+{
+ "record_version": 1,
+ "evidence_level": "MEDIDO NO HARDWARE-ALVO",
+ "candidate": "R2 — Qwen-Image-Edit-2511 GGUF Q5_K_M (ComfyUI externo), modo nativo de edição, A + B como referências",
+ "config_label": "qie2511_q5_2ref_1mp_40steps",
+ "decision": "D-056",
+ "config": {
+  "unet": "unsloth/Qwen-Image-Edit-2511-GGUF @ 0d33d969 qwen-image-edit-2511-Q5_K_M.gguf (15 027 501 664 B, sha c257def9…)",
+  "text_encoder": "Comfy-Org/Qwen-Image_ComfyUI @ 1f12b17b qwen_2.5_vl_7b_fp8_scaled.safetensors (9 384 670 680 B)",
+  "vae": "qwen_image_vae.safetensors (253 806 246 B)",
+  "workflow": "tools/r2_qie/workflow_1mp_api.json (sha 2b918916…): A → FluxKontextImageScale (688×1504 para a A pinada) como image1, B crua como image2, TextEncodeQwenImageEditPlus positivo + negativo vazio com as mesmas imagens, FluxKontextMultiReferenceLatentMethod index_timestep_zero, ModelSamplingAuraFlow shift 3,1, CFGNorm 1, KSampler 40 passos CFG 4 Euler/Simple denoise 1 seed 42, VAEDecode, SaveImage",
+  "steps": 40,
+  "cfg": 4,
+  "transformer_passes": 80,
+  "resolution": "688×1504 (≈ 1,03 MP; tabela oficial FluxKontextImageScale)",
+  "seed": 42,
+  "num_images": 1,
+  "lightning": false,
+  "runner": "ComfyUI core 0.38.2 @ daeb5e53 (venv do ComfyUI Desktop 1.1.6, torch 2.12.1+cu130) como servidor PRÓPRIO em loopback (porta 8191), lançado pelo orquestrador (tools/r2_qie/orchestrate.py) fora do measure_run; cliente tools/r2_qie/client.py é o filho medido → tree_private/tree_rss NÃO cobrem o motor; VRAM/RAM/commit/swap são do sistema",
+  "harness": "tools/measure_run.py --budget-s 3600 --interval-s 0.5 com commit real (GetPerformanceInfo); offline por guarda de rede Python (loopback apenas); provenance integral antes de cada servidor",
+  "state_definitions": {
+   "cold": "servidor novo por run, pronto e ocioso, model manager vazio, DynamicVRAM ativo; startup fora do wall; page cache do SO NÃO esvaziado (cold_pagecache_unflushed); execution_cached vazio obrigatório",
+   "warm": "mesmo servidor do terceiro cold; A/B byte-idênticas renomeadas e enviadas por /upload; seed fixa; sem /free nem cache-none; só nós fora do fecho de A/B podem vir do cache (D-055)"
+  }
+ },
+ "hardware": {
+  "gpu": "RTX 5070 12 GB (12 227 MiB)",
+  "cpu": "Ryzen 7 7800X3D",
+  "ram_gb": 16,
+  "os": "Windows 11",
+  "pagefile": "≈ 26 GB"
+ },
+ "metrics_units": "segundos; MB = MiB (bytes / 2^20) como reportado por measure_run.py; picos por run nos JSONs do measure_run na máquina-alvo",
+ "runs": {
+  "cold": {
+   "n": 3,
+   "wall_s": [
+    566.548,
+    565.537,
+    566.956
+   ],
+   "wall_s_sidecar": [
+    565.7258,
+    564.6797,
+    566.4174
+   ],
+   "sampling_s_sidecar": [
+    557.4671,
+    556.8913,
+    557.7629
+   ],
+   "per_step_s_sidecar": [
+    13.9367,
+    13.9223,
+    13.9441
+   ],
+   "median": {
+    "wall_s": 566.548,
+    "wall_s_sidecar": 565.7258,
+    "sampling_s": 557.4671,
+    "per_step_s": 13.9367
+   },
+   "wall_s_min_max": [
+    565.537,
+    566.956
+   ],
+   "all_exit_zero": true,
+   "any_deadline": false,
+   "cached_nodes": [],
+   "peaks_max_over_runs": {
+    "vram_used_mb": 11240.9,
+    "sys_ram_used_mb": 15472.4,
+    "commit_total_mb": 30963.7,
+    "swap_used_mb": 2455.2
+   }
+  },
+  "warm": {
+   "n": 3,
+   "wall_s_sidecar": [
+    563.2892,
+    562.7229,
+    570.1381
+   ],
+   "median": {
+    "wall_s_sidecar": 563.2892
+   },
+   "wall_s_min_max": [
+    562.7229,
+    570.1381
+   ],
+   "all_exit_zero": true,
+   "any_deadline": false,
+   "cached_nodes": [
+    "clip",
+    "vae"
+   ],
+   "cache_validation_verdict": "ok",
+   "warm_cache_divergence": false,
+   "note": "unet/shift/norm NÃO ficaram em cache: o loader do GGUF reexecutou em cada warm (cache por pressão de RAM do ComfyUI com 15 GB de UNET + 9,4 GB de TE em 16 GB) → warm ≈ cold; o warm não mede residência de modelo neste hardware"
+  }
+ },
+ "all_runs": {
+  "n": 6,
+  "exit_code": 0,
+  "deadline_hit": false,
+  "verdict": "ok",
+  "oom": false,
+  "kill_survivors": false,
+  "commit_counter": "GetPerformanceInfo (real)",
+  "discarded": 0,
+  "peaks_max_over_all_runs": {
+   "vram_used_mb": 11405.9,
+   "commit_total_mb": 32159.3
+  }
+ },
+ "derived": {
+  "cold_median_fraction_of_1500s": 0.3777,
+  "vram_headroom_min_mib": 821.1,
+  "warm_over_cold_median": 0.9957,
+  "cold_wall_range_vs_median": "−0,2 % / +0,1 %",
+  "sampling_share_of_wall": 0.9854,
+  "ratio_cold_vs": {
+   "klein4b_fp8_2ref_1mp": 17.79,
+   "r1ei_kleinbase4b_easyinsert_bf16_1024_normal": 2.079,
+   "r3_fashn15_bf16_576x864_segfree": 14.44
+  },
+  "ratio_cold_1mp_over_0p5mp": 1.1426
+ },
+ "memory_pressure_review": {
+  "oom": "nenhum (verdict ok 6/6; exit 0; sem OOM nos logs do servidor)",
+  "vram": "pico 11 240,9–11 405,9 MB de 12 227 MiB (folga ≥ 821 MiB) — NEAR_LIMIT, melhor que R1-EI (40 MiB)",
+  "ram": "pico 15 472,4 MB (sistema saturado); commit 30 964–32 159 MB → depende do pagefile",
+  "swap": "pico 2 455,2 MB (uso de pagefile durante o run)",
+  "thrashing": "não observado pelo critério de 03 §8 item 6: tempos frios com dispersão −0,2 %/+0,1 %, sem deadline, sem kill; a série temporal de page faults não foi transcrita neste registro (fica nos JSONs do measure_run) — classificação: memória saturada com streaming de pesos, sem thrashing patológico",
+  "interpretation": "13,9 s/passo a 1 MP vs 12,1 s/passo a 0,5 MP (×1,15 para ×2 pixels): o custo por passo é dominado pelo streaming dos pesos Q5 (15 GB não cabem em 12 GB de VRAM; DynamicVRAM/pagefile), não pelo cômputo em pixels"
+ },
+ "eligibility": {
+  "criterion": "docs/03 §8 item 6 e H4 (04): frio ≤ 1 500 s/candidato @1024 com 2–3 refs → elegível; 1 500–3 000 marginal; > 3 000 ou OOM/thrashing inviável",
+  "cold_median_s": 566.548,
+  "verdict": "ELEGÍVEL por tempo (≈ 38 % do teto) — H4 VERDADEIRA; VRAM NEAR_LIMIT; RAM saturada e commit dependente de pagefile; sem OOM; 20 passos não medidos nem necessários"
+ },
+ "source_files": {
+  "location": "máquina-alvo: W3Root\\r2\\bench_<uuid>\\report.json, runs\\<run_id>\\{sidecar.json,measure\\*.json,server.log,client.log,output.png}",
+  "excluded": [],
+  "note": "transcrição dos valores reportados pelo operador em 2026-10-09; medianas recomputadas; picos por run não transcritos (só máximos); nenhuma inspeção direta dos arquivos a partir do container"
+ },
+ "reported_on": "2026-10-09"
+}

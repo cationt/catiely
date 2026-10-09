@@ -1,0 +1,105 @@
+{
+ "record_version": 1,
+ "evidence_level": "MEDIDO NO HARDWARE-ALVO",
+ "candidate": "R2 — Qwen-Image-Edit-2511 GGUF Q5_K_M (ComfyUI externo), modo nativo de edição, A + B como referências",
+ "config_label": "qie2511_q5_2ref_0p5mp_40steps",
+ "decision": "D-056",
+ "config": {
+  "unet": "unsloth/Qwen-Image-Edit-2511-GGUF @ 0d33d969 qwen-image-edit-2511-Q5_K_M.gguf (15 027 501 664 B, sha c257def9…)",
+  "text_encoder": "Comfy-Org/Qwen-Image_ComfyUI @ 1f12b17b qwen_2.5_vl_7b_fp8_scaled.safetensors (9 384 670 680 B)",
+  "vae": "qwen_image_vae.safetensors (253 806 246 B)",
+  "workflow": "tools/r2_qie/workflow_0p5mp_api.json (sha 7f620ed4…): igual à primária com ImageScale lanczos 544×960 center em vez de FluxKontextImageScale",
+  "steps": 40,
+  "cfg": 4,
+  "transformer_passes": 80,
+  "resolution": "544×960 (0,52 MP; mesma resolução da evidência histórica de 03 §1b)",
+  "seed": 42,
+  "num_images": 1,
+  "lightning": false,
+  "runner": "ComfyUI core 0.38.2 @ daeb5e53 (venv do ComfyUI Desktop 1.1.6, torch 2.12.1+cu130) como servidor PRÓPRIO em loopback (porta 8191), lançado pelo orquestrador (tools/r2_qie/orchestrate.py) fora do measure_run; cliente tools/r2_qie/client.py é o filho medido → tree_private/tree_rss NÃO cobrem o motor; VRAM/RAM/commit/swap são do sistema",
+  "harness": "tools/measure_run.py --budget-s 3600 --interval-s 0.5 com commit real (GetPerformanceInfo); offline por guarda de rede Python (loopback apenas); provenance integral antes de cada servidor",
+  "state_definitions": {
+   "cold": "servidor novo por run, pronto e ocioso, model manager vazio, DynamicVRAM ativo; startup fora do wall; page cache do SO NÃO esvaziado (cold_pagecache_unflushed); execution_cached vazio obrigatório",
+   "warm": "mesmo servidor do terceiro cold; A/B byte-idênticas renomeadas e enviadas por /upload; seed fixa; sem /free nem cache-none; só nós fora do fecho de A/B podem vir do cache (D-055)"
+  }
+ },
+ "purpose": "promover a evidência histórica (~10–15 min/imagem a ~544×960, sem registro) a MEDIDO; não substitui a primária para H4",
+ "hardware": {
+  "gpu": "RTX 5070 12 GB (12 227 MiB)",
+  "cpu": "Ryzen 7 7800X3D",
+  "ram_gb": 16,
+  "os": "Windows 11",
+  "pagefile": "≈ 26 GB"
+ },
+ "metrics_units": "segundos; MB = MiB (bytes / 2^20) como reportado por measure_run.py; picos por run nos JSONs do measure_run na máquina-alvo",
+ "runs": {
+  "cold": {
+   "n": 3,
+   "wall_s": [
+    495.848,
+    492.189,
+    496.46
+   ],
+   "wall_s_sidecar": [
+    492.5612,
+    488.9893,
+    492.8168
+   ],
+   "sampling_s_sidecar": [
+    484.6222,
+    480.4152,
+    484.503
+   ],
+   "per_step_s_sidecar": [
+    12.1156,
+    12.0104,
+    12.1126
+   ],
+   "median": {
+    "wall_s": 495.848,
+    "wall_s_sidecar": 492.5612,
+    "sampling_s": 484.503,
+    "per_step_s": 12.1126
+   },
+   "wall_s_min_max": [
+    492.189,
+    496.46
+   ],
+   "all_exit_zero": true,
+   "any_deadline": false,
+   "cached_nodes": [],
+   "peaks_max_over_runs": {
+    "vram_used_mb": 11651.8,
+    "sys_ram_used_mb": 15462.3,
+    "commit_total_mb": 32086.5,
+    "swap_used_mb": 3287.0
+   }
+  }
+ },
+ "all_runs": {
+  "n": 3,
+  "exit_code": 0,
+  "deadline_hit": false,
+  "verdict": "ok",
+  "oom": false,
+  "kill_survivors": false,
+  "commit_counter": "GetPerformanceInfo (real)",
+  "discarded": 0
+ },
+ "derived": {
+  "cold_median_fraction_of_1500s": 0.3306,
+  "vram_headroom_min_mib": 575.2,
+  "historical_claim": "10–15 min/imagem → medido 8,3 min (495,8 s) a 40 passos; passos/CFG do histórico eram desconhecidos"
+ },
+ "eligibility": {
+  "criterion": "informativo; H4 é decidida pela primária",
+  "cold_median_s": 495.848,
+  "verdict": "492,6 s sidecar / 495,8 s measure_run: só 13 % mais rápida que 1 MP → custo dominado pelo streaming de pesos"
+ },
+ "source_files": {
+  "location": "máquina-alvo: W3Root\\r2\\bench_<uuid>\\report.json, runs\\<run_id>\\{sidecar.json,measure\\*.json,server.log,client.log,output.png}",
+  "excluded": [],
+  "note": "transcrição dos valores reportados pelo operador em 2026-10-09; medianas recomputadas; picos por run não transcritos (só máximos); nenhuma inspeção direta dos arquivos a partir do container"
+ },
+ "reported_on": "2026-10-09"
+}

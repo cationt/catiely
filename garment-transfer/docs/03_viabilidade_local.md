@@ -104,7 +104,24 @@ Resultados: **12/12 exit 0**, nenhum deadline/OOM, todos os 12 sidecars `linked`
 
 Pelo critério §8 item 6 (cold ≤ 1 500 s), **R3 é ELEGÍVEL por tempo com ampla folga**. A viabilidade computacional da R3 fica fechada. Registros versionados: `benchmark/measurements/r3_fashn15_bf16_576x864_segfree.json` e `benchmark/measurements/r3_fashn15_bf16_576x864_masked.json`.
 
-### 1g. R2 QIE-2511 Q5 — PREPARADA, NÃO MEDIDA (D-055)
+### 1g. R2 QIE-2511 Q5 — preparação (D-055) e medição padronizada (`MEDIDO NO HARDWARE-ALVO`, 2026-10-09, D-056)
+
+**Resultado (2026-10-09).** Configuração primária `qie2511_q5_2ref_1mp_40steps` (688×1504 ≈ 1,03 MP; 40 passos × CFG 4 = 80 passes; servidor ComfyUI próprio em loopback, cliente medido pelo `measure_run.py`): registro em `benchmark/measurements/r2_qie2511_q5_2ref_1mp_40steps.json`; secundária `qie2511_q5_2ref_0p5mp_40steps` (544×960) em `…_0p5mp_40steps.json`.
+
+| Configuração | Estado | n | wall_s measure_run (cada run) | **mediana wall_s** | sampling (mediana) | s/passo (mediana) | VRAM pico máx. | RAM sistema máx. | commit máx. | swap máx. | exit / deadline / OOM | cache |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 MP, 40 passos | **cold** | 3 | 566,548 · 565,537 · 566,956 | **566,5 s** (sidecar 565,7 s) | 557,5 s | 13,94 s | 11 240,9 MB | 15 472,4 MB | 30 963,7 MB | 2 455,2 MB | 0 / não / não | vazio (3/3) |
+| 1 MP, 40 passos | **warm** | 3 | — (sidecar 563,289 · 562,723 · 570,138) | **563,3 s** | — | — | 11 405,9 MB (máx. dos 6) | — | 32 159,3 MB | — | 0 / não / não | `clip, vae` (3/3 iguais) |
+| 0,5 MP (544×960), 40 passos | **cold** | 3 | 495,848 · 492,189 · 496,460 | **495,8 s** (sidecar 492,6 s) | 484,5 s | 12,11 s | 11 651,8 MB | 15 462,3 MB | 32 086,5 MB | 3 287,0 MB | 0 / não / não | vazio (3/3) |
+
+Leitura:
+- **H4 verdadeira:** mediana frio **566,5 s** a 1 MP ≈ **38 %** do teto de 1 500 s (§8 item 6). R2 é **elegível por tempo** e continua candidata condicional; nada de 20 passos (a regra condicional de D-055 não se aplica). Em relação às outras rotas: 17,8× klein 4B fp8 (31,8 s), 2,08× R1-EI (272,5 s), 14,4× FASHN (39,2 s).
+- **Custo dominado por streaming de pesos, não por pixels:** 13,9 s/passo a 1 MP contra 12,1 s/passo a 0,5 MP (×1,15 para ×2 pixels). Os 15 GB do UNET Q5_K_M não cabem nos 12 GB de VRAM; cada passo (2 passes CFG) re-stream pesos via DynamicVRAM/RAM/pagefile. A evidência histórica de §1b (10–15 min a 544×960) fica **promovida a MEDIDO**: 8,3 min a 40 passos.
+- **Warm ≈ cold (0,996×):** os três warm cachearam só `clip` e `vae`; o loader do UNET reexecutou em todos (cache por pressão de RAM do ComfyUI: 15 GB + 9,4 GB de pesos em 16 GB). Neste hardware o warm **não** mede residência de modelo; a regra de D-055 foi cumprida (fecho de A/B reexecutado; conjuntos idênticos nos três warm).
+- **Memória — revisão de OOM/thrashing:** sem OOM (6/6 + 3/3 `ok`, exit 0, sem deadline, sem sobreviventes do watchdog, sem OOM nos logs); VRAM pico 11,24–11,65 GB de 12,23 GB (`NEAR_LIMIT`, folga ≥ 575 MiB); RAM do sistema **saturada** (15,46–15,47 GB); commit 31–32,2 GB → **depende do pagefile**; swap pico 2,5 GB (1 MP) e 3,3 GB (0,5 MP). Thrashing pelo critério de §8 item 6 **não observado**: dispersão dos tempos frios −0,2 %/+0,1 %, nenhum run acima do prazo; a série de page faults não foi transcrita (fica nos JSONs do `measure_run`). Classificação: memória saturada com streaming de pesos, estável.
+- **O que esta medição não diz:** nada sobre qualidade, criação da peça ou acoplamento do denoise (G0). Para o Prototype 0 o custo de R2 é ≈ 9,4 min/imagem a 1 MP e ≈ 8,3 min a 544×960, o que confirma o subconjunto reduzido previsto em `06` §7 (easy_01, hard_01; 1–2 seeds).
+
+**Preparação (D-055, texto original):**
 
 Infraestrutura em `tools/r2_qie/`: provenance/pins locais, dois workflows API
 congelados por SHA256, cliente ComfyUI externo, sidecars vinculados, scripts
@@ -219,7 +236,7 @@ Gerado por `tools/memory_budget.py --config tools/budget_configs.json --markdown
 Leitura (rótulos de VRAM: `FITS_RESIDENT` = cabe residente com margem; `NEAR_LIMIT` = medir; `NEEDS_OFFLOAD` = roda **só** com offload/streaming via DynamicVRAM, portanto **mais lento, não inviável**):
 - **Residentes com folga:** klein 4B fp8 (1 ref), CatVTON, Leffa, juiz Qwen3-VL-8B Q4, componentes de percepção.
 - **Perto do limite (medir):** klein 4B com 3 referências (tokens ×4 — a atenção cresce), klein 9B Q4 + TE Q4, Kontext NVFP4, Qwen-Image-2.1 fp8, FitDiT, FASHN 1.5 (pixel-space em 576×864: a banda alta reflete incerteza sobre ativações em espaço de pixel), TEMU-VTOFF.
-- **Só com offload/streaming:** QIE-2511 Q4/Q5 (+TE), QIE-2509 NVFP4, Kontext/Fill fp8, klein 9B fp8. **A evidência histórica (§1b) confirma que QIE-2511 Q5 roda assim na RTX 5070**: ~10–15 min/imagem a ~0.5 MP, o que a coloca perto/acima do teto de 1 500 s por candidato a 1 MP com QA. O veredito para essas rotas é de **tempo**, não de memória.
+- **Só com offload/streaming:** QIE-2511 Q4/Q5 (+TE), QIE-2509 NVFP4, Kontext/Fill fp8, klein 9B fp8. **Medido (§1g, D-056)**: QIE-2511 Q5_K_M roda assim na RTX 5070 a **566,5 s frio por imagem a 1 MP** (40 passos; 13,9 s/passo) e 495,8 s a 544×960 — abaixo do teto de 1 500 s, com RAM saturada e dependência de pagefile. O veredito para essas rotas é de **tempo**, não de memória.
 - **Inviáveis (por evidência `P`, re-verificada em `research_raw/07`):** FLUX.2 dev (piso oficial ~18 GB só com encoder remoto; 12 GB apenas em relatos com 70–96 GB RAM), Step1X-Edit (18 GB mínimo), IDM-VTON (≥16 GB no nó ComfyUI), Hunyuan 3.0, Emu3.5. HiDream-E1: **inferência** (sem requisito declarado). OmniGen2 e BAGEL: **não** inviáveis (offload/NF4 documentados) → marginais.
 
 Lição registrada (D-016): "excede VRAM residente" foi lido na primeira versão deste documento como quase-inviabilidade; a observação histórica mostra que é uma questão de tempo por passo. O estimador agora separa os dois conceitos.
