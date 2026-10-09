@@ -190,3 +190,7 @@ Scripts ASCII, argumentos em arrays e paths literais suportam PS 5.1 e OneDrive.
 Testes CPU: `python -B -m unittest discover -s garment-transfer/tests -p test_r2_qie.py -v`
 usando o Python do ComfyUI, que já fornece aiohttp/Pillow/psutil. O servidor
 dos testes é fake, com imagens sintéticas 8×8; não importa torch/ComfyUI.
+
+## Nota: PIDs do launcher do venv
+
+O `python.exe` do venv do ComfyUI Desktop e um launcher (uv trampoline) que inicia o interpretador real como processo filho. Por isso o PID do `bootstrap.json`, o dono do socket em 127.0.0.1:8191 e o `client_pid` do sidecar sao descendentes do PID lancado, nunca o proprio. As verificacoes de propriedade aceitam o PID lancado e os seus descendentes (`owned_pids`), o `measure_run` ja mede a arvore inteira, e o relatorio de startup inclui o ultimo erro de readiness quando o prazo de 180 s expira.

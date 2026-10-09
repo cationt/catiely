@@ -1,4 +1,4 @@
-# Windows PowerShell 5.1; ASCII source. No install/download or implicit fallback.
+﻿# Windows PowerShell 5.1; ASCII source. No install/download or implicit fallback.
 param(
     [string]$ComfyRoot = (Join-Path $env:LOCALAPPDATA "Comfy-Desktop\ComfyUI-Installs\ComfyUI\ComfyUI"),
     [string]$SharedRoot = (Join-Path $env:LOCALAPPDATA "Comfy-Desktop\ComfyUI-Shared"),

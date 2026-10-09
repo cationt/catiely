@@ -13,7 +13,7 @@ import uuid
 from pathlib import Path
 
 from common import (CachedResult, EXIT_CACHED_RESULT, EXIT_FAILURE, HERE, cache_policy,
-                    digest_json, execution_graph, frozen, read_json, render, require, sha256,
+                    digest_json, execution_graph, frozen, owned_pids, read_json, render, require, sha256,
                     validate_history, write_new)
 
 
@@ -25,7 +25,8 @@ def assert_owner(session):
     require(session["launch_path"] in process.cmdline(), "wrong server session")
     listeners = [c for c in psutil.net_connections(kind="tcp")
                  if c.status == psutil.CONN_LISTEN and c.laddr.port == session["port"]]
-    require(listeners and all(c.pid == session["pid"] and c.laddr.ip == "127.0.0.1" for c in listeners), "endpoint not exclusively owned by new server")
+    owned = owned_pids(session["pid"])
+    require(listeners and all(c.pid in owned and c.laddr.ip == "127.0.0.1" for c in listeners), "endpoint not exclusively owned by new server")
 
 
 async def request(http, session, path, **kwargs):
@@ -214,8 +215,10 @@ def run(plan_path):
     sidecar = run_dir / "sidecar.json"
     require(not sidecar.exists() and not (run_dir / "output.png").exists() and not (run_dir / "server.log").exists(), "run already used")
     session = read_json(plan["session_path"])
+    import psutil
     evidence = {"schema_version": 1, "run_id": plan["run_id"], "configuration": plan["configuration"],
                 "state": plan["state"], "smoke": plan["smoke"], "client_pid": os.getpid(),
+                "client_ancestor_pids": [p.pid for p in psutil.Process().parents()],
                 "server": session, "startup_s": session["startup_s"],
                 "cold_pagecache_unflushed": plan["state"] == "cold", "verdict": "FAIL:incomplete",
                 "execution_cached": None, "cached_nodes": None, "cache_validation_verdict": "unavailable"}

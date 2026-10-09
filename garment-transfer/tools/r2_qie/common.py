@@ -34,6 +34,13 @@ def sha256(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def owned_pids(pid):
+    """The launched PID plus its descendants. The ComfyUI Desktop venv python.exe is a launcher (uv trampoline)
+    that starts the real interpreter as a child, so bootstrap/listener/client PIDs are descendants, not the PID itself."""
+    import psutil
+    return {pid} | {child.pid for child in psutil.Process(pid).children(recursive=True)}
+
+
 def digest_json(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
@@ -173,7 +180,9 @@ def validate_measure(report, sidecar, label, state):
     require(not report.get("kill_survivors"), "watchdog survivors")
     require(sidecar.get("run_id") == label and sidecar.get("state") == state and sidecar.get("verdict") == "ok", "sidecar binding/verdict mismatch")
     require(sidecar.get("cache_validation_verdict") == "ok", "cache validation missing")
-    require(sidecar.get("client_pid") == report.get("child_pid"), "measured process mismatch")
+    launched = report.get("child_pid")
+    require(launched is not None and (sidecar.get("client_pid") == launched or launched in (sidecar.get("client_ancestor_pids") or [])),
+            "measured process mismatch")
 
 
 def warm_consistency(sidecars):

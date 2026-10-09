@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.request import ProxyHandler, build_opener
 
 from client import assert_owner, cleanup_aliases, log_evidence, upload_inputs
-from common import (HERE, PRIMARY, SECONDARY, digest_json, frozen, read_json, render,
+from common import (HERE, PRIMARY, SECONDARY, digest_json, frozen, owned_pids, read_json, render,
                     require, sha256, validate_measure, warm_consistency, write_new)
 from provenance import default_paths, verify, verify_unchanged
 
@@ -81,6 +81,7 @@ class Server:
         session["process_created"] = psutil.Process(self.process.pid).create_time()
         self.session = session
         opener = build_opener(ProxyHandler({}))
+        last_error = None
         while time.perf_counter() - started < 180:
             require(self.process.poll() is None, f"server failed; inspect {session['process_log']}")
             try:
@@ -89,16 +90,18 @@ class Server:
                     queue = json.load(response)
                 require(queue.get("queue_running") == [] and queue.get("queue_pending") == [], "new server is not idle")
                 bootstrap = read_json(session["bootstrap"])
-                require(bootstrap["pid"] == session["pid"] and bootstrap["server_id"] == server_id, "bootstrap binding mismatch")
+                require(bootstrap["pid"] in owned_pids(session["pid"]) and bootstrap["server_id"] == server_id, "bootstrap binding mismatch")
+                session["server_python_pid"] = bootstrap["pid"]
                 require(bootstrap["loaded_models"] == 0 and bootstrap["dynamic_vram"] is True, "cold/DynamicVRAM preflight failed")
                 session["startup_s"] = time.perf_counter() - started
                 session["startup_evidence"] = bootstrap
                 session["startup_log"] = log_evidence(session, 0, directory / "startup.log")
                 write_new(session["session_path"], session)
                 return self
-            except (OSError, ValueError, RuntimeError):
+            except (OSError, ValueError, RuntimeError) as error:
+                last_error = f"{type(error).__name__}: {error}"
                 time.sleep(0.25)
-        raise RuntimeError("server startup deadline; benchmark not started")
+        raise RuntimeError(f"server startup deadline; last readiness error: {last_error}; benchmark not started")
 
     def stop(self):
         if self.process is None:

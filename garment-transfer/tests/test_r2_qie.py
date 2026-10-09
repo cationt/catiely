@@ -163,10 +163,14 @@ class Contracts(unittest.TestCase):
 
     def test_endpoint_owner_and_pid_reuse_rejected(self):
         session = {"pid": 10, "process_created": 1, "port": 8191, "launch_path": "unique-session.json"}
-        process = SimpleNamespace(create_time=lambda: 1, cmdline=lambda: [str(R2 / "launch_server.py"), "unique-session.json"])
+        process = SimpleNamespace(create_time=lambda: 1, cmdline=lambda: [str(R2 / "launch_server.py"), "unique-session.json"],
+                                  children=lambda recursive=True: [SimpleNamespace(pid=12)])
         connection = SimpleNamespace(status="LISTEN", laddr=SimpleNamespace(ip="127.0.0.1", port=8191), pid=10)
         psutil = SimpleNamespace(Process=lambda pid: process, net_connections=lambda kind: [connection], CONN_LISTEN="LISTEN")
         with patch.dict(sys.modules, {"psutil": psutil}):
+            client.assert_owner(session)
+            self.assertEqual(common.owned_pids(10), {10, 12})
+            connection.pid = 12   # real interpreter spawned by the venv launcher (uv trampoline) owns the socket
             client.assert_owner(session)
             connection.pid = 11
             with self.assertRaisesRegex(common.InvalidRun, "endpoint"):
@@ -191,6 +195,10 @@ class Contracts(unittest.TestCase):
         good = {"label": "run", "state": "warm", "exit_code": 0, "deadline_hit": False, "verdict": "ok", "child_pid": 123}
         sidecar = {"run_id": "run", "state": "warm", "verdict": "ok", "cache_validation_verdict": "ok", "client_pid": 123}
         common.validate_measure(good, sidecar, "run", "warm")
+        # client interpreter is a descendant of the launcher measure_run spawned
+        common.validate_measure(good, {**sidecar, "client_pid": 456, "client_ancestor_pids": [123, 1]}, "run", "warm")
+        with self.assertRaises(common.InvalidRun):
+            common.validate_measure(good, {**sidecar, "client_pid": 456, "client_ancestor_pids": [999]}, "run", "warm")
         for field, value in (("exit_code", 23), ("deadline_hit", True), ("verdict", "FAIL:exit_23"), ("label", "old"), ("child_pid", 999)):
             with self.subTest(field=field), self.assertRaises(common.InvalidRun):
                 common.validate_measure({**good, field: value}, sidecar, "run", "warm")
