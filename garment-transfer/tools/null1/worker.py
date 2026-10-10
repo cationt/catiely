@@ -96,6 +96,18 @@ def generate_fashn(job, evidence):
                     native_sha256=sha256(Path(job["out"])/"native.png"))
 
 
+def generate_r1ei_resample_only(job, evidence):
+    from PIL import Image
+    crop = rgb(job["a"]).crop((-136, 193, 860, 1189))
+    enlarged = crop.resize((1024, 1024), Image.Resampling.LANCZOS)
+    save_new(enlarged, Path(job["out"])/"A_crop_1024.png")
+    result = enlarged.resize((996, 996), Image.Resampling.LANCZOS)
+    save_new(result, Path(job["out"])/"native.png")
+    evidence.update(normative=False, device="cpu", vae=None, crop_box=[-136, 193, 860, 1189],
+                    resize_sequence=[[996, 996], [1024, 1024], [996, 996]],
+                    native_sha256=sha256(Path(job["out"])/"native.png"))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--inspect", choices=["comfy", "r1ei", "r3"])
@@ -108,13 +120,15 @@ def main():
         return 0
     job = read_json(args.execute)
     evidence = {"run_id": job["run_id"], "kind": job["kind"], "verdict": "FAIL:incomplete",
+                "normative": job.get("normative", True),
                 "network": "loopback_only_python_audit", "a_sha256": sha256(job["a"])}
     start = time.perf_counter()
     try:
         require(job["action"] == "generate", "explicit generation request required")
         unchanged(job["provenance"])
-        evidence["runtime"] = runtime("r1ei" if job["kind"] == "r1ei" else "r3")
-        {"zones": generate_zones, "r1ei": generate_r1ei, "fashn": generate_fashn}[job["kind"]](job, evidence)
+        evidence["runtime"] = runtime("r1ei" if job["kind"] in ("r1ei", "r1ei_resample_only") else "r3")
+        {"zones": generate_zones, "r1ei": generate_r1ei, "fashn": generate_fashn,
+         "r1ei_resample_only": generate_r1ei_resample_only}[job["kind"]](job, evidence)
         unchanged(job["provenance"])
         evidence["verdict"] = "ok"
         return 0

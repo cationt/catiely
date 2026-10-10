@@ -1,0 +1,63 @@
+{
+  "A": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__A__"
+    }
+  },
+  "vae": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    }
+  },
+  "encode": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "crop",
+        0
+      ],
+      "vae": [
+        "vae",
+        0
+      ]
+    }
+  },
+  "decode": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "encode",
+        0
+      ],
+      "vae": [
+        "vae",
+        0
+      ]
+    }
+  },
+  "save": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "decode",
+        0
+      ],
+      "filename_prefix": "__OUTPUT__"
+    }
+  },
+  "crop": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "A",
+        0
+      ],
+      "width": 720,
+      "height": 1536,
+      "x": 2,
+      "y": 0
+    }
+  }
+}

@@ -11,6 +11,9 @@ HERE = Path(__file__).resolve().parent
 ZONES = {"skin": [12, 14, 16, 15], "background": [0], "hair_face": [1, 2],
          "occluders": [13], "clothing": [3, 4, 5, 6, 7, 10]}
 NORMATIVE_ZONES = ("skin", "background", "hair_face", "occluders")
+NORMATIVE_ROUTES = ("klein", "qie", "r1ei", "fashn")
+ROUTE_ORDER = ("klein", "klein_resample_only", "klein_vae_native", "qie",
+               "qie_resample_only", "qie_vae_native", "r1ei", "r1ei_resample_only", "fashn")
 
 
 def require(condition, message):
@@ -71,6 +74,17 @@ def geometry(route, size=(725, 1536)):
     """Pixel-edge coordinates; support membership uses original pixel centers."""
     require(tuple(size) == (725, 1536), "only the pinned A geometry is prepared")
     w, h = size
+    if route in ("klein_resample_only", "qie_resample_only"):
+        return geometry(route.removesuffix("_resample_only"), size)
+    if route in ("klein_vae_native", "qie_vae_native"):
+        # Same integer center convention as pinned VAE cropping: (725-720)//2.
+        x = (w - 720) // 2
+        return {"scaled": [720, h], "internal": [720, h], "box_on_A": [x, 0, x+720, h],
+                "inverse": "paste exact 720x1536 crop; no resize"}
+    if route == "r1ei_resample_only":
+        return {"scaled": [1024, 1024], "internal": [1024, 1024], "native": [996, 996],
+                "box_on_A": [-136, 193, 860, 1189],
+                "inverse": "Pillow LANCZOS 1024->996 in worker; paste whole box; no insertion mask"}
     if route == "klein":
         scale = math.sqrt(1024 * 1024 / (w * h))
         sw, sh = round(w * scale), round(h * scale)
@@ -104,15 +118,18 @@ def support_for_geometry(size, geo):
 
 def reproject(A, decoded, route):
     geo = geometry(route, A.size)
-    expected = geo.get("unpad", geo["internal"])
+    expected = geo.get("native", geo.get("unpad", geo["internal"]))
     require(list(decoded.size) == expected and decoded.mode == "RGB", "unexpected native output grid/mode")
     left, top, right, bottom = geo["box_on_A"]
     support = support_for_geometry(A.size, geo)
-    if route == "klein":
+    if route in ("klein", "klein_resample_only"):
         sx, sy = decoded.width/(right-left), decoded.height/(bottom-top)
         projected = decoded.transform(A.size, Image.Transform.AFFINE,
                                       (sx, 0, -left*sx, 0, sy, -top*sy), Image.Resampling.BICUBIC)
         result = Image.composite(projected, A, Image.fromarray(support.astype(np.uint8)*255))
+    elif route in ("klein_vae_native", "qie_vae_native", "r1ei_resample_only"):
+        result = A.copy()
+        result.paste(decoded, (int(left), int(top)))
     else:
         resized = decoded.resize((int(right-left), int(bottom-top)), Image.Resampling.LANCZOS)
         result = A.copy()
@@ -151,7 +168,9 @@ def null_statistics(a_path, output, support_path, zone_paths, route_config):
         selected = zone & support
         counts["by_zone"][name] = {"total": int(zone.sum()), "support": int(selected.sum())}
         stats["by_zone"][name] = distribution(d[selected])
-    return {"schema_version": 1, "kind": "O_null1", "metric": "max_RGB(abs(uint8(O_null1)-uint8(A)))",
+    normative = route_config.get("normative", True)
+    return {"schema_version": 1, "kind": "O_null1" if normative else "O_null1_diagnostic",
+            "normative": normative, "metric": "max_RGB(abs(uint8(O_null1)-uint8(A)))",
             "quantile": "numpy percentile linear; tolerance=max(1,ceil(p99.5))",
             "tol_p995_support": tolerance(stats["support"]),
             "tol_p995_by_zone": {k: tolerance(stats["by_zone"][k]) for k in NORMATIVE_ZONES},
@@ -159,4 +178,5 @@ def null_statistics(a_path, output, support_path, zone_paths, route_config):
             "sha256": {"a": sha256(a_path), "o_null1": sha256(output), "support": sha256(support_path),
                        "zones": {k: sha256(v) for k, v in zone_paths.items()}},
             "route_config": route_config,
-            "status": "MEASURED_PENDING_CLAUDE_REVIEW", "clothing": "reported only; no normative tolerance"}
+            "status": "MEASURED_PENDING_CLAUDE_REVIEW" if normative else "DIAGNOSTIC_NOT_FOR_CALIBRATION",
+            "clothing": "reported only; no normative tolerance"}

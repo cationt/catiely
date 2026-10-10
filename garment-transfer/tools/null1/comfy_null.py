@@ -110,6 +110,32 @@ def execution_graph(graph):
     return {key: {k: v for k, v in node.items() if k != "is_changed"} for key, node in graph.items()}
 
 
+def workflow_vae(route, paths):
+    manifest = frozen()
+    graph = read_json(HERE/manifest["workflows"][route]["file"])
+    loaders = [node for node in graph.values() if node["class_type"] == "VAELoader"]
+    if not loaders:
+        require(not any(node["class_type"] in ("VAEEncode", "VAEDecode") for node in graph.values()), "VAE without loader")
+        return None, None
+    require(len(loaders) == 1, "expected one VAE loader")
+    base = manifest["routes"][route].get("base_route", route)
+    require(base in ("klein", "qie"), "unknown VAE route")
+    path = (paths["core"]/"models/vae/flux2-vae.safetensors" if base == "klein" else
+            paths["shared"]/"models/diffusion_models/vae/qwen_image_vae.safetensors")
+    require(loaders[0]["inputs"]["vae_name"] == path.name, "frozen workflow VAE mismatch")
+    return path, 16 if base == "klein" else 8
+
+
+def vae_evidence(session, graph):
+    if not any(node["class_type"] == "VAELoader" for node in graph.values()):
+        require(session.get("vae") is None, "resample workflow must not select a VAE")
+        return None
+    require(session.get("vae_evidence"), "VAE evidence required")
+    result = read_json(session["vae_evidence"])
+    require(result["spatial_compression"] == session["vae_spatial_compression"], "unexpected VAE compression")
+    return result
+
+
 async def prompt(session, a_path, directory, route, deadline, evidence):
     import aiohttp
     manifest = frozen()
@@ -179,8 +205,7 @@ async def prompt(session, a_path, directory, route, deadline, evidence):
         with source.open("rb") as origin, (directory/"native.png").open("xb") as destination:
             shutil.copyfileobj(origin, destination)
         evidence["native_sha256"] = sha256(directory/"native.png")
-        evidence["vae"] = read_json(session["vae_evidence"])
-        require(evidence["vae"]["spatial_compression"] == (16 if route == "klein" else 8), "unexpected VAE compression")
+        evidence["vae"] = vae_evidence(session, graph)
         uploaded.unlink()
 
 
@@ -191,16 +216,20 @@ def generate(route, directory, paths, a_path, port, deadline, evidence):
     for folder in ("input", "output", "user", "temp"):
         (directory/"server"/folder).mkdir(parents=True, exist_ok=False)
     core = paths["core"]
-    vae = core/"models/vae/flux2-vae.safetensors" if route == "klein" else paths["shared"]/"models/diffusion_models/vae/qwen_image_vae.safetensors"
+    vae, compression = workflow_vae(route, paths)
     model_paths = directory/"server/model_paths.yaml"
-    write_new(model_paths, {"null1": {"is_default": True, "vae": str(vae.parent)}})
+    if vae is not None:
+        write_new(model_paths, {"null1": {"is_default": True, "vae": str(vae.parent)}})
     flags = ["--listen", "127.0.0.1", "--port", str(port), "--verbose", "DEBUG", "--log-stdout", "--bf16-vae",
-             "--disable-auto-launch", "--disable-api-nodes", "--disable-all-custom-nodes", "--extra-model-paths-config", str(model_paths),
+             "--disable-auto-launch", "--disable-api-nodes", "--disable-all-custom-nodes",
              "--front-end-root", str(core/".venv/Lib/site-packages/comfyui_frontend_package/static")]
+    if vae is not None:
+        flags += ["--extra-model-paths-config", str(model_paths)]
     for folder in ("input", "output", "user", "temp"):
         flags += ["--"+folder+"-directory", str(directory/"server"/folder)]
-    session = {"action": "generate", "server_id": server_id, "core": str(core), "vae": str(vae), "flags": flags, "port": port,
-               "bootstrap": str(directory/"server/bootstrap.json"), "vae_evidence": str(directory/"server/vae.json"),
+    session = {"action": "generate", "server_id": server_id, "core": str(core), "vae": str(vae) if vae else None, "flags": flags, "port": port,
+               "bootstrap": str(directory/"server/bootstrap.json"), "vae_evidence": str(directory/"server/vae.json") if vae else None,
+               "vae_spatial_compression": compression,
                "launch_path": str(directory/"server/launch.json")}
     write_new(session["launch_path"], session)
     with (directory/"server.log").open("xb") as log:

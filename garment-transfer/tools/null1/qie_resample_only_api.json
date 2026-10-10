@@ -1,0 +1,27 @@
+{
+  "A": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__A__"
+    }
+  },
+  "scale": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": {
+      "image": [
+        "A",
+        0
+      ]
+    }
+  },
+  "save": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "scale",
+        0
+      ],
+      "filename_prefix": "__OUTPUT__"
+    }
+  }
+}

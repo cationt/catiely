@@ -1,0 +1,43 @@
+{
+  "A": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__A__"
+    }
+  },
+  "scale": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "A",
+        0
+      ],
+      "upscale_method": "nearest-exact",
+      "megapixels": 1,
+      "resolution_steps": 1
+    }
+  },
+  "crop": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "scale",
+        0
+      ],
+      "width": 704,
+      "height": 1488,
+      "x": 0,
+      "y": 1
+    }
+  },
+  "save": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "crop",
+        0
+      ],
+      "filename_prefix": "__OUTPUT__"
+    }
+  }
+}

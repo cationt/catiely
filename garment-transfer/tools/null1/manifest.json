@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "status": "PREPARED_NOT_MEASURED",
-  "decision": "D-057",
+  "status": "DIAGNOSTICS_PREPARED_NOT_MEASURED",
+  "decision": "D-058",
   "a": {
     "root": "shared",
     "path": "input/w3_measure/A.jpg",
@@ -246,6 +246,12 @@
       "path": "diffusers/pipelines/flux2/pipeline_flux2_klein.py",
       "sha256": "8a57a8a7f1c22fc0c5bc5d3fd1bd9bc76c17c1f4d6644cc73370651dd955358e",
       "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy_extras/nodes_images.py",
+      "sha256": "f8e171f428e2e81de8d7b1cd582ac4ac82cd7ae5a3c947f118ecf85df920bf50",
+      "lf": true
     }
   ],
   "workflows": {
@@ -256,6 +262,22 @@
     "qie": {
       "file": "qie_api.json",
       "sha256": "6f336c222c68b9fd141d44d95a88d7c7f551e2177d6a6f9e8178e2e0222164a6"
+    },
+    "klein_resample_only": {
+      "file": "klein_resample_only_api.json",
+      "sha256": "100df83c6e648f3e461933a061b7c4134beeff7e01c9a9edfbb12b2cd90ce9d7"
+    },
+    "klein_vae_native": {
+      "file": "klein_vae_native_api.json",
+      "sha256": "2b953da64ddae849d38cd5e963bf3b9d402154fbea6d72bfec86467ba334ece4"
+    },
+    "qie_resample_only": {
+      "file": "qie_resample_only_api.json",
+      "sha256": "29b8db18353118a7d15149c21d798859afdc7cfa0446a9767cb453b225af3130"
+    },
+    "qie_vae_native": {
+      "file": "qie_vae_native_api.json",
+      "sha256": "e4757968d1edf86687983ca13f6bc592c71bba35e4eaeb69163186988653ff3b"
     }
   },
   "provenance": {
@@ -334,7 +356,32 @@
       "dtype": "bfloat16",
       "denoise": 0,
       "sampling": false,
-      "scale": "ImageScaleToTotalPixels nearest-exact 1*1024*1024 resolution_steps=1; 704x1490 -> VAE center crop 704x1488"
+      "scale": "ImageScaleToTotalPixels nearest-exact 1*1024*1024 resolution_steps=1; 704x1490 -> VAE center crop 704x1488",
+      "normative": true,
+      "executor": "comfy"
+    },
+    "klein_resample_only": {
+      "normative": false,
+      "executor": "comfy",
+      "base_route": "klein",
+      "sampling": false,
+      "floor": "resample only; no VAE",
+      "dtype": "uint8",
+      "scale": "ImageScaleToTotalPixels nearest-exact 1*1024*1024 resolution_steps=1; 704x1490 -> ImageCrop 704x1488 offset(0,1); no VAE",
+      "ceiling": null,
+      "vae": null
+    },
+    "klein_vae_native": {
+      "normative": false,
+      "executor": "comfy",
+      "base_route": "klein",
+      "sampling": false,
+      "floor": "center crop -> VAEEncode -> VAEDecode -> paste",
+      "dtype": "bfloat16",
+      "scale": "ImageCrop 720x1536 offset(2,0); no rescale; exact paste",
+      "ceiling": null,
+      "vae_sha256": "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5",
+      "denoise": 0
     },
     "qie": {
       "measured_configuration": "qie2511_q5_2ref_1mp_40steps",
@@ -343,7 +390,32 @@
       "dtype": "bfloat16",
       "denoise": 0,
       "sampling": false,
-      "scale": "FluxKontextImageScale lanczos center 688x1504"
+      "scale": "FluxKontextImageScale lanczos center 688x1504",
+      "normative": true,
+      "executor": "comfy"
+    },
+    "qie_resample_only": {
+      "normative": false,
+      "executor": "comfy",
+      "base_route": "qie",
+      "sampling": false,
+      "floor": "resample only; no VAE",
+      "dtype": "uint8",
+      "scale": "FluxKontextImageScale lanczos center 688x1504",
+      "ceiling": null,
+      "vae": null
+    },
+    "qie_vae_native": {
+      "normative": false,
+      "executor": "comfy",
+      "base_route": "qie",
+      "sampling": false,
+      "floor": "center crop -> VAEEncode -> VAEDecode -> paste",
+      "dtype": "bfloat16",
+      "scale": "ImageCrop 720x1536 offset(2,0); no rescale; exact paste",
+      "ceiling": null,
+      "vae_sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f",
+      "denoise": 0
     },
     "r1ei": {
       "measured_configuration": "r1ei_kleinbase4b_easyinsert_bf16_1024_normal",
@@ -358,7 +430,26 @@
         860,
         1189
       ],
-      "scale": "crop black outside A then LANCZOS 1024x1024; no insertion mask"
+      "scale": "crop black outside A then LANCZOS 1024x1024; no insertion mask",
+      "normative": true,
+      "executor": "r1ei"
+    },
+    "r1ei_resample_only": {
+      "normative": false,
+      "executor": "r1ei",
+      "base_route": "r1ei",
+      "sampling": false,
+      "vae": null,
+      "dtype": "uint8",
+      "ceiling": null,
+      "floor": "PIL LANCZOS 996->1024->996 in worker; paste whole box",
+      "crop_box": [
+        -136,
+        193,
+        860,
+        1189
+      ],
+      "scale": "same black-padded crop as R1-EI; no VAE; no insertion mask"
     },
     "fashn": {
       "measured_configuration": "r3_fashn15_bf16_576x864_segfree/masked: common image floor",
@@ -366,7 +457,9 @@
       "vae": null,
       "dtype": "uint8",
       "sampling": false,
-      "scale": "PIL fit864 no upsample; ResizePad(576,864) OpenCV; unpad407x864"
+      "scale": "PIL fit864 no upsample; ResizePad(576,864) OpenCV; unpad407x864",
+      "normative": true,
+      "executor": "r3"
     }
   },
   "reprojection": "Pinned in common.geometry; no image registration; copied A excluded by support; any change of tuple requires regenerating null",
@@ -396,5 +489,34 @@
       10
     ]
   },
-  "clothing_definition": "union BODY_COVERAGE_TO_LABELS full from pinned parser; reported only; accessories outside this union reported as unassigned"
+  "clothing_definition": "union BODY_COVERAGE_TO_LABELS full from pinned parser; reported only; accessories outside this union reported as unassigned",
+  "normative_decision": "D-057",
+  "route_order": [
+    "klein",
+    "klein_resample_only",
+    "klein_vae_native",
+    "qie",
+    "qie_resample_only",
+    "qie_vae_native",
+    "r1ei",
+    "r1ei_resample_only",
+    "fashn"
+  ],
+  "preserved_evidence": {
+    "batch_id": "20261010T162735Z_1b40ed495243",
+    "route": "klein",
+    "verdict": "INCONCLUSIVE:null_distribution_not_credible",
+    "tol_p995_support": 21,
+    "tol_p995_by_zone": {
+      "skin": 18,
+      "background": 22,
+      "hair_face": 19,
+      "occluders": 23
+    },
+    "sha256": {
+      "batch.json": "221f6f5300a71e3cd4003b486530d7139f0456cfa027adca3eb065c56b49f853",
+      "klein/null_stats.json": "64e477e68459e63853448e9792b9ede4d2c263afdb79dcfaa2b7f438540f5ed9",
+      "klein/sidecar.json": "f5d41e3220d749887eaff60e71176db4be2cfd543694300b234eb0079c5db3c5"
+    }
+  }
 }

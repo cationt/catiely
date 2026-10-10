@@ -23,6 +23,30 @@ def fail_fast(error):
     raise error
 
 
+def configure_vae(session, core, folders, manager, classes, torch):
+    # Resample-only graphs have no VAELoader and must not resolve/load any VAE.
+    if session.get("vae") is None:
+        require(session.get("vae_evidence") is None, "VAE evidence configured without a VAE")
+        return None
+    loader = classes["VAELoader"]
+    require(Path(sys.modules[loader.__module__].__file__).resolve() == (core/"nodes.py").resolve(), "unexpected VAELoader")
+    selected = Path(folders.get_full_path_or_raise("vae", Path(session["vae"]).name)).resolve()
+    require(selected == Path(session["vae"]).resolve(), "wrong VAE selected by ComfyUI")
+    manager.raise_non_oom = fail_fast
+    original = loader.load_vae
+
+    def checked_load(instance, *arguments, **kwargs):
+        result = original(instance, *arguments, **kwargs)
+        vae = result[0]
+        require(vae.device.type == "cuda" and vae.vae_dtype == torch.bfloat16, "VAE device/dtype mismatch")
+        write_new(session["vae_evidence"], {"device": str(vae.device), "dtype": str(vae.vae_dtype),
+                  "class": type(vae.first_stage_model).__name__, "spatial_compression": vae.spacial_compression_encode(),
+                  "path": str(selected), "oom_fallback": "disabled: exceptions re-raised"})
+        return result
+    loader.load_vae = checked_load
+    return str(selected)
+
+
 def main():
     session = read_json(sys.argv[1])
     require(session["action"] == "generate", "explicit Generate required")
@@ -38,26 +62,11 @@ def main():
         classes = sys.modules["nodes"].NODE_CLASS_MAPPINGS
         require(torch.cuda.is_available(), "CUDA required; no CPU fallback")
         require(not manager.current_loaded_models, "private ComfyUI must start with no loaded model")
-        loader = classes["VAELoader"]
-        require(Path(sys.modules[loader.__module__].__file__).resolve() == (core/"nodes.py").resolve(), "unexpected VAELoader")
-        selected = Path(folders.get_full_path_or_raise("vae", Path(session["vae"]).name)).resolve()
-        require(selected == Path(session["vae"]).resolve(), "wrong VAE selected by ComfyUI")
         torch.manual_seed(42)
         torch.cuda.manual_seed_all(42)
-        manager.raise_non_oom = fail_fast
-        original = loader.load_vae
-
-        def checked_load(instance, *arguments, **kwargs):
-            result = original(instance, *arguments, **kwargs)
-            vae = result[0]
-            require(vae.device.type == "cuda" and vae.vae_dtype == torch.bfloat16, "VAE device/dtype mismatch")
-            write_new(session["vae_evidence"], {"device": str(vae.device), "dtype": str(vae.vae_dtype),
-                      "class": type(vae.first_stage_model).__name__, "spatial_compression": vae.spacial_compression_encode(),
-                      "path": str(selected), "oom_fallback": "disabled: exceptions re-raised"})
-            return result
-        loader.load_vae = checked_load
+        selected = configure_vae(session, core, folders, manager, classes, torch)
         write_new(session["bootstrap"], {"pid": os.getpid(), "server_id": session["server_id"],
-                  "loaded_models": 0, "vae": str(selected), "network": "loopback_only_python_audit"})
+                  "loaded_models": 0, "vae": selected, "network": "loopback_only_python_audit"})
 
     sys.addaudithook(startup)
     isolate_core_path(core)

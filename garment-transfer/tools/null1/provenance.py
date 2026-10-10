@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from common import HERE, read_json, require, sha256
+from common import HERE, NORMATIVE_ROUTES, ROUTE_ORDER, read_json, require, sha256
 
 
 def roots(w3, core, shared):
@@ -44,6 +44,10 @@ def runtime(name):
 
 def frozen():
     manifest = read_json(HERE/"manifest.json")
+    require(manifest["route_order"] == list(ROUTE_ORDER), "D-058 route order changed")
+    require(set(manifest["routes"]) == set(ROUTE_ORDER), "D-058 routes changed")
+    for route, settings in manifest["routes"].items():
+        require(settings["normative"] is (route in NORMATIVE_ROUTES), "normative/diagnostic role changed")
     for item in manifest["workflows"].values():
         require(sha256(HERE/item["file"], lf=True) == item["sha256"], "frozen workflow changed")
     return manifest

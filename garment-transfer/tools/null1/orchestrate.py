@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from common import (HERE, ZONES, geometry, null_statistics, read_json, reproject, require,
+from common import (HERE, NORMATIVE_ROUTES, ROUTE_ORDER, ZONES, geometry, null_statistics, read_json, reproject, require,
                     rgb, save_mask, save_new, sha256, support_for_geometry, write_new)
 from dd_schedule import all_reports, verify_sources
 from offline import install
@@ -21,7 +21,8 @@ def plan():
     manifest = frozen()
     result = {"status": "PREPARED_NOT_MEASURED", "action": "Plan: no server, parser, weights or real images executed",
               "a_sha256": manifest["a"]["sha256"], "routes": {}, "dd_schedules": all_reports()}
-    for route, config in manifest["routes"].items():
+    for route in ROUTE_ORDER:
+        config = manifest["routes"][route]
         geo = geometry(route)
         support = support_for_geometry(tuple(manifest["a_size"]), geo)
         result["routes"][route] = {**config, "geometry": geo, "planned_support_pixels": int(support.sum()),
@@ -74,16 +75,21 @@ def validate_ceiling(stats):
 def one_route(route, directory, paths, provenance, zones_dir, parser_record, run_id, port, deadline):
     directory.mkdir(exist_ok=False)
     record = {"kind": "O_null1", "route": route, "run_id": run_id, "verdict": "FAIL:incomplete",
+              "normative": route in NORMATIVE_ROUTES,
               "generated_for_review_only": True, "network": "loopback_only_python_audit"}
     started = time.monotonic()
     try:
         unchanged(provenance)
         manifest = frozen()
+        route_settings = manifest["routes"][route]
+        normative = route_settings["normative"]
+        executor = route_settings["executor"]
+        record["normative"] = normative
         config = {**manifest["routes"][route], "geometry": geometry(route), "route": route,
                   "manifest_sha256": provenance["manifest_sha256"], "implementation_sha256": code_identity(),
-                  "core_commit": manifest["core_commit"] if route in ("klein", "qie") else None,
+                  "core_commit": manifest["core_commit"] if executor == "comfy" else None,
                   "workflow": manifest["workflows"].get(route),
-                  "runtime": provenance["environments"]["comfy" if route in ("klein", "qie") else "r1ei" if route == "r1ei" else "r3"],
+                  "runtime": provenance["environments"][executor],
                   "seed": 42, "batch": 1, "num_images": 1,
                   "zones": {"source": "pinned R3 parser on original A", "ids": ZONES,
                             "code_commit": manifest["provenance"]["parser_code_commit"],
@@ -91,14 +97,13 @@ def one_route(route, directory, paths, provenance, zones_dir, parser_record, run
                             "device": "cuda", "dtype": "float32", "deterministic_algorithms": True,
                             "tf32": False, "seed": 42}}
         record["route_config"] = config
-        if route in ("klein", "qie"):
+        if executor == "comfy":
             from comfy_null import generate
             generate(route, directory, paths, provenance["a"], port, deadline, record)
         else:
-            name = "r1ei" if route == "r1ei" else "r3"
-            job = {"action": "generate", "kind": route, "run_id": run_id, "out": str(directory),
+            job = {"action": "generate", "kind": route, "normative": normative, "run_id": run_id, "out": str(directory),
                    "w3": str(paths["w3"]), "a": provenance["a"], "provenance": provenance}
-            record["worker"] = worker(job, paths["w3"]/name/".venv/Scripts/python.exe", directory, deadline)
+            record["worker"] = worker(job, paths["w3"]/executor/".venv/Scripts/python.exe", directory, deadline)
         unchanged(provenance)
         result, support, geo = reproject(rgb(provenance["a"]), rgb(directory/"native.png"), route)
         save_new(result, directory/"O_null1.png")
@@ -111,18 +116,16 @@ def one_route(route, directory, paths, provenance, zones_dir, parser_record, run
             require(sha256(path) == parser_record["masks_sha256"][zone], "parser masks changed")
             zone_paths[zone] = path
         stats = null_statistics(provenance["a"], directory/"O_null1.png", directory/"support.png", zone_paths, config)
-        rejected = validate_ceiling(stats)
+        rejected = validate_ceiling(stats) if normative else {}
         if rejected:
             stats["status"] = "INCONCLUSIVE:null_distribution_not_credible"
         write_new(directory/"null_stats.json", stats)
         record.update(null_stats_sha256=sha256(directory/"null_stats.json"), artifacts_sha256=stats["sha256"],
                       support_fraction=stats["support_fraction"], counts=stats["counts"],
                       tol_p995_support=stats["tol_p995_support"], tol_p995_by_zone=stats["tol_p995_by_zone"],
-                      null_validation="INCONCLUSIVE" if rejected else "within_ceiling_pending_review")
-        if rejected:
-            record["verdict"] = "INCONCLUSIVE:null_distribution_not_credible"
-            raise ValueError(f"null above ceiling 12: {rejected}; preserved for review; stop")
-        record["verdict"] = "ok"
+                      null_validation=("diagnostic_only:no_ceiling" if not normative else
+                                       "INCONCLUSIVE" if rejected else "within_ceiling_pending_review"))
+        record["verdict"] = "INCONCLUSIVE:null_distribution_not_credible" if rejected else "ok"
         return record
     except Exception as error:
         if record["verdict"] == "FAIL:incomplete":
@@ -163,14 +166,19 @@ def generate(args, paths):
             raise
         finally:
             write_new(zones_dir/"sidecar.json", parser_record)
-        for route in ("klein", "qie", "r1ei", "fashn"):
+        batch["inconclusive_routes"] = []
+        for route in ROUTE_ORDER:
             require(code_identity() == provenance["implementation_sha256"], "implementation changed after preflight")
             rec = one_route(route, output/route, paths, provenance, zones_dir, parser_record,
                             batch_id+"_"+route, args.port, args.deadline_s)
-            batch["routes"].append({"route": route, "sidecar": str(output/route/"sidecar.json"), "verdict": rec["verdict"]})
-        batch["verdict"] = "ok"
-        print(f"O_null1 generated for review: {output}")
-        return 0
+            batch["routes"].append({"route": route, "sidecar": str(output/route/"sidecar.json"),
+                                    "normative": rec["normative"], "verdict": rec["verdict"]})
+            require(rec["verdict"] in ("ok", "INCONCLUSIVE:null_distribution_not_credible"), "invalid route verdict; stop")
+            if rec["verdict"].startswith("INCONCLUSIVE"):
+                batch["inconclusive_routes"].append(route)
+        batch["verdict"] = "INCONCLUSIVE" if batch["inconclusive_routes"] else "ok"
+        print(f"O_null1 completed for review ({batch['verdict']}): {output}")
+        return 3 if batch["inconclusive_routes"] else 0
     except Exception as error:
         batch.update(verdict="FAIL:batch_stopped", error=f"{type(error).__name__}: {error}")
         print(f"{batch['error']}\nPreserved evidence: {output}", file=sys.stderr)

@@ -78,7 +78,7 @@ class Geometry(unittest.TestCase):
         try:
             sys.path[:] = [str(launch_server.HERE), "keep-me", "/core-x"]
             launch_server.isolate_core_path("/core-x")
-            self.assertEqual(sys.path, ["/core-x", "keep-me"])
+            self.assertEqual(sys.path, [str(Path("/core-x").resolve()), "keep-me"])
         finally:
             sys.path[:] = saved
         # Reproduce the real mechanism in a subprocess: namespace package core/comfy/ vs scripts/comfy.py.
@@ -224,12 +224,13 @@ class Execution(unittest.TestCase):
         with patch.object(orchestrate,"verify",side_effect=AssertionError("verify")), patch.object(orchestrate,"generate",side_effect=AssertionError("GPU")):
             p=orchestrate.plan()
         self.assertEqual(p["status"],"PREPARED_NOT_MEASURED")
-        self.assertEqual(set(p["routes"]),{"klein","qie","r1ei","fashn"})
+        self.assertEqual(list(p["routes"]),list(n.ROUTE_ORDER))
         self.assertNotIn("torch",sys.modules)
 
     def test_frozen_graphs_only_roundtrip_no_sampler(self):
         m=provenance.frozen()
-        for entry in m["workflows"].values():
+        for route in ("klein", "qie"):
+            entry=m["workflows"][route]
             graph=n.read_json(n.HERE/entry["file"])
             self.assertEqual(len(graph),6)
             self.assertEqual(graph["encode"]["inputs"]["pixels"],["scale",0])
