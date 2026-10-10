@@ -17,7 +17,8 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/"tools/null1"))
 import common as n
-import comfy
+import comfy_null as comfy
+import launch_server
 import offline
 import orchestrate
 import provenance
@@ -61,6 +62,48 @@ class Geometry(unittest.TestCase):
         self.assertFalse(np.any(zones["skin"] & zones["occluders"]))
         with self.assertRaises(ValueError):
             n.zones_from_labels(np.array([[18]],dtype=np.uint8))
+
+    def test_no_tool_module_shadows_comfyui_top_level_names(self):
+        # ComfyUI top-level names at the pinned core commit (git ls-tree daeb5e53); `comfy` is a namespace package.
+        comfy_top = {"comfy", "comfy_api", "comfy_api_nodes", "comfy_config", "comfy_execution", "comfy_extras", "comfyui_version",
+                     "cuda_malloc", "execution", "folder_paths", "hook_breaker_ac10a0", "latent_preview", "main", "middleware",
+                     "node_helpers", "nodes", "protocol", "server", "utils", "app", "api_server", "alembic_db", "custom_nodes",
+                     "models", "input", "output", "tests", "script_examples", "blueprints"}
+        for folder in ("null1", "r2_qie"):
+            names = {p.stem for p in (ROOT / "tools" / folder).glob("*.py")}
+            self.assertFalse(names & comfy_top, f"{folder}: {sorted(names & comfy_top)} would shadow ComfyUI modules")
+
+    def test_launcher_isolates_core_path_against_namespace_shadowing(self):
+        saved = list(sys.path)
+        try:
+            sys.path[:] = [str(launch_server.HERE), "keep-me", "/core-x"]
+            launch_server.isolate_core_path("/core-x")
+            self.assertEqual(sys.path, ["/core-x", "keep-me"])
+        finally:
+            sys.path[:] = saved
+        # Reproduce the real mechanism in a subprocess: namespace package core/comfy/ vs scripts/comfy.py.
+        with tempfile.TemporaryDirectory() as temp:
+            core = Path(temp) / "core"
+            (core / "comfy").mkdir(parents=True)
+            (core / "comfy" / "options.py").write_text("VALUE = 1\n", encoding="utf-8")
+            (core / "main.py").write_text("import comfy.options\nprint('ok', comfy.options.VALUE)\n", encoding="utf-8")
+            scripts = Path(temp) / "scripts"
+            scripts.mkdir()
+            (scripts / "comfy.py").write_text("SHADOW = True\n", encoding="utf-8")
+            (scripts / "run.py").write_text(
+                "import runpy, sys\nfrom pathlib import Path\nHERE = Path(__file__).resolve().parent\n"
+                f"core = Path({str(core)!r}).resolve()\n"
+                "sys.path.insert(0, str(core))\n"
+                "if sys.argv[1] == 'fixed':\n"
+                "    sys.path[:] = [str(core)] + [p for p in sys.path if p and Path(p).resolve() not in (HERE, core)]\n"
+                "runpy.run_path(str(core / 'main.py'), run_name='__main__')\n", encoding="utf-8")
+            env = dict(os.environ, PYTHONSAFEPATH="")
+            broken = subprocess.run([sys.executable, str(scripts / "run.py"), "broken"], capture_output=True, text=True, env=env)
+            fixed = subprocess.run([sys.executable, str(scripts / "run.py"), "fixed"], capture_output=True, text=True, env=env)
+            self.assertNotEqual(broken.returncode, 0)
+            self.assertIn("'comfy' is not a package", broken.stderr)
+            self.assertEqual(fixed.returncode, 0, fixed.stderr)
+            self.assertIn("ok 1", fixed.stdout)
 
 
 class Statistics(unittest.TestCase):

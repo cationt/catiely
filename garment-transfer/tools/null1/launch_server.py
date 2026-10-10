@@ -4,8 +4,17 @@ import runpy
 import sys
 from pathlib import Path
 
-from common import read_json, require, write_new
+from common import HERE, read_json, require, write_new
 from offline import install
+
+
+def isolate_core_path(core):
+    """ComfyUI core first; this tool's own directory removed. ComfyUI's `comfy` is a namespace package (no
+    __init__.py) and any regular module on sys.path named like a ComfyUI top-level name (e.g. a comfy.py
+    beside this launcher, sys.path[0] of the script) would shadow it: "No module named 'comfy.options';
+    'comfy' is not a package" (batch 20261010T161713Z). Our own modules are already imported."""
+    core = Path(core).resolve()
+    sys.path[:] = [str(core)] + [p for p in sys.path if p and Path(p).resolve() not in (HERE, core)]
 
 
 def fail_fast(error):
@@ -51,7 +60,7 @@ def main():
                   "loaded_models": 0, "vae": str(selected), "network": "loopback_only_python_audit"})
 
     sys.addaudithook(startup)
-    sys.path.insert(0, str(core))
+    isolate_core_path(core)
     os.chdir(core)
     sys.argv = [str(core/"main.py"), *session["flags"]]
     runpy.run_path(str(core/"main.py"), run_name="__main__")

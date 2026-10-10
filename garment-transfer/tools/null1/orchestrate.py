@@ -40,7 +40,7 @@ def local_git():
 
 
 def worker(job, python, directory, deadline):
-    from comfy import stop_owned
+    from comfy_null import stop_owned
     import psutil
     request = directory/"request.json"
     write_new(request, job)
@@ -92,7 +92,7 @@ def one_route(route, directory, paths, provenance, zones_dir, parser_record, run
                             "tf32": False, "seed": 42}}
         record["route_config"] = config
         if route in ("klein", "qie"):
-            from comfy import generate
+            from comfy_null import generate
             generate(route, directory, paths, provenance["a"], port, deadline, record)
         else:
             name = "r1ei" if route == "r1ei" else "r3"
@@ -149,7 +149,7 @@ def generate(args, paths):
         write_new(output/"provenance.json", provenance)
         write_new(output/"dd_schedule.json", all_reports())
         # Refuse an old server before loading even the parser.
-        from comfy import refuse_existing_server
+        from comfy_null import refuse_existing_server
         refuse_existing_server(args.port)
         zones_dir = output/"zones"
         zones_dir.mkdir()
