@@ -239,7 +239,8 @@ class Contracts(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Windows PowerShell parser")
     def test_powershell51_parser_and_ascii(self):
         for file in (R2 / "setup_r2.ps1", R2 / "bench_r2.ps1"):
-            file.read_bytes().decode("ascii")
+            # PowerShell 5.1 accepts UTF-8 BOM; the script body remains ASCII.
+            file.read_bytes().decode("utf-8-sig").encode("ascii")
             command = "$tokens=$null; $errors=$null; [System.Management.Automation.Language.Parser]::ParseFile('" + str(file).replace("'", "''") + "',[ref]$tokens,[ref]$errors) | Out-Null; if ($errors.Count) { $errors | Out-String | Write-Error; exit 1 }; if ($PSVersionTable.PSVersion.Major -ne 5) { exit 2 }"
             process = subprocess.run([str(Path(os.environ["WINDIR"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"), "-NoProfile", "-Command", command], capture_output=True, text=True)
             self.assertEqual(process.returncode, 0, process.stderr)

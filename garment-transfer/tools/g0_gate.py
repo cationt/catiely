@@ -21,7 +21,7 @@ Uso:
   index.json = [{"case_id": ..., "seed": 1, "occupancy": "<json>", "fidelity": "<json>"}, ...]
 Exit: 0 PASS · 1 FALHA-* · 3 INCONCLUSIVO.
 """
-import argparse, json, os, sys, collections
+import argparse, json, os, sys, collections, math
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import freeze_check as fz  # noqa: E402
@@ -53,6 +53,12 @@ def main():
     info, mism = fz.verify_freeze(args.freeze, args.manifest, args.prereg, args.roles, allow_dirty=args.allow_dirty_freeze)
     out["freeze"] = info; out["integrity"].extend(mism)
     freeze_sha = info.get("freeze_sha256")
+    frozen_nulls = []
+    if freeze_sha:
+        with open(args.freeze, encoding="utf-8") as stream:
+            records = json.load(stream).get("null_stats_files", [])
+        if isinstance(records, list):
+            frozen_nulls = [rec for rec in records if isinstance(rec, dict)]
     core = roles["core_cases"]; rule = roles["core_rule"]; seeds = set(rule.get("seeds", [1, 2, 3]))
     if not (1 <= int(rule.get("min_pass", 0)) <= int(rule.get("of", 0))) or len(core) != int(rule.get("of", 0)) or len(set(core)) != len(core):
         out["integrity"].append(f"roles_invalido:min_pass={rule.get('min_pass')} of={rule.get('of')} core={len(core)}")
@@ -84,8 +90,18 @@ def main():
                 out["integrity"].append(f"json_com_mismatch_de_congelamento:{kind}:{e['case_id']}:seed{e['seed']}")
             if kind == "occupancy":
                 eng = j.get("engine", {})
-                if not j.get("auditor_version") or not isinstance(eng.get("evidence"), dict) or j.get("tol_engine_source") not in ("a_ref_p99.5", "null_stats"):
+                if j.get("auditor_version") != "6" or not isinstance(eng.get("evidence"), dict) or j.get("tol_engine_source") != "null_stats":
                     out["integrity"].append(f"json_sem_estrutura_do_auditor:{kind}:{e['case_id']}:seed{e['seed']}")
+                prov = j.get("provenance", {})
+                if not any(rec.get("sha256") == prov.get("null_stats_sha256") and rec.get("a_sha256") == prov.get("a_sha256")
+                           and rec.get("route_config") == prov.get("null_route_config") for rec in frozen_nulls):
+                    out["integrity"].append(f"nula_normativa_nao_congelada:{e['case_id']}:seed{e['seed']}")
+                zone_tols = j.get("tol_engine_by_zone")
+                values = [j.get("tol_engine"), *(zone_tols.values() if isinstance(zone_tols, dict) else [])]
+                if j.get("thresholds", {}).get("max_tol_engine") != 12 or not isinstance(zone_tols, dict) or set(zone_tols) != {"skin", "background", "hair_face", "occluders"} or any(
+                    isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or not 1 <= v <= 12 for v in values
+                ):
+                    out["integrity"].append(f"teto_nula_invalido:{e['case_id']}:seed{e['seed']}")
                 if j.get("verdict_engine") == "PASS" and (eng.get("causes") or eng.get("missing_required_evidence") or eng.get("verdict") != "PASS"):
                     out["integrity"].append(f"json_incoerente:{kind}:{e['case_id']}:seed{e['seed']}")
                 if "verdict_composed" in j and j.get("verdict_composed") is not None and "composed" not in j:

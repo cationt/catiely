@@ -1,0 +1,62 @@
+{
+  "A": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__A__"
+    }
+  },
+  "scale": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "A",
+        0
+      ],
+      "upscale_method": "nearest-exact",
+      "megapixels": 1,
+      "resolution_steps": 1
+    }
+  },
+  "vae": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    }
+  },
+  "encode": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "scale",
+        0
+      ],
+      "vae": [
+        "vae",
+        0
+      ]
+    }
+  },
+  "decode": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "encode",
+        0
+      ],
+      "vae": [
+        "vae",
+        0
+      ]
+    }
+  },
+  "save": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "decode",
+        0
+      ],
+      "filename_prefix": "__OUTPUT__"
+    }
+  }
+}

@@ -291,6 +291,14 @@ Intermediários obrigatórios (independentes de arquitetura; cada rota declara q
 
 Reprodução: seed registrada; **igualdade de seed não implica igualdade bit a bit** entre ambientes, nem ruído equivalente entre modelos diferentes. Fontes de não determinismo (kernels de atenção, cuDNN autotune, redução paralela) são listadas por rota.
 
+### 8.1 Piso de reconstrução e tolerâncias normativas (D-057)
+
+`O_null1` é o piso sem edição da rota na **tupla exata** de escala/VAE/resolução/reprojeção registrada. `support.png` identifica os pixels da grade de A produzidos por esse piso; pixels simplesmente copiados de A ficam fora. Medir erro RGB de 8 bits por pixel (`max` dos canais de `abs(O_null1 − A)`) somente em `support ∩ zona`. Publicar fração de suporte, contagens por zona, p50/p95/p99/p99,5/max e SHA256 de A, O_null1, suporte e máscaras. R1-EI reprojeta a caixa inteira `[-136,193,860,1189]`, sem insertion mask; em rotas com crop, regiões descartadas ficam fora, bordas reamostradas ficam dentro; FASHN tem suporte inteiro.
+
+Nesta parte1, zonas determinísticas vêm do parser pinado do R3 sobre A: skin=arms∪legs∪torso∪feet, background, hair_face=face∪hair, occluders=hands; clothing é só informativa. Na futura O_null2, usar máscaras humanas congeladas do Proto0. **τ_null permanece por zona**. `--null-stats` é normativa: escalar `tol_p995_support` e `tol_p995_by_zone`; PROTECTED→hair_face, pele descoberta→skin, fundo→background, FRONT_OCCLUDERS→occluders; zona ausente recorre ao escalar. O teto12 vale para escalar e cada zona: excesso rejeita a nula e dá INCONCLUSIVE (`INCONCLUSIVO` no JSON do auditor, exit3).
+
+No perfil g0, `--null-stats` é obrigatória e seu SHA entra no FREEZE. `--a-ref` é somente cross-check, exige `--a-ref-support` ou `--a-ref-full-canvas` explícito e nunca prevalece sobre o JSON normativo; se seu escalar exceder `tol_p995_support + 1`, emitir `null_stats_inconsistent_with_a_ref` e INCONCLUSIVE. `--a-ref` sozinha e `--tol-engine` explícito ficam restritos a minimal. A referência das métricas permanece A. Preparação em `tools/null1/`, sem nula real medida nesta etapa; execução e uso dos limiares dependem das revisões previstas em `03` §7b.
+
 ---
 
 ## 9. QA definido desde a Fase 0

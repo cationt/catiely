@@ -81,6 +81,33 @@ def noisy(a, amp, seed):
     return np.clip(a.astype(int) + rng.integers(-amp, amp + 1, a.shape), 0, 255).astype(np.uint8)
 
 
+def synthetic_null_stats(d, a_path, masks, name="null_stats.json", tol=4):
+    """Nula sintética definida antes das saídas dos testes e congelada com seus hashes reais."""
+    null = os.path.join(d, name + ".png")
+    save_rgb(null, np.clip(masks["A"].astype(int) + tol, 0, 255))
+    support = os.path.join(d, name + ".support.png")
+    save_mask(support, np.ones((H, W), bool))
+    zones = {"skin": masks["BC"], "background": ~(masks["BC"] | masks["PR"] | masks["FO"]),
+             "hair_face": masks["PR"], "occluders": masks["FO"], "clothing": np.zeros((H, W), bool)}
+    hashes, counts, statistics, tols = {}, {}, {}, {}
+    for zone, mask in zones.items():
+        path = os.path.join(d, name + "." + zone + ".png"); save_mask(path, mask)
+        hashes[zone] = fz.sha256_file(path)
+        counts[zone] = {"total": int(mask.sum()), "support": int(mask.sum())}
+        statistics[zone] = {k: tol for k in ("p50", "p95", "p99", "p995", "max")} if mask.any() else None
+        if zone != "clothing":
+            tols[zone] = tol if mask.any() else None
+    stats = {"schema_version": 1, "kind": "O_null1", "tol_p995_support": tol, "tol_p995_by_zone": tols, "support_fraction": 1.0,
+             "counts": {"canvas": H * W, "support": H * W, "by_zone": counts},
+             "statistics": {"support": {k: tol for k in ("p50", "p95", "p99", "p995", "max")}, "by_zone": statistics},
+             "sha256": {"a": fz.sha256_file(a_path), "o_null1": fz.sha256_file(null), "support": fz.sha256_file(support), "zones": hashes},
+             "route_config": {"route": "synthetic_auditor_test", "resolution": [W, H], "error": tol}}
+    path = os.path.join(d, name)
+    with open(path, "w", encoding="utf-8") as stream:
+        json.dump(stats, stream)
+    return path
+
+
 ATTRS = [{"name": "category", "value": "t-shirt", "state": "observed", "expected_visible_in_O": "yes"},
          {"name": "sleeve_length", "value": "short", "state": "observed", "expected_visible_in_O": "yes"}]
 
@@ -144,7 +171,8 @@ def build_case_dir(d):
         for r in rows:
             f.write(json.dumps(r) + "\n")
     prereg = os.path.join(d, "PREREG.md")
-    open(prereg, "w", encoding="utf-8").write("# PREREG sintético\ncore: synth_easy_01, synth_core_a, synth_hard_01, synth_core_b, synth_core_c, synth_core_d\n")
+    with open(prereg, "w", encoding="utf-8") as stream:
+        stream.write("# PREREG sintético\ncore: synth_easy_01, synth_core_a, synth_hard_01, synth_core_b, synth_core_c, synth_core_d\n")
     roles = {"version": 1, "gate": "G0", "frozen_before_first_run": True, "core_cases": ["synth_easy_01", "synth_core_a", "synth_hard_01", "synth_core_b", "synth_core_c", "synth_core_d"],
              "core_rule": {"min_pass": 4, "of": 6, "levels_counted": ["EASY", "MEDIUM", "HARD"], "seeds": [1, 2, 3]},
              "progression": {"EASY->MEDIUM": {"cases": ["synth_easy_01"], "min_cases": 1, "min_seeds_axis_A": 2, "of_seeds": 3},
@@ -152,19 +180,27 @@ def build_case_dir(d):
                              "HARD->EXTREME": {"cases": ["synth_hard_01", "synth_core_b", "synth_core_c", "synth_core_d"], "min_cases": 2, "min_seeds_axis_A": 2, "of_seeds": 3}},
              "roles": {"synth_easy_01": "gate_core", "synth_hard_01": "gate_core", "synth_core_a": "gate_core", "synth_core_b": "gate_core", "synth_core_c": "gate_core",
                        "synth_core_d": "gate_core", "synth_hard_nosplit": "replication", "synth_ctrl_identity_01": "auditor_control", "synth_easy_badoccl": "replication"}}
-    roles_p = os.path.join(d, "g0_case_roles.json"); json.dump(roles, open(roles_p, "w"), indent=1)
+    roles_p = os.path.join(d, "g0_case_roles.json")
+    with open(roles_p, "w", encoding="utf-8") as stream:
+        json.dump(roles, stream, indent=1)
     freeze = os.path.join(d, "FREEZE.json")
+    nulls = {kind: synthetic_null_stats(d, files[f"{kind}_A.png"], masks, name=f"{kind}_null.json") for kind, masks in (("hard", hard), ("easy", easy))}
+    nulls["hard12"] = synthetic_null_stats(d, files["hard_A.png"], hard, name="hard_null12.json", tol=12)
     r = subprocess.run([sys.executable, FREEZE, "--manifest", manifest, "--prereg", prereg, "--roles", roles_p, "--tag", "synth-frozen-v1",
-                        "--out", freeze, "--data-root", d, "--allow-dirty", "--skip-validator"], capture_output=True, text=True)
+                        "--out", freeze, "--data-root", d, "--allow-dirty", "--skip-validator",
+                        *[v for p in nulls.values() for v in ("--null-stats", p)]], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     # keypoints (iguais em A e O′)
     kp = {"hands": [[40, 58, 0.9]], "forearms": [[30, 58, 0.9]], "counts": {"hands": 1, "forearms": 1}}
-    json.dump(kp, open(os.path.join(d, "kpA.json"), "w")); json.dump(kp, open(os.path.join(d, "kpE.json"), "w"))
-    kp2 = dict(kp, counts={"hands": 2, "forearms": 1}); json.dump(kp2, open(os.path.join(d, "kpE_dup.json"), "w"))
+    kp2 = dict(kp, counts={"hands": 2, "forearms": 1})
+    for name, value in (("kpA.json", kp), ("kpE.json", kp), ("kpE_dup.json", kp2)):
+        with open(os.path.join(d, name), "w", encoding="utf-8") as stream:
+            json.dump(value, stream)
     # adjudicações genéricas (sem case_id/output_sha256): só servem para testar a REJEIÇÃO no perfil g0
     adj = {"blind": True, "evaluator_id": "ev1", "date": "2026-10-08", "catch_trials_passed": True, "answers": {"category": "yes", "sleeve_length": "yes", "split_edge:upper_arm_L": "yes"}}
-    json.dump(adj, open(os.path.join(d, "adj_unbound.json"), "w"))
-    return {"d": d, "hard": hard, "easy": easy, "manifest": manifest, "prereg": prereg, "roles": roles_p, "freeze": freeze, "files": files}
+    with open(os.path.join(d, "adj_unbound.json"), "w", encoding="utf-8") as stream:
+        json.dump(adj, stream)
+    return {"d": d, "hard": hard, "easy": easy, "manifest": manifest, "prereg": prereg, "roles": roles_p, "freeze": freeze, "files": files, "nulls": nulls}
 
 
 def run_audit(fx, case_id, o_engine, g_path, extra=(), profile="g0", a=None, with_occ=True, with_kp=True, a_ref=None, o_composed=None):
@@ -174,7 +210,9 @@ def run_audit(fx, case_id, o_engine, g_path, extra=(), profile="g0", a=None, wit
     if profile == "g0":
         args += ["--manifest", fx["manifest"], "--case-id", case_id, "--data-root", d, "--prereg", fx["prereg"], "--freeze", fx["freeze"], "--roles", fx["roles"], "--allow-dirty-freeze"]
     if a_ref:
-        args += ["--a-ref", a_ref]
+        args += ["--a-ref", a_ref, "--a-ref-full-canvas"]
+        if profile == "g0":
+            args += ["--null-stats", fx["nulls"]["hard12" if os.path.basename(a_ref) == "aref12.png" else kind]]
     if kind == "hard" and with_occ:
         args += ["--occluder-mask-engine", fx["files"]["hard_FO.png"]]
     if kind == "hard" and with_kp:

@@ -1,0 +1,400 @@
+{
+  "schema_version": 1,
+  "status": "PREPARED_NOT_MEASURED",
+  "decision": "D-057",
+  "a": {
+    "root": "shared",
+    "path": "input/w3_measure/A.jpg",
+    "sha256": "f200d51028714bc1043d8f0cee632b3089c23bbd53216a64f8a912bd6fae151b"
+  },
+  "a_size": [
+    725,
+    1536
+  ],
+  "core_commit": "daeb5e53681e2b10a3f0727d9ec5bc90784bee10",
+  "runtime": {
+    "comfy": {
+      "python_version": "3.13.12",
+      "packages": {
+        "torch": "2.12.1+cu130",
+        "numpy": "2.5.2",
+        "Pillow": "12.3.0",
+        "aiohttp": "3.14.3",
+        "psutil": "7.2.2"
+      }
+    },
+    "r1ei": {
+      "python_version": "3.12.10",
+      "packages": {
+        "torch": "2.12.1+cu130",
+        "numpy": "2.5.2",
+        "Pillow": "12.3.0",
+        "diffusers": "0.39.0",
+        "transformers": "5.15.0",
+        "safetensors": "0.8.0"
+      }
+    },
+    "r3": {
+      "python_version": "3.12.10",
+      "packages": {
+        "torch": "2.12.1+cu130",
+        "numpy": "2.5.2",
+        "Pillow": "12.3.0",
+        "transformers": "5.15.0",
+        "safetensors": "0.8.0",
+        "opencv-python": "4.14.0.94",
+        "fashn-human-parser": "0.1.1",
+        "fashn-vton": "1.5.0"
+      }
+    }
+  },
+  "files": [
+    {
+      "root": "core",
+      "path": "comfy/ldm/wan/vae.py",
+      "sha256": "b18fdd6d95d9c7093fbc8f2c831dfb36322aa1951c2dd17d32733dac53d689e4",
+      "lf": true
+    },
+    {
+      "root": "r1_site",
+      "path": "diffusers/pipelines/flux2/image_processor.py",
+      "sha256": "d2cdc003444c8599e89789dfede8636d2534697bb3fe60d4b48cc0656b3b4e83",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "main.py",
+      "sha256": "c53127164070bdb209401967faea6d4d458780d8f3518126339393fcaae90019",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "execution.py",
+      "sha256": "c9ef8ea11b8cb7aa80d05f670ca457211869d27623991b66d0014fb9b33fb246",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy_execution/caching.py",
+      "sha256": "edc554b1348f4c5dae50c022b061399ab5be5e06872d73c5c1fedca9bba45ce2",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy_extras/nodes_qwen.py",
+      "sha256": "54ce02aa9e167c0b497ce026ac6b558f539427d2d1ed4fc1fcc2ec8e6bc529da",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy_extras/nodes_flux.py",
+      "sha256": "71c9d804a9acfb7a828fecb8fcc4b93e28f4417f0c4259a68910f4027059741f",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy_extras/nodes_cfg.py",
+      "sha256": "688a73094509efcc81bf22bf0e77b2cd8c9f1726f455ed55f6f9747dec656e99",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy_extras/nodes_model_advanced.py",
+      "sha256": "34c5065756d925791c7a238f084eefd5ff912e1e84976a2dbe94432deea8ffcc",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "nodes.py",
+      "sha256": "fe624b0c1b6a3cd124a2214e5700b61337589144c2f0668900a04f8ccc031e38",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy/cli_args.py",
+      "sha256": "70be4fb6830ccd7e43df06330f6da31f76c0ad11ee135d04913f5d8c1d9f4cde",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "folder_paths.py",
+      "sha256": "b748be5d1e068ad673f6c4de069fb6b7b723405c40ae3c3c44465d416f7df2db",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "server.py",
+      "sha256": "12545dbc44f56ce4c8ae696832925baedf0eecd2879c4e23bae3469411d7593c",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy/sd.py",
+      "sha256": "ad1e6a9ff7b4abb48fb55b6054eace19e33f79359e24a0c4067d94a1a80e0e99",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy/utils.py",
+      "sha256": "9320cf5c624e96acc1d9ec92ff120ed6387a2142707f3194cb21dd0d11ac2500",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy/ops.py",
+      "sha256": "bf063b4a1b6517e017e3e73e8948caa494177025d71366ae712aaca73f6b9dff",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy/model_management.py",
+      "sha256": "5da5e127a88abf7b4caf53ca396a3ecfdc332a8a1a9b9e3b9e052a5bd3fc1d08",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy/ldm/models/autoencoder.py",
+      "sha256": "24b5a9126539733ef15f36e0d723abde8a8fb3319184083970b385ab918404f0",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy/ldm/modules/distributions/distributions.py",
+      "sha256": "3ae3040d1e43ecfff4ea9daa7807fa345e28cf93ae5e34d29436d49bb11df772",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy/ldm/modules/diffusionmodules/model.py",
+      "sha256": "a8e10d29e778007f5133bd870ed74fac478629727c08b81ec39390db3870d867",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "comfy_extras/nodes_post_processing.py",
+      "sha256": "4ee06e8e5911c844ba49d97e54c90081c539d57e6dc53f1185900e3a79ce4c98",
+      "lf": true
+    },
+    {
+      "root": "core",
+      "path": "models/vae/flux2-vae.safetensors",
+      "sha256": "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5",
+      "lf": false
+    },
+    {
+      "root": "shared",
+      "path": "models/diffusion_models/vae/qwen_image_vae.safetensors",
+      "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f",
+      "lf": false
+    },
+    {
+      "root": "w3",
+      "path": "models/FLUX.2-klein-base-4B/vae/config.json",
+      "sha256": "0d6dfb69ae95a5e2ac9836284bbb63d8b38ce67b25ba2dff380752b2a10ab948",
+      "lf": false
+    },
+    {
+      "root": "w3",
+      "path": "models/FLUX.2-klein-base-4B/vae/diffusion_pytorch_model.safetensors",
+      "sha256": "ca70d2202afe6415bdbcb8793ba8cd99fd159cfe6192381504d6c4d3036e0f04",
+      "lf": false
+    },
+    {
+      "root": "w3",
+      "path": "models/fashn-vton-1.5/fashn-human-parser/config.json",
+      "sha256": "87bd5b66419dbfa7c02cfbeb94e292454863b1606c5df29526b19a6c1de70d9f",
+      "lf": false
+    },
+    {
+      "root": "w3",
+      "path": "models/fashn-vton-1.5/fashn-human-parser/preprocessor_config.json",
+      "sha256": "54007eb4cedae02565c4f035750aeebe3ddc53d36ab575e8534615623e6b6225",
+      "lf": false
+    },
+    {
+      "root": "w3",
+      "path": "models/fashn-vton-1.5/fashn-human-parser/model.safetensors",
+      "sha256": "e43c8c8a9b04f28798f0a4630cf18caa2cdb27a0d454fae43a5716e6f7078244",
+      "lf": false
+    },
+    {
+      "root": "r1_site",
+      "path": "diffusers/models/autoencoders/autoencoder_kl_flux2.py",
+      "sha256": "7d9a976c1e4f42615e8c422f1643d86b49c4339221bd04b67f518b718ebd6c2d",
+      "lf": true
+    },
+    {
+      "root": "r1_site",
+      "path": "diffusers/models/autoencoders/vae.py",
+      "sha256": "8e6abad3bd7b7806dd9c6c451b2438641ef728d7884e6bfed37b867f719b98fc",
+      "lf": true
+    },
+    {
+      "root": "r1_site",
+      "path": "diffusers/image_processor.py",
+      "sha256": "d7558c34e9dfd36ea2a8721fc670615ca868de551ba232992a7f5382924b98f8",
+      "lf": true
+    },
+    {
+      "root": "r1_site",
+      "path": "diffusers/pipelines/flux2/image_processor.py",
+      "sha256": "d2cdc003444c8599e89789dfede8636d2534697bb3fe60d4b48cc0656b3b4e83",
+      "lf": true
+    },
+    {
+      "root": "r1_site",
+      "path": "diffusers/pipelines/flux2/pipeline_flux2_klein.py",
+      "sha256": "8a57a8a7f1c22fc0c5bc5d3fd1bd9bc76c17c1f4d6644cc73370651dd955358e",
+      "lf": true
+    }
+  ],
+  "workflows": {
+    "klein": {
+      "file": "klein_api.json",
+      "sha256": "5ab1fbb9fdf7b9036213b4c0203f60f7f00c03b3ee0172aa6f8677d82683bd04"
+    },
+    "qie": {
+      "file": "qie_api.json",
+      "sha256": "6f336c222c68b9fd141d44d95a88d7c7f551e2177d6a6f9e8178e2e0222164a6"
+    }
+  },
+  "provenance": {
+    "klein_measured_workflow": {
+      "label": "klein4b_fp8_2ref_1mp",
+      "file": "w3-measure/klein4b_ab_api.json",
+      "sha256": "41552539f13643fa5e9480622671aa184c4e0adc19e69f97896016c4ce59b5d2",
+      "scale_node": "92:111",
+      "vae_node": "92:110"
+    },
+    "qie_workflow": {
+      "enabled": true,
+      "workflow": "workflow_1mp_api.json",
+      "sha256": "2b918916e00b58968e6fe05535f3d6dbdfeecb533da32137754066cdd9c77d31",
+      "cold": 3,
+      "warm": 3,
+      "resolution": "FluxKontextImageScale official ~1MP"
+    },
+    "r1ei_base": {
+      "repo": "black-forest-labs/FLUX.2-klein-base-4B",
+      "revision": "a3b4f4849157f664bdbc776fd7453c2783562f4d"
+    },
+    "qie_vae": {
+      "root": "shared",
+      "path": "models/diffusion_models/vae/qwen_image_vae.safetensors",
+      "size": 253806246,
+      "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f",
+      "repo": "Comfy-Org/Qwen-Image_ComfyUI",
+      "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc",
+      "repo_path": "split_files/vae/qwen_image_vae.safetensors",
+      "quantization": "BF16"
+    },
+    "klein_vae": {
+      "source": "existing measured local asset; SHA256 captured 2026-10-09",
+      "sha256": "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5"
+    },
+    "fashn_commit": "7c0f10af3f91ad4048fe9729c470a13ef905d25a",
+    "parser_code_commit": "f2771f2fb8655349e87e2869bbde7ace0bd06f2c",
+    "parser_weights": {
+      "repo": "fashn-ai/fashn-human-parser",
+      "hub": "huggingface",
+      "revision": "1f80c34dbab321c5730dda5c3fea279fd3e97498",
+      "last_modified": "2026-01-10T20:50:06Z",
+      "gated": false,
+      "license": "other / nvidia-segformer (model card): herda a NVIDIA Source Code License do SegFormer — NÃO comercial",
+      "local_subdir": "fashn-human-parser",
+      "files": {
+        "config.json": {
+          "size_bytes": 1654,
+          "sha256": "87bd5b66419dbfa7c02cfbeb94e292454863b1606c5df29526b19a6c1de70d9f"
+        },
+        "preprocessor_config.json": {
+          "size_bytes": 340,
+          "sha256": "54007eb4cedae02565c4f035750aeebe3ddc53d36ab575e8534615623e6b6225"
+        },
+        "model.safetensors": {
+          "size_bytes": 256146352,
+          "sha256": "e43c8c8a9b04f28798f0a4630cf18caa2cdb27a0d454fae43a5716e6f7078244"
+        }
+      },
+      "architecture": "SegformerForSemanticSegmentation (MIT-B4 encoder, depths [3,8,27,3], hidden [64,128,320,512], decoder 768; _name_or_path nvidia/mit-b4); 18 classes; entrada 384×576 (W×H) com INTER_AREA + normalização ImageNet (parser.py); logits upsampled bilinear ao tamanho original",
+      "loading_note": "o pipeline upstream chama FashnHumanParser(device) → from_pretrained('fashn-ai/fashn-human-parser') (download implícito para o cache HF). O runner R3 carrega-o de <weights-dir>/fashn-human-parser (diretório local verificado por sha256) e corre com HF_HUB_OFFLINE=1 — única adaptação ao pipeline (fonte dos pesos; algoritmo inalterado)"
+    }
+  },
+  "parser_files": {
+    "__init__.py": "0f951dbb0e0426fb6c88aa2aaac6c3b9d6bf446a66216a16fc87da001c37dc84",
+    "labels.py": "b7247afa1618dfc0115e0b75d2ed23829a1b6653578ad7045c0d342f0cb6318d",
+    "parser.py": "880bb36f980bc1d65d140cad2ceb5f1a7d227e72a0f483db9f6dedd3b1da3af6"
+  },
+  "transforms_sha256_lf": "fa8ae13311bb11d0957696f3c8e6e2fef2ce2ae8710abbea27560474a388a9f6",
+  "routes": {
+    "klein": {
+      "measured_configuration": "klein4b_fp8_2ref_1mp",
+      "floor": "ComfyUI VAEEncode -> VAEDecode",
+      "vae_sha256": "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5",
+      "dtype": "bfloat16",
+      "denoise": 0,
+      "sampling": false,
+      "scale": "ImageScaleToTotalPixels nearest-exact 1*1024*1024 resolution_steps=1; 704x1490 -> VAE center crop 704x1488"
+    },
+    "qie": {
+      "measured_configuration": "qie2511_q5_2ref_1mp_40steps",
+      "floor": "ComfyUI VAEEncode -> VAEDecode",
+      "vae_sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f",
+      "dtype": "bfloat16",
+      "denoise": 0,
+      "sampling": false,
+      "scale": "FluxKontextImageScale lanczos center 688x1504"
+    },
+    "r1ei": {
+      "measured_configuration": "r1ei_kleinbase4b_easyinsert_bf16_1024_normal",
+      "floor": "AutoencoderKLFlux2 encode.latent_dist.mode -> decode",
+      "vae_sha256": "ca70d2202afe6415bdbcb8793ba8cd99fd159cfe6192381504d6c4d3036e0f04",
+      "dtype": "bfloat16",
+      "denoise": 0,
+      "sampling": false,
+      "crop_box": [
+        -136,
+        193,
+        860,
+        1189
+      ],
+      "scale": "crop black outside A then LANCZOS 1024x1024; no insertion mask"
+    },
+    "fashn": {
+      "measured_configuration": "r3_fashn15_bf16_576x864_segfree/masked: common image floor",
+      "floor": "pre_resize -> ResizePad -> unpad",
+      "vae": null,
+      "dtype": "uint8",
+      "sampling": false,
+      "scale": "PIL fit864 no upsample; ResizePad(576,864) OpenCV; unpad407x864"
+    }
+  },
+  "reprojection": "Pinned in common.geometry; no image registration; copied A excluded by support; any change of tuple requires regenerating null",
+  "zones": {
+    "skin": [
+      12,
+      14,
+      16,
+      15
+    ],
+    "background": [
+      0
+    ],
+    "hair_face": [
+      1,
+      2
+    ],
+    "occluders": [
+      13
+    ],
+    "clothing": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      10
+    ]
+  },
+  "clothing_definition": "union BODY_COVERAGE_TO_LABELS full from pinned parser; reported only; accessories outside this union reported as unassigned"
+}

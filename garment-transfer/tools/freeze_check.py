@@ -147,6 +147,18 @@ def verify_freeze(freeze_path, manifest_path=None, prereg_path=None, roles_path=
     return info, mism
 
 
+def verify_null_stats_frozen(freeze_path, null_stats_path):
+    """A nula normativa entra no mesmo FREEZE; aceita mudança de caminho, nunca de bytes."""
+    if not freeze_path or not os.path.exists(freeze_path):
+        return ["freeze_missing_for_null_stats"]
+    with open(freeze_path, encoding="utf-8") as stream:
+        frozen = json.load(stream)
+    actual = sha256_file(null_stats_path)
+    if not any(rec.get("sha256") == actual for rec in frozen.get("null_stats_files", [])):
+        return ["null_stats_not_frozen:" + null_stats_path]
+    return []
+
+
 def validate_adjudication(adj, case_id=None, output_sha256=None, strict=True):
     """Adjudicação humana CEGA: blind=true, catch_trials_passed=true, evaluator_id e date presentes; em modo estrito (g0) o arquivo
     tem de estar ligado ao caso (case_id) e à saída julgada (output_sha256 == sha256 do O′). Devolve lista de problemas (vazia = válida)."""

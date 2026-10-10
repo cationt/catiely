@@ -3,9 +3,10 @@
 
 Uso:
   python tools/freeze_proto0.py --manifest benchmark/proto0_cases.jsonl --prereg benchmark/proto0/PREREG.md \
-      --roles benchmark/proto0/g0_case_roles.json --tag proto0-frozen-v1 --out benchmark/proto0/FREEZE.json [--data-root .] [--allow-dirty]
+      --roles benchmark/proto0/g0_case_roles.json --null-stats runs/proto0/null/ROTA/null_stats.json \
+      --tag proto0-frozen-v1 --out benchmark/proto0/FREEZE.json [--data-root .] [--allow-dirty]
 
-Grava sha256 do manifesto, do PREREG e do roles; o sha256 real de TODOS os arquivos referenciados pelo manifesto (A, B, GT, máscaras),
+Grava sha256 do manifesto, do PREREG, do roles e das nulas normativas (--null-stats repetível); o sha256 real de TODOS os arquivos referenciados pelo manifesto (A, B, GT, máscaras),
 comparado ao declarado; o commit git atual (e se a árvore está suja); a tag. `frozen` só é true se não há placeholders, nem arquivos
 ausentes/divergentes, nem árvore suja (salvo --allow-dirty). Com `frozen: false` o auditor (perfil g0) emite FAIL:frozen_reference_mismatch.
 Depois de gravar, o FREEZE.json deve ser commitado e a tag criada apontando para esse commit; qualquer alteração posterior em PREREG,
@@ -23,6 +24,7 @@ def main():
     ap.add_argument("--manifest", required=True); ap.add_argument("--prereg", required=True); ap.add_argument("--roles", required=True)
     ap.add_argument("--tag", required=True, help="freeze_tag (ex.: proto0-frozen-v1)")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--null-stats", action="append", default=[], help="JSON normativo O_null1 por rota/caso; repetível, obrigatório no FREEZE")
     ap.add_argument("--data-root", default=None, help="raiz dos local_path (padrão: raiz do repositório)")
     ap.add_argument("--allow-dirty", action="store_true", help="não exigir árvore git limpa (apenas testes)")
     ap.add_argument("--allow-placeholders", action="store_true", help="grava mesmo com placeholders, com frozen=false")
@@ -32,6 +34,27 @@ def main():
     rows = fz.load_manifest(args.manifest)
     roles = json.load(open(args.roles, encoding="utf-8"))
     referenced, mism_all = [], []
+    null_stats_files = []
+    if not args.null_stats:
+        mism_all.append("null_stats_missing")
+    for path in args.null_stats:
+        if not os.path.isfile(path):
+            mism_all.append("null_stats_missing:" + path)
+            continue
+        try:
+            with open(path, encoding="utf-8") as stream:
+                ns = json.load(stream)
+            from occupancy_audit import read_null_stats
+            # Valida o mesmo contrato do consumidor, incluindo A ligada a um caso congelado.
+            a_hashes = {r.get("A", {}).get("sha256") for r in rows}
+            if ns["sha256"]["a"] not in a_hashes:
+                raise ValueError("null_stats_a_not_in_manifest")
+            _, scalar, zone_tolerances = read_null_stats(path, ns["sha256"]["a"], ns["counts"]["canvas"])
+            if any(value > 12 for value in (scalar, *zone_tolerances.values())):
+                raise ValueError("null_distribution_not_credible:ceiling_12")
+            null_stats_files.append({"path": path, "sha256": fz.sha256_file(path), "a_sha256": ns["sha256"]["a"], "route_config": ns["route_config"]})
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as e:
+            mism_all.append("null_stats_invalid:" + path + ":" + str(e))
     if not args.skip_validator:  # defesa em profundidade: o manifesto congelado tem de passar no validador (schema v6 + papéis + reuso de máscaras)
         import subprocess
         vcmd = [sys.executable, os.path.join(root, "benchmark", "validate_manifest.py"), args.manifest, "--roles", args.roles]
@@ -70,7 +93,7 @@ def main():
            "files": {"manifest": {"path": args.manifest, "sha256": fz.sha256_file(args.manifest)},
                      "prereg": {"path": args.prereg, "sha256": fz.sha256_file(args.prereg)},
                      "roles": {"path": args.roles, "sha256": fz.sha256_file(args.roles)}},
-           "core_cases": core, "n_cases": len(rows), "referenced_files": referenced, "divergences": mism_all}
+           "core_cases": core, "n_cases": len(rows), "referenced_files": referenced, "null_stats_files": null_stats_files, "divergences": mism_all}
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1, ensure_ascii=False)
     print(f"[freeze_proto0] {args.out}: frozen={out['frozen']} commit={out['git_commit']} dirty={dirty} casos={len(rows)} arquivos={len(referenced)} divergências={len(mism_all)}")

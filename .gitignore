@@ -1,2 +1,3 @@
 __pycache__/
 *.pyc
+/garment-transfer/runs/proto0/null/

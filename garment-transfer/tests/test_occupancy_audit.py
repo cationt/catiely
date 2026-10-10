@@ -54,7 +54,7 @@ def main():
         j, rc = run_audit(fx, "synth_hard_01", O_hard, Gs, a_ref=Aref_h, o_composed=Oc_p)
         c.ok("B03_composed_exact_plus1_FAIL", j["verdict_composed"] == "FAIL" and "unauthorized_change:protected_exact" in j["composed"]["causes"] and j["composed"]["protected_max_err"] == 1 and j["tol_composed"] == 0,
              (j["verdict_composed"], j["composed"]["causes"], j["composed"].get("protected_max_err")))
-        c.ok("B03_engine_PASS_com_tol_da_nula", j["verdict_engine"] == "PASS" and j["tol_engine_source"] == "a_ref_p99.5" and j["tol_engine"] >= 3, (j["verdict_engine"], j["tol_engine"], j["tol_engine_source"]))
+        c.ok("B03_engine_PASS_com_tol_da_nula_normativa", j["verdict_engine"] == "PASS" and j["tol_engine_source"] == "null_stats" and j["tol_engine"] == 4 and j["engine"]["identity_reference"] == "A", (j["verdict_engine"], j["tol_engine"], j["tol_engine_source"]))
         j, rc = run_audit(fx, "synth_hard_01", O_hard, Gs, a_ref=Aref_h, o_composed=Oc_p, extra=["--composed-contract", "near_exact", "--tol-composed", "2"])
         c.ok("B03_composed_near_exact_tol2_PASS", j["verdict_composed"] == "PASS" and j["tol_composed"] == 2, (j["verdict_composed"], j["composed"]["causes"]))
         # composed exact perfeito → PASS (identidade 1.0 em FO e PR)
@@ -64,11 +64,11 @@ def main():
         # g0 sem fonte nula → INCONCLUSIVO (não FAIL/PASS)
         j, rc = run_audit(fx, "synth_hard_01", O_hard, Gs)
         c.ok("B03_g0_sem_nula_INCONCLUSIVO", j["verdict_engine"] == "INCONCLUSIVO" and "null_distribution" in j["engine"]["missing_required_evidence"], (j["verdict_engine"], j["engine"]["missing_required_evidence"]))
-        # ruído ±12 (corpo "reconstruído"): com nula igual → PASS; minimal com tol explícito 4 → FAIL
+        # Nula 12 aceita identidade RGB, mas não lava a violação cromática da franja contra A.
         aref12 = noisy(hard["A"], 12, 21); Aref12 = os.path.join(d, "aref12.png"); save_rgb(Aref12, aref12)
-        O12 = os.path.join(d, "o12.png"); save_rgb(O12, engine_output(hard, aref12, hard["G_split"], 22))
+        O12 = os.path.join(d, "o12.png"); save_rgb(O12, engine_output(hard, aref12, hard["G_split"], 22, extra_noise=0))
         j, rc = run_audit(fx, "synth_hard_01", O12, Gs, a_ref=Aref12)
-        c.ok("B03_ruido12_com_nula_igual_PASS", j["verdict_engine"] == "PASS", (j["verdict_engine"], j["engine"]["causes"], j["tol_engine"]))
+        c.ok("B03_nula12_nao_substitui_A_nas_metricas", j["verdict_engine"] == "FAIL" and j["tol_engine"] == 12 and j["engine"]["protected_pixel_identity"] == 1.0 and j["engine"]["causes"] == ["contact_fringe_violation:luminance_or_chroma"], (j["verdict_engine"], j["engine"]["causes"], j["tol_engine"]))
         j, rc = run_audit(fx, "synth_hard_01", O12, Gs, profile="minimal", extra=args_min)
         c.ok("B03_ruido12_minimal_tol4_FAIL_deriva", j["verdict_engine"] == "FAIL" and any(x.startswith(("background_drift", "body_reconstruction")) for x in j["engine"]["causes"]), j["engine"]["causes"])
 
@@ -192,7 +192,7 @@ def main():
         fake = os.path.join(d, "aref_fake.png"); fk = noisy(hard["A"], 40, 31); save_rgb(fake, fk)
         Ofk = os.path.join(d, "o_fake.png"); save_rgb(Ofk, engine_output(hard, fk, hard["G_split"], 32))
         j, rc = run_audit(fx, "synth_hard_01", Ofk, Gs, a_ref=fake)
-        c.ok("B03_nula_nao_credivel_INCONCLUSIVO", j["verdict_engine"] == "INCONCLUSIVO" and any(x.startswith("null_distribution_not_credible") for x in j.get("flags", [])), (j["verdict_engine"], j.get("flags"), j["tol_engine"]))
+        c.ok("B03_nula_nao_credivel_INCONCLUSIVO", j["verdict_engine"] == "INCONCLUSIVO:null_stats_inconsistent_with_a_ref" and rc == 3, (j["verdict_engine"], j.get("flags")))
         # B-03c: composto sem PROTECTED → INCONCLUSIVO (nunca PASS); 16 bits / alfa → INCONCLUSIVO:format_mismatch
         j, rc = run_audit(fx, "synth_hard_01", O_hard, Gs, profile="minimal", with_occ=True, with_kp=True, o_composed=Oc_ok,
                           extra=[a for a in args_min if a != F["hard_PR.png"] and a != "--protected"])
@@ -235,7 +235,7 @@ def main():
         # L2: franja larga (minimal) não lava reconstrução: dilui a região de identidade → INCONCLUSIVO, nunca PASS
         drift = engine_output(hard, aref_h, hard["G_split"], 41).astype(int); mask_out = ~hard["G_split"] & ~hard["PR"]; drift[mask_out] = np.clip(drift[mask_out] * 0.85, 0, 255)
         Odr = os.path.join(d, "o_drift.png"); save_rgb(Odr, drift.astype(np.uint8))
-        args_min40 = [a for a in args_min] + ["--contact-fringe-px", "40", "--a-ref", Aref_h]
+        args_min40 = [a for a in args_min] + ["--contact-fringe-px", "40", "--a-ref", Aref_h, "--a-ref-full-canvas"]
         args_min40 = [a for a in args_min40 if a not in ("--tol-engine", "4")]
         j, rc = run_audit(fx, "synth_hard_01", Odr, Gs, profile="minimal", extra=args_min40)
         c.ok("L2_franja_larga_nao_lava_deriva", j["verdict_engine"] != "PASS" and ("identity_region_diluted_by_fringe" in j["engine"]["missing_required_evidence"] or j["verdict_engine"] == "FAIL"), (j["verdict_engine"], j["engine"]["missing_required_evidence"], j["engine"].get("fraction_excluded_by_fringe")))

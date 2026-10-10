@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 r"""
-occupancy_audit.py (v5) — Auditoria NÃO CIRCULAR de ocupação / visibilidade / z-order para o Prototype 0 (ADDITION / OCCUPANCY STRESS TEST).
+occupancy_audit.py (v6) — Auditoria NÃO CIRCULAR de ocupação / visibilidade / z-order para o Prototype 0 (ADDITION / OCCUPANCY STRESS TEST).
 
 Princípio: as REFERÊNCIAS são congeladas ANTES da geração (anotação humana, GT real ou caso sintético) e nunca derivadas da saída.
 A única informação pós-geração é a máscara G do tecido novo, produzida por um segmentador INDEPENDENTE do gerador (SAM 3 por
@@ -16,8 +16,8 @@ e a saída COMPOSTA final (O_composed: mede a entrega). Métricas de oclusor em 
 cola C1 de volta; por isso o veredito sobre o MOTOR usa O_engine.
 
 Tolerâncias separadas:
-  tol_engine   — derivada da distribuição NULA da rota: p99,5 de |A_ref − A| (A_ref = A após encode/decode do VAE, --a-ref) ou
-                 lida de --null-stats (JSON {"tol_p995": n}). No perfil g0, --tol-engine explícito SEM fonte nula é evidência ausente.
+  tol_engine   — tol_p995_support de --null-stats, normativa e obrigatória no g0/FREEZE; tolerâncias por zona têm o mesmo teto.
+                 --a-ref é apenas cross-check com suporte explícito; sozinha e --tol-engine explícito só no perfil minimal.
   tol_composed — 0 quando o contrato de O_composed é `exact` (padrão): qualquer pixel de PROTECTED alterado (protected_max_err > 0) reprova.
 
 Evidência obrigatória depende do manifesto (perfil g0, padrão):
@@ -50,7 +50,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import freeze_check as fz  # noqa: E402
 
-VERSION = "5"
+VERSION = "6"
 G0_ELIMINATORY = {  # métricas que decidem o gate (PREREG §5) — evidência correspondente é obrigatória quando aplicável
     "front_certain": ["front_occluders_mask", "layer_graph", "occluder_mask_engine", "keypoints"],
     "always": ["garment_mask", "band_min", "envelope", "body_coverable", "protected", "null_distribution"],
@@ -158,9 +158,64 @@ def keypoint_metrics(kp_a, kp_e, scale):
     return out
 
 
-def derive_tol_from_null(A, A_ref, q=99.5):
+def derive_tol_from_null(A, A_ref, q=99.5, support=None):
     d = np.abs(A_ref.astype(np.int32) - A.astype(np.int32)).max(axis=2)
-    return int(max(1, int(np.ceil(np.percentile(d, q)))))
+    if support is None or support.shape != d.shape or not support.any():
+        raise ValueError("a_ref_support_missing_or_empty")
+    return int(max(1, int(np.ceil(np.percentile(d[support], q)))))
+
+
+NULL_ZONES = ("skin", "background", "hair_face", "occluders")
+
+
+def read_null_stats(path, a_sha256, canvas_pixels):
+    """Valida o contrato normativo; não aceita o antigo p99,5 diluído pelo canvas."""
+    with open(path, encoding="utf-8") as stream:
+        ns = json.load(stream)
+    if not isinstance(ns, dict):
+        raise ValueError("null_stats_not_an_object")
+    if ns.get("schema_version") != 1 or ns.get("kind") != "O_null1":
+        raise ValueError("null_stats_schema_or_kind")
+    hashes = ns["sha256"]
+    all_hashes = [hashes[k] for k in ("a", "o_null1", "support")] + [hashes["zones"][k] for k in (*NULL_ZONES, "clothing")]
+    if any(not isinstance(h, str) or len(h) != 64 or any(c not in "0123456789abcdef" for c in h) for h in all_hashes):
+        raise ValueError("null_stats_sha256_invalid")
+    if hashes["a"] != a_sha256:
+        raise ValueError("null_stats_a_sha256_mismatch")
+    if not isinstance(ns["route_config"], dict) or not ns["route_config"]:
+        raise ValueError("null_stats_route_config_missing")
+    counts = ns["counts"]
+    if counts["canvas"] != canvas_pixels or not isinstance(counts["support"], int) or not 0 < counts["support"] <= canvas_pixels:
+        raise ValueError("null_stats_support_counts_invalid")
+    fraction = float(ns["support_fraction"])
+    if not math.isfinite(fraction) or not math.isclose(fraction, counts["support"] / canvas_pixels, abs_tol=1e-12):
+        raise ValueError("null_stats_support_fraction_invalid")
+    def tolerance(value):
+        if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value) or value < 1 or value > 255:
+            raise ValueError("null_stats_tolerance_invalid")
+        return int(math.ceil(value))
+    scalar = tolerance(ns["tol_p995_support"])
+    zones = {}
+    for zone in (*NULL_ZONES, "clothing"):
+        rec = counts["by_zone"][zone]
+        if not all(isinstance(rec[k], int) and not isinstance(rec[k], bool) for k in ("total", "support")) or not 0 <= rec["support"] <= min(rec["total"], counts["support"]) or rec["total"] > canvas_pixels:
+            raise ValueError("null_stats_zone_counts_invalid:" + zone)
+        stat = ns["statistics"]["by_zone"][zone]
+        if rec["support"] == 0:
+            if stat is not None or ns["tol_p995_by_zone"].get(zone) is not None:
+                raise ValueError("null_stats_empty_zone_has_statistics:" + zone)
+        else:
+            for metric in ("p50", "p95", "p99", "p995", "max"):
+                if not isinstance(stat[metric], (float, int)) or not math.isfinite(stat[metric]) or not 0 <= stat[metric] <= 255:
+                    raise ValueError("null_stats_zone_statistics_invalid:" + zone)
+        if zone in NULL_ZONES:
+            value = ns["tol_p995_by_zone"].get(zone)
+            zones[zone] = scalar if value is None else tolerance(value)
+    for metric in ("p50", "p95", "p99", "p995", "max"):
+        value = ns["statistics"]["support"][metric]
+        if not isinstance(value, (float, int)) or not math.isfinite(value) or not 0 <= value <= 255:
+            raise ValueError("null_stats_support_statistics_invalid")
+    return ns, scalar, zones
 
 
 # ----------------------------------------------------------------------------------------------------------------- consistência
@@ -321,12 +376,16 @@ def split_element_metrics(G, same, el, args, adjud, fringe):
 
 # ---------------------------------------------------------------------------------------------------------------- auditoria
 def audit_target(A, O, G, M, args, tol, target):
-    A_ref = M.get("A_REF", A) if target == "engine" else A
+    A_ref = A  # --a-ref é somente cross-check da calibração, nunca troca o alvo das métricas.
     same = (np.abs(A_ref - O).max(axis=2) <= tol)
+    zone_tols = M.get("TOL_BY_ZONE", {}) if target == "engine" else {}
+    def same_in_zone(zone):
+        return np.abs(A_ref - O).max(axis=2) <= zone_tols.get(zone, tol)
     res = {"target": target, "tol": int(tol), "n_garment_pixels": int(G.sum()), "causes": [], "inconclusive": [], "missing_required_evidence": [],
            "flags": [], "reference_quality": {}, "evidence": dict(M.get("EVIDENCE", {}))}
     res["G_source"] = M.get("G_SOURCE", "unspecified")
-    res["identity_reference"] = "vae_roundtrip_A" if (target == "engine" and "A_REF" in M) else "A"
+    res["identity_reference"] = "A"
+    res["tol_by_zone"] = {zone: int(zone_tols.get(zone, tol)) for zone in NULL_ZONES}
     res["garment_identity"] = "NOT_EVALUATED_HERE — ver tools/garment_fidelity_audit.py (obrigatório no G0)"
     mc, mstats = check_mask_consistency(M)
     mc = list(M.get("ANNOTATION_ISSUES", [])) + mc
@@ -396,7 +455,7 @@ def audit_target(A, O, G, M, args, tol, target):
         if FO is None or FO.sum() == 0:
             res["missing_required_evidence"].append("front_occluders_mask")
         else:
-            res["front_occluder_pixel_identity"] = float(same[FO].mean())
+            res["front_occluder_pixel_identity"] = float(same_in_zone("occluders")[FO].mean())
             res["garment_over_front_occluders"] = float((G & FO).sum() / FO.sum())
             elim = M.get("pixel_identity_is_eliminatory")
             thr = 1.0 if (target == "composed" and args.composed_contract == "exact") else args.min_occluder_identity
@@ -446,7 +505,13 @@ def audit_target(A, O, G, M, args, tol, target):
         if FO is not None:
             sel &= ~FO
         if sel.sum() > 0:
-            res["unchanged_in_band_without_garment"] = float(same[sel].mean())
+            # FREE_SPACE é fundo; BAND_MAX_BODY é superfície corporal cobrível.
+            zone_same = same.copy()
+            if BMAXB is not None:
+                zone_same[BMAXB] = same_in_zone("skin")[BMAXB]
+            if FS is not None:
+                zone_same[FS] = same_in_zone("background")[FS]
+            res["unchanged_in_band_without_garment"] = float(zone_same[sel].mean())
             if res["unchanged_in_band_without_garment"] < args.min_unchanged_without_garment:
                 res["causes"].append("background_drift_or_unauthorized_change:in_band_without_garment")
         else:
@@ -456,7 +521,7 @@ def audit_target(A, O, G, M, args, tol, target):
         if FO is not None:
             sel &= ~FO
         if sel.sum() > 0:
-            res["uncovered_coverable_identity"] = float(same[sel].mean())
+            res["uncovered_coverable_identity"] = float(same_in_zone("skin")[sel].mean())
             if res["uncovered_coverable_identity"] < args.min_unchanged_without_garment:
                 res["causes"].append("body_reconstruction_probable:uncovered_skin_changed")
         elif (BC & ~G).sum() > 0:
@@ -471,7 +536,7 @@ def audit_target(A, O, G, M, args, tol, target):
     fr, fcauses = fringe_metrics(A_ref, O, fringe, tol, args, G)
     res.update(fr); res["causes"].extend(fcauses)
     if PR is not None and PR.sum() > 0:
-        res["protected_pixel_identity"] = float(same[PR].mean())
+        res["protected_pixel_identity"] = float(same_in_zone("hair_face")[PR].mean())
         res["protected_max_err"] = int(np.abs(A - O)[PR].max())
         if target == "composed" and args.composed_contract == "exact":
             if res["protected_max_err"] > 0:
@@ -583,9 +648,12 @@ def main():
     ap.add_argument("--layer-graph", help="JSON: [{element, relation, mask, split_must_cover_mask?, split_must_stay_visible_mask?}]; se omitido com --manifest, é derivado do z_order")
     ap.add_argument("--human-adjudication", help="JSON cego {blind:true, evaluator_id, answers:{'split_edge:<el>': yes|no|ambiguous}} — só para split sem máscaras congeladas")
     ap.add_argument("--engine-is-paste-back", action="store_true", help="rota F2 com paste-back nativo: identidade de pixel em FO é eliminatória também em O_engine")
-    ap.add_argument("--a-ref", help="referência NULA para O_engine: A após encode/decode do VAE da rota (denoise 0, mesma resolução/reprojeção). Deriva tol_engine (p99,5).")
-    ap.add_argument("--null-stats", help="JSON da distribuição nula da rota {\"tol_p995\": n} (alternativa a --a-ref para tol_engine)")
-    ap.add_argument("--tol-engine", type=int, default=None, help="tolerância explícita em O_engine (só perfil minimal; no g0 exige fonte nula)")
+    ap.add_argument("--a-ref", help="cross-check de O_null1 contra A dentro do suporte; sozinha, apenas no perfil minimal")
+    support_args = ap.add_mutually_exclusive_group()
+    support_args.add_argument("--a-ref-support", help="máscara binária dos pixels reconstruídos na grade de A")
+    support_args.add_argument("--a-ref-full-canvas", action="store_true", help="declara explicitamente suporte no canvas inteiro")
+    ap.add_argument("--null-stats", help="JSON normativo O_null1: tol_p995_support/by_zone, suporte e proveniência; obrigatório no g0 e FREEZE")
+    ap.add_argument("--tol-engine", type=int, default=None, help="tolerância explícita em O_engine (somente perfil minimal)")
     ap.add_argument("--tol", type=int, default=None, help="(legado) = --tol-engine")
     ap.add_argument("--composed-contract", choices=["exact", "near_exact"], default="exact", help="exact: tol_composed=0 e protected_max_err>0 reprova")
     ap.add_argument("--tol-composed", type=int, default=0, help="só usado em near_exact")
@@ -620,7 +688,7 @@ def main():
     ap.add_argument("--max-fringe-delta-chroma", type=float, default=6.0, help="franja C3: Δ(a*,b*) máximo por pixel (provisório)")
     ap.add_argument("--max-fringe-violation-frac", type=float, default=0.05)
     ap.add_argument("--min-fringe-structure-corr", type=float, default=0.6)
-    ap.add_argument("--max-tol-engine", type=int, default=12, help="teto de credibilidade da nula: p99,5 de |A_ref − A| acima disso → nula não aceita (INCONCLUSIVO)")
+    ap.add_argument("--max-tol-engine", type=int, default=12, help="compatibilidade CLI: teto congelado em 12; qualquer outro valor → INCONCLUSIVO")
     ap.add_argument("--json-out")
     args = ap.parse_args()
     if args.tol is not None and args.tol_engine is None:
@@ -642,6 +710,9 @@ def main():
         if args.json_out:
             open(args.json_out, "w", encoding="utf-8").write(js)
         sys.exit(code)
+
+    if args.max_tol_engine != 12:
+        bail("INCONCLUSIVO:max_tol_engine_must_be_12", 3)
 
     # --- congelamento / proveniência (antes de qualquer avaliação do motor)
     row = None
@@ -845,31 +916,60 @@ def main():
     if Me["OCC_ENGINE"] is not None:
         Me["EVIDENCE"] = dict(M["EVIDENCE"], occluder_mask_engine="PRESENT")
     tol_src = None
+    tol_by_zone = {}
+    if args.profile == "g0" and args.tol_engine is not None:
+        bail("INCONCLUSIVO:tol_engine_explicit_only_minimal", 3)
+    ns = None
+    if args.null_stats:
+        try:
+            ns, tol_engine, tol_by_zone = read_null_stats(args.null_stats, fz.sha256_file(args.a), int(np.prod(shape)))
+            tol_src = "null_stats"
+            prov["null_stats_sha256"] = fz.sha256_file(args.null_stats)
+            prov["null_route_config"] = ns["route_config"]
+            out["null_support_fraction"] = ns["support_fraction"]
+            out["null_counts"] = ns["counts"]
+            if args.profile == "g0":
+                mism = fz.verify_null_stats_frozen(args.freeze, args.null_stats)
+                if mism:
+                    frc["mismatches"].extend(mism)
+                    bail("FAIL:frozen_reference_mismatch", 1)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
+            out["null_stats_error"] = str(e); bail("INCONCLUSIVO:null_stats_invalid", 3)
+    elif args.profile == "g0":
+        missing_global.append("null_distribution")
     if args.a_ref:
+        if not (args.a_ref_support or args.a_ref_full_canvas):
+            bail("INCONCLUSIVO:a_ref_support_required", 3)
+        fi = image_format_issue(args.a_ref)
+        if fi:
+            out["format_issue"] = f"a_ref:{fi}"; bail("INCONCLUSIVO:format_mismatch:a_ref", 3)
         Aref = load_rgb(args.a_ref)
         if Aref.shape != A.shape:
             bail("FAIL:canvas_mismatch:a_ref", 1)
-        Me["A_REF"] = Aref; tol_engine = derive_tol_from_null(A, Aref); tol_src = "a_ref_p99.5"
-        prov["a_ref_sha256"] = fz.sha256_file(args.a_ref)
-        # credibilidade da nula: um round-trip de VAE não move p99,5 dos pixels além de --max-tol-engine; acima disso a "nula" não é nula
-        if tol_engine > args.max_tol_engine:
-            out.setdefault("flags", []).append(f"null_distribution_not_credible:tol_p995={tol_engine}>{args.max_tol_engine}")
-            missing_global.append("null_distribution")
-    elif args.null_stats:
         try:
-            ns = json.load(open(args.null_stats, encoding="utf-8")); tol_engine = int(math.ceil(float(ns["tol_p995"]))); tol_src = "null_stats"
-        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as e:
-            out["null_stats_error"] = str(e); bail("INCONCLUSIVO:null_stats_invalid", 3)
-        if tol_engine > args.max_tol_engine or tol_engine < 1:
-            out.setdefault("flags", []).append(f"null_distribution_not_credible:tol_p995={tol_engine}")
-            missing_global.append("null_distribution")
-    elif args.tol_engine is not None:
+            support = load_bin(args.a_ref_support, shape) if args.a_ref_support else np.ones(shape, dtype=bool)
+            a_ref_tol = derive_tol_from_null(A, Aref, support=support)
+        except (MaskError, ValueError, OSError) as e:
+            out["a_ref_error"] = str(e); bail("INCONCLUSIVO:a_ref_support_invalid", 3)
+        prov["a_ref_sha256"] = fz.sha256_file(args.a_ref)
+        prov["a_ref_support_sha256"] = fz.sha256_file(args.a_ref_support) if args.a_ref_support else None
+        out["a_ref_cross_check"] = {"tol_p995_support": a_ref_tol, "support_fraction": float(support.mean()), "full_canvas_explicit": args.a_ref_full_canvas}
+        if ns is not None and a_ref_tol > ns["tol_p995_support"] + 1:
+            out.setdefault("flags", []).append("null_stats_inconsistent_with_a_ref")
+            bail("INCONCLUSIVO:null_stats_inconsistent_with_a_ref", 3)
+        if ns is None and args.profile == "minimal":
+            tol_engine = a_ref_tol; tol_src = "a_ref_support_p99.5"
+    if tol_src is None and args.tol_engine is not None:
         tol_engine = int(args.tol_engine); tol_src = "explicit"
-        if args.profile == "g0":
-            missing_global.append("null_distribution")
-    else:
+    if tol_src is None:
         tol_engine = 2; tol_src = "default_uncalibrated"; missing_global.append("null_distribution")
+    for zone, value in {"support": tol_engine, **tol_by_zone}.items():
+        if value > args.max_tol_engine or value < 1:
+            out.setdefault("flags", []).append(f"null_distribution_not_credible:{zone}={value}>{args.max_tol_engine}")
+            missing_global.append("null_distribution")
     out["tol_engine"] = tol_engine; out["tol_engine_source"] = tol_src
+    out["tol_engine_by_zone"] = {zone: tol_by_zone.get(zone, tol_engine) for zone in NULL_ZONES}
+    Me["TOL_BY_ZONE"] = tol_by_zone
     tol_composed = 0 if args.composed_contract == "exact" else int(args.tol_composed)
     out["tol_composed"] = tol_composed
     Me["MISSING"] = list(missing_global)

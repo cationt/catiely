@@ -61,6 +61,36 @@ def main():
         c.ok("GATE_6x3_PASS", j["verdict"] == "PASS" and rc == 0 and j["core_summary"]["n_pass"] == 6, (j["verdict"], j["verdict_reason"], j["integrity"][:3]))
         c.ok("GATE_nao_core_reportado_nao_contado", "synth_hard_nosplit" in j["non_core"] and j["non_core"]["synth_hard_nosplit"]["role"] == "replication", list(j["non_core"].keys()))
         c.ok("GATE_progressao_permitida", all(v["allowed"] for v in j["progression"].values()), j["progression"])
+        no_freeze = dict(fx, freeze=os.path.join(d, "missing_FREEZE.json"))
+        j, rc = gate(no_freeze, write_index(idx_all, "idx_no_freeze.json"))
+        c.ok("NULL1_gate_sem_FREEZE_INCONCLUSIVO", rc == 3 and j["verdict"] == "INCONCLUSIVO" and
+             any(x.startswith("ausente:freeze") for x in j["integrity"]), j["integrity"][:2])
+        # Relatórios legados/cross-check isolado e hashes não congelados não contornam a nula normativa.
+        sample = idx_all[0]
+        for mode in ("old_a_ref", "unknown_null", "other_a", "other_route", "relaxed_cap", "scalar_above_cap", "zone_above_cap"):
+            with open(sample["occupancy"], encoding="utf-8") as stream:
+                report = json.load(stream)
+            if mode == "old_a_ref":
+                report["auditor_version"] = "5"; report["tol_engine_source"] = "a_ref_p99.5"
+            elif mode == "unknown_null":
+                report["provenance"]["null_stats_sha256"] = "0" * 64
+            elif mode == "other_a":
+                report["provenance"]["a_sha256"] = "0" * 64
+            elif mode == "other_route":
+                report["provenance"]["null_route_config"] = {"route": "other"}
+            elif mode == "relaxed_cap":
+                report["thresholds"]["max_tol_engine"] = 30
+            elif mode == "scalar_above_cap":
+                report["tol_engine"] = 13
+            else:
+                report["tol_engine_by_zone"]["occluders"] = 13
+            changed = os.path.join(runs, mode + ".json")
+            with open(changed, "w", encoding="utf-8") as stream:
+                json.dump(report, stream)
+            index = [dict(sample, occupancy=changed)] + idx_all[1:]
+            j, rc = gate(fx, write_index(index, "idx_" + mode + ".json"))
+            c.ok("NULL1_gate_rejeita_" + mode, rc == 3 and j["verdict"] == "INCONCLUSIVO" and
+                 any(x.startswith(("json_sem_estrutura_do_auditor", "nula_normativa_nao_congelada", "teto_nula_invalido")) for x in j["integrity"]), j["integrity"][:3])
         # 2. seed ausente num caso core → INCONCLUSIVO
         j, rc = gate(fx, write_index([e for e in idx_all if not (e["case_id"] == "synth_core_b" and e["seed"] == 3)], "idx_missing.json"))
         c.ok("GATE_seed_ausente_INCONCLUSIVO", j["verdict"] == "INCONCLUSIVO" and rc == 3 and j["core"]["synth_core_b"]["missing_seeds"] == [3], (j["verdict"], j["verdict_reason"]))
