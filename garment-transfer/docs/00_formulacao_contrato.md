@@ -299,6 +299,8 @@ Nesta parte1, zonas determinísticas vêm do parser pinado do R3 sobre A: skin=a
 
 No perfil g0, `--null-stats` é obrigatória e seu SHA entra no FREEZE. `--a-ref` é somente cross-check, exige `--a-ref-support` ou `--a-ref-full-canvas` explícito e nunca prevalece sobre o JSON normativo; se seu escalar exceder `tol_p995_support + 1`, emitir `null_stats_inconsistent_with_a_ref` e INCONCLUSIVE. `--a-ref` sozinha e `--tol-engine` explícito ficam restritos a minimal. A referência das métricas permanece A. Preparação em `tools/null1/`, sem nula real medida nesta etapa; execução e uso dos limiares dependem das revisões previstas em `03` §7b.
 
+**Emenda D-059 (2026-10-10).** A identidade de `O′` (alvo `engine`) passa a ser avaliada na **grade interna da rota**, contra `A_fwd` = `A` levada pelo forward pinado da própria rota (produzida pelo executor da nula e conferida por sha; nunca `--a-ref`), com máscaras congeladas por nearest e tolerância = piso medido na tupla exata (O_null1 parte 2, schema 2, por rota × `A` do caso). "A referência das métricas permanece A" lê-se: `A` na grade de `A` para o alvo `composed` (contrato `exact`, tol 0, inalterado) e `A_fwd` para o alvo `engine`. O teto 12 continua e aplica-se a pisos na grade interna; os pisos de reprojeção da parte 1 (grade de `A`, com inverso) são informativos e Klein/FASHN permanecem `INCONCLUSIVE` nessa grade. As frações `min_*` do alvo `engine` derivam de `frac_above_tol` da nula (D-060); PROTECTED 1,0 vale só no `composed`. FASHN: identidade por definição (tol 1, provisória até O_null2). Contrato completo em `03` §7b.
+
 ---
 
 ## 9. QA definido desde a Fase 0
