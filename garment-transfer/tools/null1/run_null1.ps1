@@ -1,5 +1,5 @@
 ﻿param(
-    [ValidateSet('Plan', 'Verify', 'Generate')][string]$Mode = 'Plan',
+    [ValidateSet('Plan', 'Verify', 'Generate', 'Derive')][string]$Mode = 'Plan',
     [string]$W3Root = (Join-Path $env:USERPROFILE 'OneDrive\Documentos\w3-measure'),
     [string]$Core = (Join-Path $env:LOCALAPPDATA 'Comfy-Desktop\ComfyUI-Installs\ComfyUI\ComfyUI'),
     [string]$Shared = (Join-Path $env:LOCALAPPDATA 'Comfy-Desktop\ComfyUI-Shared'),

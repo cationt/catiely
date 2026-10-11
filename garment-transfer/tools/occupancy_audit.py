@@ -2,6 +2,15 @@
 r"""
 occupancy_audit.py (v6) — Auditoria NÃO CIRCULAR de ocupação / visibilidade / z-order para o Prototype 0 (ADDITION / OCCUPANCY STRESS TEST).
 
+D-059: este executável permanece v6/schema 1. A proposta v7 está em docs/AUDITOR_V7_CONTRACT.md;
+implementação somente após Derive CPU + D-060. O futuro v7 usará O′/máscaras na grade interna,
+A_forward do executor pinado conferida por SHA (sem refazer geometria), schema 2, canvas_pixels interno
+e dois conjuntos de máscaras. Grade divergente será INCONCLUSIVO:grid_mismatch; A_forward divergente,
+INCONCLUSIVO:a_forward_mismatch; BAND_MIN fora do domínio, INCONCLUSIVO:engine_domain_excludes_band.
+A_forward substituirá A em same/zonas/franja/ΔE/protected_max_err do engine; --a-ref será cross-check
+nessa grade. Composed continuará na grade de A, exact/tol 0. Frações engine aguardam D-060.
+Não usar os artefatos Parte 2/schema 2 preparados agora como entrada deste v6 ou autorização de G0.
+
 Princípio: as REFERÊNCIAS são congeladas ANTES da geração (anotação humana, GT real ou caso sintético) e nunca derivadas da saída.
 A única informação pós-geração é a máscara G do tecido novo, produzida por um segmentador INDEPENDENTE do gerador (SAM 3 por
 texto/exemplar, ou anotação humana da saída) — e a sua confiabilidade deve ser calibrada (IoU vs anotação manual) no dev set.

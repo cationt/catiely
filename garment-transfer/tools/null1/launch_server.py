@@ -1,4 +1,4 @@
-"""Private ComfyUI for one null roundtrip. Invoked only by Generate, never Plan/Verify."""
+"""Private ComfyUI for Generate or D-059a Derive reference; never Plan/Verify."""
 import os
 import runpy
 import sys
@@ -14,7 +14,7 @@ def isolate_core_path(core):
     beside this launcher, sys.path[0] of the script) would shadow it: "No module named 'comfy.options';
     'comfy' is not a package" (batch 20261010T161713Z). Our own modules are already imported."""
     core = Path(core).resolve()
-    sys.path[:] = [str(core)] + [p for p in sys.path if p and Path(p).resolve() not in (HERE, core)]
+    sys.path[:] = [str(core)] + [p for p in sys.path if p and Path(p).resolve() not in (HERE, HERE.parent, core)]
 
 
 def fail_fast(error):
@@ -47,9 +47,30 @@ def configure_vae(session, core, folders, manager, classes, torch):
     return str(selected)
 
 
+def validate_cpu_session(session):
+    require(session.get("cpu_only") is True and session["action"] == "derive_reference",
+            "explicit CPU reference session required")
+    require("--cpu" in session["flags"] and session.get("vae") is None
+            and session.get("vae_evidence") is None, "CPU reference cannot resolve VAE/GPU")
+
+
+def cpu_startup_evidence(session, manager, torch):
+    validate_cpu_session(session)
+    require(manager.get_torch_device().type == "cpu" and not torch.cuda.is_initialized(), "CPU-only reference required")
+    require(not manager.current_loaded_models, "CPU reference must not load a model")
+    import importlib.metadata
+    pin = read_json(HERE/"manifest.json")["part2"]["runtime"]["packages"]
+    versions = {k:importlib.metadata.version(k) for k in pin}
+    require(versions == pin, "CPU executor runtime mismatch")
+    return {"device":"cpu", "cuda_initialized":False, "packages":versions}
+
+
 def main():
     session = read_json(sys.argv[1])
-    require(session["action"] == "generate", "explicit Generate required")
+    require(session["action"] in ("generate","derive_reference"), "explicit execution required")
+    if session["action"] == "derive_reference":
+        validate_cpu_session(session)
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     install()
     core = Path(session["core"])
 
@@ -60,13 +81,17 @@ def main():
         folders = sys.modules["folder_paths"]
         manager = sys.modules["comfy.model_management"]
         classes = sys.modules["nodes"].NODE_CLASS_MAPPINGS
-        require(torch.cuda.is_available(), "CUDA required; no CPU fallback")
         require(not manager.current_loaded_models, "private ComfyUI must start with no loaded model")
-        torch.manual_seed(42)
-        torch.cuda.manual_seed_all(42)
+        extra = {}
+        if session["action"] == "derive_reference":
+            extra = cpu_startup_evidence(session,manager,torch)
+        else:
+            require(torch.cuda.is_available(), "CUDA required; no CPU fallback")
+            torch.manual_seed(42)
+            torch.cuda.manual_seed_all(42)
         selected = configure_vae(session, core, folders, manager, classes, torch)
         write_new(session["bootstrap"], {"pid": os.getpid(), "server_id": session["server_id"],
-                  "loaded_models": 0, "vae": selected, "network": "loopback_only_python_audit"})
+                  "loaded_models": 0, "vae": selected, "network": "loopback_only_python_audit", **extra})
 
     sys.addaudithook(startup)
     isolate_core_path(core)

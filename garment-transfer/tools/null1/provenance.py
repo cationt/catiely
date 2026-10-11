@@ -50,7 +50,22 @@ def frozen():
         require(settings["normative"] is (route in NORMATIVE_ROUTES), "normative/diagnostic role changed")
     for item in manifest["workflows"].values():
         require(sha256(HERE/item["file"], lf=True) == item["sha256"], "frozen workflow changed")
+    for item in [*manifest.get("prepared_g0_workflows",{}).values(), *manifest.get("shared_code",{}).values(),
+                 *manifest.get("cpu_workflows",{}).values()]:
+        require(sha256(HERE/item["file"],lf=True) == item["sha256"], "prepared/shared source pin mismatch")
     return manifest
+
+
+def verify_cpu_crop(paths):
+    """D-059a executor sources only; no weights, model imports, setup or GPU."""
+    manifest = frozen()
+    core_head = core_identity(paths["core"],manifest["core_commit"])
+    records = []
+    for entry in manifest["part2"]["cpu_executor_files"]:
+        path = paths["core"]/entry["path"]
+        require(sha256(path,lf=True) == entry["sha256"], "CPU executor source mismatch: " + str(path))
+        records.append({**entry,"resolved_path":str(path),"lf":True})
+    return {"core":str(paths["core"]),"core_commit":core_head,"files":records}
 
 
 def core_identity(core, expected):

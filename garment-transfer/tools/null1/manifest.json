@@ -518,5 +518,445 @@
       "klein/null_stats.json": "64e477e68459e63853448e9792b9ede4d2c263afdb79dcfaa2b7f438540f5ed9",
       "klein/sidecar.json": "f5d41e3220d749887eaff60e71176db4be2cfd543694300b234eb0079c5db3c5"
     }
+  },
+  "part2": {
+    "status": "PREPARED_NOT_DERIVED",
+    "decision": "D-059/D-059a",
+    "order": [
+      "klein_g0",
+      "qie_g0",
+      "r1ei_g0",
+      "klein_1mp_fallback",
+      "fashn_g0"
+    ],
+    "source_lot": {
+      "batch_id": "20261010T170913Z_63cfc8e35a3c",
+      "path": "runs/proto0/null/20261010T170913Z_63cfc8e35a3c",
+      "file_count": 183,
+      "hash_mode": "SHA256 exact bytes; exact file set",
+      "files": {
+        "batch.json": "086d47f001c91c2a6925f51cb1405720042ced180a7ab3b0462fb70fcd01a978",
+        "dd_schedule.json": "88cc66553e0c886fb2db84064f997bff6dc6a84abeda3f01766e60dd2f2b5f51",
+        "fashn/O_null1.png": "82ad005e751232602999e3d7611818dc0a61ba58ca6dc8d6bbaf8f36c7990bf9",
+        "fashn/background.png": "483c70a2ac2b614efee448bc0d0295c9d11c9d9c4b76dd5bc4c27bacc46cc678",
+        "fashn/clothing.png": "81e0b735d88916c7c11eeb11a2033fe59d6a310fbc91d4e4c28af0ee35a28a7f",
+        "fashn/hair_face.png": "bb2bce1753cdc9de7be3268a33ba64b631bc2210deec21189b652046aeaf1ba2",
+        "fashn/native.png": "90e6f2b26a6ac63e2d45c19550b2ee309aedf55678c00574897605f6d874f072",
+        "fashn/null_stats.json": "813aa154b5461c711af14a0eec86792ae6415a32c22d6b8c9d4f6a130d947a31",
+        "fashn/occluders.png": "5284a4a719b5ab86e950d4ed1d1e77308f7d08e3c71f9a78784b564b21916515",
+        "fashn/padded.png": "978fd49ff76f856baa063999f650e6e5ff3061258279c3d3606516ddbeecd760",
+        "fashn/request.json": "4d912167b037a7f25e366313805e2baa2c6acbfeec58b33b37d90921a6dec59e",
+        "fashn/sidecar.json": "aaf385f59856ac78ff2cc549a82b90e95974dad0ef5b7f5d061dfd9478aa9016",
+        "fashn/skin.png": "6ccf967758963740b4eec3b980ca1f95c1b07b8dc0a2d42f3ab544fd5c4f0106",
+        "fashn/support.png": "3d01bc9f948bd7b16e9a6d2f18378afd8b3816840ec3587683f90f87df9fed10",
+        "fashn/worker.json": "eef149654ba23d8437cb9b67bd9c6c3eddbb46728eaee269c724fb5eead7e67b",
+        "fashn/worker.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "klein/O_null1.png": "ee7d8084f467e2a127ae51bbe7ca787ac4d5e81787038484ebacd9dab4a56b11",
+        "klein/background.png": "483c70a2ac2b614efee448bc0d0295c9d11c9d9c4b76dd5bc4c27bacc46cc678",
+        "klein/clothing.png": "81e0b735d88916c7c11eeb11a2033fe59d6a310fbc91d4e4c28af0ee35a28a7f",
+        "klein/hair_face.png": "bb2bce1753cdc9de7be3268a33ba64b631bc2210deec21189b652046aeaf1ba2",
+        "klein/history.json": "40d1ae3f9c05675adc76b30010bb8ca411ed3b2e17b0fdbb895fe60169a27a7a",
+        "klein/native.png": "0a3bcda7da0dae988af9c0dacf0d353559aae98d7112f4585392205e1d1942ee",
+        "klein/null_stats.json": "69e96a3a8bbf05bdb073c78534e615e75c0707d5bf235aeae9b869e9ff637e4d",
+        "klein/occluders.png": "5284a4a719b5ab86e950d4ed1d1e77308f7d08e3c71f9a78784b564b21916515",
+        "klein/server.log": "4b8e6c3e71f832eea67e58a87b8f40ebddf80c082f5e2ee22b0cec736087ff20",
+        "klein/server/bootstrap.json": "f08b406178776812f795d0c4d0d688ca7b8859566519f4067f20ffbfcd4d5c86",
+        "klein/server/launch.json": "b7996cf44037d9fb085f592ad96bf71ade34a27af13377753859012a63888c3b",
+        "klein/server/model_paths.yaml": "4197c302526c7d937bf7b7d603ca4f280c02b2316b1c7cb1de00489a84d72922",
+        "klein/server/output/null1_11048809fd444e15b42f87f3b2b83e1e_00001_.png": "0a3bcda7da0dae988af9c0dacf0d353559aae98d7112f4585392205e1d1942ee",
+        "klein/server/user/comfyui.db": "5c9dec1886cc01f5f2307ee1ea87f9b32a4cef0f8f9a2c68beebc558013bedab",
+        "klein/server/user/comfyui.db-shm": "341ad6b4e98711c2eeaae2f86bc68c8d463d532d0318744111b72bf28881d0b6",
+        "klein/server/user/comfyui.db-wal": "1df18fcb74e022aefb3b96f2e87da1b9c8d9df43f21ccc4c008e2e57a9022813",
+        "klein/server/user/comfyui.db.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "klein/server/vae.json": "81a3498611f74c3b5328d8fc2e3b4175eab48debfb39c57df36c1e50f05365ef",
+        "klein/sidecar.json": "6b2852eb8f3b0bed3f51dffec09c4af2a85637a49708c98676e960b41e316c18",
+        "klein/skin.png": "6ccf967758963740b4eec3b980ca1f95c1b07b8dc0a2d42f3ab544fd5c4f0106",
+        "klein/support.png": "8c751a9865d3cac91d157bc8f32d53b8c3bd1521cfdf45b2e874650d9d1a14c8",
+        "klein/workflow_api.json": "5719657e9afa99a5e8d6a7d01be964912bcb7d174b977508643ecf3b253341c8",
+        "klein_resample_only/O_null1.png": "4817062191b078b5341f0d5f6aa67667f03cae1e780b97b959b26015eef59f98",
+        "klein_resample_only/background.png": "483c70a2ac2b614efee448bc0d0295c9d11c9d9c4b76dd5bc4c27bacc46cc678",
+        "klein_resample_only/clothing.png": "81e0b735d88916c7c11eeb11a2033fe59d6a310fbc91d4e4c28af0ee35a28a7f",
+        "klein_resample_only/hair_face.png": "bb2bce1753cdc9de7be3268a33ba64b631bc2210deec21189b652046aeaf1ba2",
+        "klein_resample_only/history.json": "4f313068619204c5e2a75a2ed071a7c40719d74ca5f7ee70f5db44ebedea7c30",
+        "klein_resample_only/native.png": "c7b9c460c0a216e1fc64558768aa74ebb0f9c11fa7f6cb1b89e7d6be0842cf36",
+        "klein_resample_only/null_stats.json": "25bc8cf277f2e33ca9aa4fb308556cf64d26b396d3a09adac6fc12282685a9fb",
+        "klein_resample_only/occluders.png": "5284a4a719b5ab86e950d4ed1d1e77308f7d08e3c71f9a78784b564b21916515",
+        "klein_resample_only/server.log": "0524a26f240b15418e5b6261e15701bb48ef020f9263623d6bd6878c6eb735c9",
+        "klein_resample_only/server/bootstrap.json": "167d08b8407bfb39008d975ff569323cf29dfaa839716a107e4cca9b9efd31ca",
+        "klein_resample_only/server/launch.json": "a7e93ad31ad22c367c94ef5b26d5a686ceaeaed73401a0f2a27176b16393f478",
+        "klein_resample_only/server/output/null1_933ef54ee72140dfb7a5eeeda704c4d6_00001_.png": "c7b9c460c0a216e1fc64558768aa74ebb0f9c11fa7f6cb1b89e7d6be0842cf36",
+        "klein_resample_only/server/user/comfyui.db": "5c9dec1886cc01f5f2307ee1ea87f9b32a4cef0f8f9a2c68beebc558013bedab",
+        "klein_resample_only/server/user/comfyui.db-shm": "1745abb76b16cc6498b42af0153142a75d5d201b180fa89c47780cafbdcbaa77",
+        "klein_resample_only/server/user/comfyui.db-wal": "9dddc257099a830ca4e20d393f6d4c58c29fc55206a81371f0716f2c71a2b449",
+        "klein_resample_only/server/user/comfyui.db.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "klein_resample_only/sidecar.json": "fba856a2fd737dfdef2ef3cea2dcd4c27cbd76de5f929eaa8cf8db401a7e54e1",
+        "klein_resample_only/skin.png": "6ccf967758963740b4eec3b980ca1f95c1b07b8dc0a2d42f3ab544fd5c4f0106",
+        "klein_resample_only/support.png": "8c751a9865d3cac91d157bc8f32d53b8c3bd1521cfdf45b2e874650d9d1a14c8",
+        "klein_resample_only/workflow_api.json": "66ca3fccf1725b02de9acf63ce41d1ba037f889f0284314c94c050170ffad4a8",
+        "klein_vae_native/O_null1.png": "68b1f9a381e5a6a87e05bb4efab964fcfcf2931f6f4d1499e94ae30263745270",
+        "klein_vae_native/background.png": "483c70a2ac2b614efee448bc0d0295c9d11c9d9c4b76dd5bc4c27bacc46cc678",
+        "klein_vae_native/clothing.png": "81e0b735d88916c7c11eeb11a2033fe59d6a310fbc91d4e4c28af0ee35a28a7f",
+        "klein_vae_native/hair_face.png": "bb2bce1753cdc9de7be3268a33ba64b631bc2210deec21189b652046aeaf1ba2",
+        "klein_vae_native/history.json": "70833c93bb7d179deab0eceed20e9e7fc27dbc17453ed0ceae983fba203bcfa1",
+        "klein_vae_native/native.png": "9446e6a97b7728e7ea182b4d8a2390b5121de68e8218ecb6df1f8603f3a434ae",
+        "klein_vae_native/null_stats.json": "a948369ffab7f09bb2d127afbdbaad877085e4442c5cef3c2a30a9272f4b8c4e",
+        "klein_vae_native/occluders.png": "5284a4a719b5ab86e950d4ed1d1e77308f7d08e3c71f9a78784b564b21916515",
+        "klein_vae_native/server.log": "adf34c0b604f8da87793d2fbc12ccb09cfef2cca3a141bf280bb4f03d91cfd39",
+        "klein_vae_native/server/bootstrap.json": "452f6f0fa95580f80c31577dff90528c080ef83ffa69780bd24021f34509e4c3",
+        "klein_vae_native/server/launch.json": "82c410f13e1c5c5c3c72c218066d1c140bd5194a55365a04f8768dce663d1a5b",
+        "klein_vae_native/server/model_paths.yaml": "4197c302526c7d937bf7b7d603ca4f280c02b2316b1c7cb1de00489a84d72922",
+        "klein_vae_native/server/output/null1_54e9ebf7438947f7a23ad4294784d65f_00001_.png": "9446e6a97b7728e7ea182b4d8a2390b5121de68e8218ecb6df1f8603f3a434ae",
+        "klein_vae_native/server/user/comfyui.db": "5c9dec1886cc01f5f2307ee1ea87f9b32a4cef0f8f9a2c68beebc558013bedab",
+        "klein_vae_native/server/user/comfyui.db-shm": "66855d751206b9bb663fbe737f214ec82ec2a390eaf7a437dce9bb6157e7f04a",
+        "klein_vae_native/server/user/comfyui.db-wal": "485fce798df59f1a3dbd0326b80ece58bc884616dce4c86e9c9a49767eaf699a",
+        "klein_vae_native/server/user/comfyui.db.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "klein_vae_native/server/vae.json": "81a3498611f74c3b5328d8fc2e3b4175eab48debfb39c57df36c1e50f05365ef",
+        "klein_vae_native/sidecar.json": "ed59e21388ee478ae45b8351902ad9b9b27190c5e33d5b4b4d67e80d98f038bb",
+        "klein_vae_native/skin.png": "6ccf967758963740b4eec3b980ca1f95c1b07b8dc0a2d42f3ab544fd5c4f0106",
+        "klein_vae_native/support.png": "55b464f7b8592fe2e94fb6af5dcd12d2121ac136fbd76d290abbd05740779aae",
+        "klein_vae_native/workflow_api.json": "26106151bbb57fd258d642746038f950d7828751c7b0ae81a4310493c8011037",
+        "provenance.json": "099ddfcfe1c56d2f7282789c164024ca6b7546dd14bdf624a52a0e66a685b1a6",
+        "qie/O_null1.png": "1a5ea64c2950d06be32a24ae116aecb56d68cea36c504416f37510580c2d6631",
+        "qie/background.png": "483c70a2ac2b614efee448bc0d0295c9d11c9d9c4b76dd5bc4c27bacc46cc678",
+        "qie/clothing.png": "81e0b735d88916c7c11eeb11a2033fe59d6a310fbc91d4e4c28af0ee35a28a7f",
+        "qie/hair_face.png": "bb2bce1753cdc9de7be3268a33ba64b631bc2210deec21189b652046aeaf1ba2",
+        "qie/history.json": "a5f043948a0b3e8d6bf619c69c6217e490272b9540a4591219d28f4d14d83630",
+        "qie/native.png": "93c862fc790a0f4465de0e83d40d45d3877dfe3111f715c3e59dfb3d5ff1259e",
+        "qie/null_stats.json": "8f0318dd4699ee907e47434585a889ad9924448a1f4383cdcdda89aa463a3493",
+        "qie/occluders.png": "5284a4a719b5ab86e950d4ed1d1e77308f7d08e3c71f9a78784b564b21916515",
+        "qie/server.log": "b203fc4bf743c1093c043f719c7ccd19561b125ab2ece9418a950d73f87c450b",
+        "qie/server/bootstrap.json": "6abd612b782e0f5c4eab15369b9487eca6d8af64a0bc1c5562f5728003f11248",
+        "qie/server/launch.json": "6aef82fe73dcbb5c6533fc4194d41dff494827dcf89ea69e5164a98aae8e528d",
+        "qie/server/model_paths.yaml": "a70919234b714b7aad5cfa7356c49ba223ac0cd6f4583a92f8107182dd418c66",
+        "qie/server/output/null1_f7d9f79229d74982afab30a8c28d8136_00001_.png": "93c862fc790a0f4465de0e83d40d45d3877dfe3111f715c3e59dfb3d5ff1259e",
+        "qie/server/user/comfyui.db": "5c9dec1886cc01f5f2307ee1ea87f9b32a4cef0f8f9a2c68beebc558013bedab",
+        "qie/server/user/comfyui.db-shm": "aeb3fbd13948218feaa835d142f40bab9be5efd7c9fa3a33b9fa901a78a2f801",
+        "qie/server/user/comfyui.db-wal": "7950580f017b2a73da1a2b3e77a256a7b065a20b3e05b54bec4b27a840866bd4",
+        "qie/server/user/comfyui.db.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "qie/server/vae.json": "7b5efe17c292f38bc7c84d19fe3e6ef743b65e8cc069706c15c7657c99f15196",
+        "qie/sidecar.json": "0e23c6c333e9f6d743d448138c2efbd38cc71c99668d49e5dcaaea2d2b5ca634",
+        "qie/skin.png": "6ccf967758963740b4eec3b980ca1f95c1b07b8dc0a2d42f3ab544fd5c4f0106",
+        "qie/support.png": "384d906ce92cf3473c988df8e28f9046e0d7c5cab2bc190d4a53c7d084950e2b",
+        "qie/workflow_api.json": "3ca9186dedc004687ed8a68ed0598dce121c3ca41a01d0ee6db4e52a1a9a3f91",
+        "qie_resample_only/O_null1.png": "624879e68a3cb9c5465e1dfd22f658c7401f741617d37d6623812fffb7b239c3",
+        "qie_resample_only/background.png": "483c70a2ac2b614efee448bc0d0295c9d11c9d9c4b76dd5bc4c27bacc46cc678",
+        "qie_resample_only/clothing.png": "81e0b735d88916c7c11eeb11a2033fe59d6a310fbc91d4e4c28af0ee35a28a7f",
+        "qie_resample_only/hair_face.png": "bb2bce1753cdc9de7be3268a33ba64b631bc2210deec21189b652046aeaf1ba2",
+        "qie_resample_only/history.json": "dba919d790509ed1483d98e322c91d38966ba46f1276c190100013f342703eb8",
+        "qie_resample_only/native.png": "05ed41544bc0670775f9cbe68108740e901f7a20e146d0c803e000dff0f977e0",
+        "qie_resample_only/null_stats.json": "54bce94b545d77908cb0de3d0e5d602c05338adc9ad6de1623d8f8cf3d7218e0",
+        "qie_resample_only/occluders.png": "5284a4a719b5ab86e950d4ed1d1e77308f7d08e3c71f9a78784b564b21916515",
+        "qie_resample_only/server.log": "ac104e6542f52c9874304451e5a0980a2a43919f7b90f9c8cf892429e0751a43",
+        "qie_resample_only/server/bootstrap.json": "5ecf2fa67615fdf28ebb38f3fe66b42aca2884a7ada4ec06270a8ae3cdae830e",
+        "qie_resample_only/server/launch.json": "8af453d124d85bc39e920ef17aec983244e64d1f56ec0b8b11c9ec9835927510",
+        "qie_resample_only/server/output/null1_8a5a8e4160a3471bbce0765588d978a9_00001_.png": "05ed41544bc0670775f9cbe68108740e901f7a20e146d0c803e000dff0f977e0",
+        "qie_resample_only/server/user/comfyui.db": "5c9dec1886cc01f5f2307ee1ea87f9b32a4cef0f8f9a2c68beebc558013bedab",
+        "qie_resample_only/server/user/comfyui.db-shm": "7d08e2dca51d33c0e4b6b87ec308131dbcaec8836288d8a29bc31c578d3277f3",
+        "qie_resample_only/server/user/comfyui.db-wal": "1cf11f0f746d79e6481c1948b9d1c6e7e2c43121cf5763997fc9f4a8ddef50f5",
+        "qie_resample_only/server/user/comfyui.db.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "qie_resample_only/sidecar.json": "189397c84ed9c6513e2ceb5dfa05f39eaa26063fecf60f4eecc66cc05321186c",
+        "qie_resample_only/skin.png": "6ccf967758963740b4eec3b980ca1f95c1b07b8dc0a2d42f3ab544fd5c4f0106",
+        "qie_resample_only/support.png": "384d906ce92cf3473c988df8e28f9046e0d7c5cab2bc190d4a53c7d084950e2b",
+        "qie_resample_only/workflow_api.json": "7cd003158e6ad490283e7a2131a945d840eac7e9a76251e17a5a618fa627b89c",
+        "qie_vae_native/O_null1.png": "163a4db96aa9dea4b5690e0658508502869427069d25bbf7c969d5879049f369",
+        "qie_vae_native/background.png": "483c70a2ac2b614efee448bc0d0295c9d11c9d9c4b76dd5bc4c27bacc46cc678",
+        "qie_vae_native/clothing.png": "81e0b735d88916c7c11eeb11a2033fe59d6a310fbc91d4e4c28af0ee35a28a7f",
+        "qie_vae_native/hair_face.png": "bb2bce1753cdc9de7be3268a33ba64b631bc2210deec21189b652046aeaf1ba2",
+        "qie_vae_native/history.json": "6debfdfacbd90b6707fb79f95bc431d22b69d41f83cb75ba0854c0514623712f",
+        "qie_vae_native/native.png": "0c8aad21efb57890920c85e8cdde81b0e2a5a540e72a117ee0a13d43f72a3beb",
+        "qie_vae_native/null_stats.json": "bcfc8f07467d11144aca470d7dc47ef1719024f216331e5e8774a400d550b980",
+        "qie_vae_native/occluders.png": "5284a4a719b5ab86e950d4ed1d1e77308f7d08e3c71f9a78784b564b21916515",
+        "qie_vae_native/server.log": "13aeb2ec49df12ca36fb11bfcc2f43cdc41fae027cdf7121b8d27ef7cafc1670",
+        "qie_vae_native/server/bootstrap.json": "ef43fdb82528d650770186dd12a313b3f25568861891a6b438c145281587264c",
+        "qie_vae_native/server/launch.json": "3b9c72ab19b988cc89398fa200670dc08c10e8f93160aec7f4c5c2f8f8325b2b",
+        "qie_vae_native/server/model_paths.yaml": "a70919234b714b7aad5cfa7356c49ba223ac0cd6f4583a92f8107182dd418c66",
+        "qie_vae_native/server/output/null1_7adf1f07f5504b38ac120b0fd9255924_00001_.png": "0c8aad21efb57890920c85e8cdde81b0e2a5a540e72a117ee0a13d43f72a3beb",
+        "qie_vae_native/server/user/comfyui.db": "5c9dec1886cc01f5f2307ee1ea87f9b32a4cef0f8f9a2c68beebc558013bedab",
+        "qie_vae_native/server/user/comfyui.db-shm": "37143ada695899ff31a3bc183b660e2607f1f7fb591f6ee90b698db970ae8a21",
+        "qie_vae_native/server/user/comfyui.db-wal": "926b48cd196cfbc3580e141ec28c9498993b52c024fc76ae9d4e7169bfff4e36",
+        "qie_vae_native/server/user/comfyui.db.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "qie_vae_native/server/vae.json": "7b5efe17c292f38bc7c84d19fe3e6ef743b65e8cc069706c15c7657c99f15196",
+        "qie_vae_native/sidecar.json": "fd3ee4e1a9cdf45ca744fc9cbdd05cb9c051e6b069815f6468ffa6fa7cd16423",
+        "qie_vae_native/skin.png": "6ccf967758963740b4eec3b980ca1f95c1b07b8dc0a2d42f3ab544fd5c4f0106",
+        "qie_vae_native/support.png": "55b464f7b8592fe2e94fb6af5dcd12d2121ac136fbd76d290abbd05740779aae",
+        "qie_vae_native/workflow_api.json": "010bc4ab90d498d0e981d204cc5983c1a712c3f8b3f295fc518e411926b80062",
+        "r1ei/A_crop_1024.png": "b008907b6e2e5e8a77488f7e6c10e83c133121abb32f3094e49186f7803728c0",
+        "r1ei/O_null1.png": "39255eb005aa3f2bca1c37c1ca01274755cd138becbb99e7fb85b41a8695a8c9",
+        "r1ei/background.png": "483c70a2ac2b614efee448bc0d0295c9d11c9d9c4b76dd5bc4c27bacc46cc678",
+        "r1ei/clothing.png": "81e0b735d88916c7c11eeb11a2033fe59d6a310fbc91d4e4c28af0ee35a28a7f",
+        "r1ei/hair_face.png": "bb2bce1753cdc9de7be3268a33ba64b631bc2210deec21189b652046aeaf1ba2",
+        "r1ei/native.png": "9b46047b8121b573f8444c226eb7cf1362875bedeb0797a4313733efe05bfe26",
+        "r1ei/null_stats.json": "8acd024289bcb8952881073dcbb70b646ae8e74fdd5f90b3ba4924a552be4cd5",
+        "r1ei/occluders.png": "5284a4a719b5ab86e950d4ed1d1e77308f7d08e3c71f9a78784b564b21916515",
+        "r1ei/request.json": "cd286a1774ffb9274c70351d48f01b2fd770eae8fe8895afc2aa60f2a084ebb8",
+        "r1ei/sidecar.json": "7dc4a67a18818795b3523fa70ddb0affbdb3494c224dd73bcc04371cf20ef29e",
+        "r1ei/skin.png": "6ccf967758963740b4eec3b980ca1f95c1b07b8dc0a2d42f3ab544fd5c4f0106",
+        "r1ei/support.png": "527e0bd4b3826df36f5156b66830e5aed68ec0b848084c0c65fdde7d90d3c283",
+        "r1ei/worker.json": "39b774066f73f787218de62c91e6d5f73b0214c31fd46ac9b89aca37ac772fc8",
+        "r1ei/worker.log": "9baac885229f7dcb990afe0325d053b714a408c33aabda054765e39af2ee811e",
+        "r1ei_resample_only/A_crop_1024.png": "b008907b6e2e5e8a77488f7e6c10e83c133121abb32f3094e49186f7803728c0",
+        "r1ei_resample_only/O_null1.png": "befbf59a4e71c03529c6cfd08e8f2fbe2b4cace5e765b432dbb9b02cebe7537b",
+        "r1ei_resample_only/background.png": "483c70a2ac2b614efee448bc0d0295c9d11c9d9c4b76dd5bc4c27bacc46cc678",
+        "r1ei_resample_only/clothing.png": "81e0b735d88916c7c11eeb11a2033fe59d6a310fbc91d4e4c28af0ee35a28a7f",
+        "r1ei_resample_only/hair_face.png": "bb2bce1753cdc9de7be3268a33ba64b631bc2210deec21189b652046aeaf1ba2",
+        "r1ei_resample_only/native.png": "b5e0f06388729ded7d5a44c0d2e9e957c0a7482236e04a41f3aa7fcc00e8ecc2",
+        "r1ei_resample_only/null_stats.json": "77a7aee29e7b5d7a4dfe46746c047375a41360ff4564c35816a749aab6a83373",
+        "r1ei_resample_only/occluders.png": "5284a4a719b5ab86e950d4ed1d1e77308f7d08e3c71f9a78784b564b21916515",
+        "r1ei_resample_only/request.json": "724ba0a00c684ed3e2d82d15eed6979bdf661ba64ae82d5154d78a86aacdcbd4",
+        "r1ei_resample_only/sidecar.json": "d1b2a91870683fe00b577a8039db55d9dadbfb6470648bf330a56c3c1ae544d6",
+        "r1ei_resample_only/skin.png": "6ccf967758963740b4eec3b980ca1f95c1b07b8dc0a2d42f3ab544fd5c4f0106",
+        "r1ei_resample_only/support.png": "527e0bd4b3826df36f5156b66830e5aed68ec0b848084c0c65fdde7d90d3c283",
+        "r1ei_resample_only/worker.json": "64e91f1c9a0c1c1aa77fc74945187c9424c0a74b4d0540568a0f5bdc30de7dd7",
+        "r1ei_resample_only/worker.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "zones/background.png": "483c70a2ac2b614efee448bc0d0295c9d11c9d9c4b76dd5bc4c27bacc46cc678",
+        "zones/clothing.png": "81e0b735d88916c7c11eeb11a2033fe59d6a310fbc91d4e4c28af0ee35a28a7f",
+        "zones/hair_face.png": "bb2bce1753cdc9de7be3268a33ba64b631bc2210deec21189b652046aeaf1ba2",
+        "zones/labels.png": "941b6d78f3808645c6cba6c0bb0c85fe9ce452beaa806f17c28bc4f36028b10a",
+        "zones/occluders.png": "5284a4a719b5ab86e950d4ed1d1e77308f7d08e3c71f9a78784b564b21916515",
+        "zones/request.json": "ce236d74aeb6b9056f2cae87c6c5397312d1331e505b2ff2c2a59edc9c60475d",
+        "zones/sidecar.json": "fbe9a472fe25dc98c4375e259176086a81d1fa515a384ca2a42ce949a217c8a1",
+        "zones/skin.png": "6ccf967758963740b4eec3b980ca1f95c1b07b8dc0a2d42f3ab544fd5c4f0106",
+        "zones/worker.json": "fbe9a472fe25dc98c4375e259176086a81d1fa515a384ca2a42ce949a217c8a1",
+        "zones/worker.log": "0f56cf3ca9cfc172ab659033be39eea24535014bced4d36c18f561ae9751310b"
+      }
+    },
+    "runtime": {
+      "python_version": "3.13.12",
+      "packages": {
+        "torch": "2.12.1+cu130",
+        "numpy": "2.5.2",
+        "Pillow": "12.3.0",
+        "aiohttp": "3.14.3",
+        "psutil": "7.2.2",
+        "av": "18.1.0"
+      }
+    },
+    "comfyui_identity": {
+      "version": "0.38.2",
+      "commit": "daeb5e53681e2b10a3f0727d9ec5bc90784bee10",
+      "source": "comfyui_version.py at pinned commit"
+    },
+    "configurations": {
+      "klein_g0": {
+        "base_route": "klein",
+        "geometry": {
+          "policy": "crop16"
+        },
+        "reference": "executor:klein_crop",
+        "output": "klein_vae_native/native.png",
+        "prediction_upper_bounds": {
+          "support": 8,
+          "skin": 7,
+          "background": 7,
+          "hair_face": 9,
+          "occluders": 10
+        },
+        "prediction_rule": "p995 <= recorded upper bound AND <= informative Pillow p995 in every listed zone; stop on any excess; no +1 allowance"
+      },
+      "qie_g0": {
+        "base_route": "qie",
+        "geometry": {
+          "policy": "kontext_table"
+        },
+        "reference": "qie_resample_only/native.png",
+        "output": "qie/native.png",
+        "prediction": {
+          "support": [
+            7,
+            9
+          ],
+          "hair_face": [
+            10,
+            12
+          ]
+        },
+        "caveat": "uint8 saved reference of float forward: <=0.5 level; D-059"
+      },
+      "r1ei_g0": {
+        "base_route": "r1ei",
+        "geometry": {
+          "crop_box": [
+            -136,
+            193,
+            860,
+            1189
+          ]
+        },
+        "reference": "r1ei/A_crop_1024.png",
+        "output": "r1ei/native.png",
+        "prediction": {
+          "support": [
+            8,
+            10
+          ],
+          "skin": [
+            1,
+            12
+          ],
+          "background": [
+            1,
+            12
+          ],
+          "hair_face": [
+            1,
+            12
+          ],
+          "occluders": [
+            10,
+            13
+          ]
+        },
+        "informative_erosion_internal_px": [
+          4,
+          8
+        ]
+      },
+      "klein_1mp_fallback": {
+        "base_route": "klein",
+        "geometry": {
+          "policy": "1mp"
+        },
+        "reference": "klein_resample_only/native.png",
+        "output": "klein/native.png",
+        "prediction": {}
+      },
+      "fashn_g0": {
+        "base_route": "fashn",
+        "geometry": {},
+        "reference": "fashn/native.png",
+        "output": "fashn/native.png",
+        "operator": "identity_no_reconstruction",
+        "provisional_until_O_null2": true,
+        "measured": false,
+        "tol_provisional": 1
+      }
+    },
+    "cpu_executor_files": [
+      {
+        "path": "comfy/cli_args.py",
+        "sha256": "70be4fb6830ccd7e43df06330f6da31f76c0ad11ee135d04913f5d8c1d9f4cde"
+      },
+      {
+        "path": "comfy/ldm/models/autoencoder.py",
+        "sha256": "24b5a9126539733ef15f36e0d723abde8a8fb3319184083970b385ab918404f0"
+      },
+      {
+        "path": "comfy/ldm/modules/diffusionmodules/model.py",
+        "sha256": "a8e10d29e778007f5133bd870ed74fac478629727c08b81ec39390db3870d867"
+      },
+      {
+        "path": "comfy/ldm/modules/distributions/distributions.py",
+        "sha256": "3ae3040d1e43ecfff4ea9daa7807fa345e28cf93ae5e34d29436d49bb11df772"
+      },
+      {
+        "path": "comfy/ldm/wan/vae.py",
+        "sha256": "b18fdd6d95d9c7093fbc8f2c831dfb36322aa1951c2dd17d32733dac53d689e4"
+      },
+      {
+        "path": "comfy/model_management.py",
+        "sha256": "5da5e127a88abf7b4caf53ca396a3ecfdc332a8a1a9b9e3b9e052a5bd3fc1d08"
+      },
+      {
+        "path": "comfy/ops.py",
+        "sha256": "bf063b4a1b6517e017e3e73e8948caa494177025d71366ae712aaca73f6b9dff"
+      },
+      {
+        "path": "comfy/sd.py",
+        "sha256": "ad1e6a9ff7b4abb48fb55b6054eace19e33f79359e24a0c4067d94a1a80e0e99"
+      },
+      {
+        "path": "comfy/utils.py",
+        "sha256": "9320cf5c624e96acc1d9ec92ff120ed6387a2142707f3194cb21dd0d11ac2500"
+      },
+      {
+        "path": "comfy_api/latest/_input_impl/video_types.py",
+        "sha256": "ca3ab830c3e71706762b03a7b239ce7a198a15abbf78d75de47fb3fb108449b9"
+      },
+      {
+        "path": "comfy_execution/caching.py",
+        "sha256": "edc554b1348f4c5dae50c022b061399ab5be5e06872d73c5c1fedca9bba45ce2"
+      },
+      {
+        "path": "comfy_extras/nodes_cfg.py",
+        "sha256": "688a73094509efcc81bf22bf0e77b2cd8c9f1726f455ed55f6f9747dec656e99"
+      },
+      {
+        "path": "comfy_extras/nodes_flux.py",
+        "sha256": "71c9d804a9acfb7a828fecb8fcc4b93e28f4417f0c4259a68910f4027059741f"
+      },
+      {
+        "path": "comfy_extras/nodes_images.py",
+        "sha256": "f8e171f428e2e81de8d7b1cd582ac4ac82cd7ae5a3c947f118ecf85df920bf50"
+      },
+      {
+        "path": "comfy_extras/nodes_model_advanced.py",
+        "sha256": "34c5065756d925791c7a238f084eefd5ff912e1e84976a2dbe94432deea8ffcc"
+      },
+      {
+        "path": "comfy_extras/nodes_post_processing.py",
+        "sha256": "4ee06e8e5911c844ba49d97e54c90081c539d57e6dc53f1185900e3a79ce4c98"
+      },
+      {
+        "path": "comfy_extras/nodes_qwen.py",
+        "sha256": "54ce02aa9e167c0b497ce026ac6b558f539427d2d1ed4fc1fcc2ec8e6bc529da"
+      },
+      {
+        "path": "comfyui_version.py",
+        "sha256": "0d4bc57295011e355de41288b5f84d7475e30cd180182f98293a35b7539be3cf"
+      },
+      {
+        "path": "execution.py",
+        "sha256": "c9ef8ea11b8cb7aa80d05f670ca457211869d27623991b66d0014fb9b33fb246"
+      },
+      {
+        "path": "folder_paths.py",
+        "sha256": "b748be5d1e068ad673f6c4de069fb6b7b723405c40ae3c3c44465d416f7df2db"
+      },
+      {
+        "path": "main.py",
+        "sha256": "c53127164070bdb209401967faea6d4d458780d8f3518126339393fcaae90019"
+      },
+      {
+        "path": "node_helpers.py",
+        "sha256": "22317a033cce556331bfedc5f4ab6c2833184fd2bbdf9496c9182a4973a7098a"
+      },
+      {
+        "path": "nodes.py",
+        "sha256": "fe624b0c1b6a3cd124a2214e5700b61337589144c2f0668900a04f8ccc031e38"
+      },
+      {
+        "path": "server.py",
+        "sha256": "12545dbc44f56ce4c8ae696832925baedf0eecd2879c4e23bae3469411d7593c"
+      }
+    ]
+  },
+  "prepared_g0_workflows": {
+    "klein_benchmark_source_api.json": {
+      "file": "klein_benchmark_source_api.json",
+      "sha256": "39aba22c254db14bfbf0414c21b2319e248d706eed6f2efbe13a4b435029daf1"
+    },
+    "klein_g0_crop_api.json": {
+      "file": "klein_g0_crop_api.json",
+      "sha256": "87701820d1da48dfd48055e78c55cf278ca80bec128d693eed7bf8ce59f3020c"
+    }
+  },
+  "prepared_g0_workflows_note": "NOT EXECUTED. Crop template for pinned A only; regenerate tuple/null for each frozen G0 case. Only node92:111 changed; B keeps node92:85 nearest-exact 1MP; VAE92:110 unchanged. No G0 runner enabled.",
+  "shared_code": {
+    "null_geometry": {
+      "file": "../null_geometry.py",
+      "sha256": "dbd942800f93df39f3bf06bf6aa59c3a8daabd3f8a389250586ec7d81c394f81"
+    }
+  },
+  "cpu_workflows": {
+    "klein_crop": {
+      "file": "klein_crop_api.json",
+      "sha256": "39d4e60369deda055267acbb43099914b6d7650b1c6578435fc95e2a54dd3f40",
+      "output_grid": [
+        720,
+        1536
+      ],
+      "device": "cpu",
+      "decision": "D-059a"
+    }
   }
 }

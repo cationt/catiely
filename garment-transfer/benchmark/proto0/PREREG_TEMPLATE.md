@@ -63,19 +63,29 @@ Braço que não cria a peça em EASY é rotulado **replace-only** e sai sem disc
 | … | | | | |
 
 ## 3. Rotas, braços e seeds
+
+**Emenda D-059:** tuplas abaixo a congelar por caso antes do G0. A Parte 2 preparada na A pinada do lote 2 calibra contrato/teto e **não é a nula dos casos G0**; cada (rota × SHA de A × tupla) exige sua própria nula schema 2. G0 permanece pendente de D-060 e auditor v7.
+
 | Rota | Braços | Seeds | Resolução | Observações |
 |---|---|---|---|---|
-| R1 klein 4B fp8 | E0′, E1, E1′, E1″, E2a, E2b | 1,2,3 | 1024 lado maior | guidance fixo 1.0, 4 passos |
-| R1-EI klein-base-4B + Easy-Insert | E4 | 1,2,3 | 1024² (recorte) | 15 passos (NV); medir frio |
-| R3 FASHN 1.5 | seg-free; mascarado | 1,2,3 | ≤ 576×864 | só auditoria em O′ |
+| R1 klein 4B fp8 | E0′, E1, E1′, E1″, E2a, E2b | 1,2,3 | crop central para múltiplos de 16, sem reescala até 1,1 MP; acima, escala 1 MP com nula própria | guidance fixo 1.0, 4 passos |
+| R1-EI klein-base-4B + Easy-Insert | E4 | 1,2,3 | caixa da máscara de inserção congelada ×1,2 → 1024² | suspenso até Parte 2 / D-060 |
+| R3 FASHN 1.5 | seg-free; mascarado | 1,2,3 | fit 864 → ResizePad 576×864 → unpad | auditoria engine na saída unpad; sem decisão G0 antecipada |
 | R2 QIE-2511 Q5 | E0 (sweep), E0′, E4, E3 (depth MoGe como ref.; patch Blockwise NV); E2b só se E2 mostrar sinal em klein (`06` §7) | 1 (2 se couber) | 544×960 | sob H4 |
 | R4 CatVTON | máscara desenhada = envelope \ FO; B plana e B vestida recortada; política a/b/c | 1,2,3 | 1024×768 | NC |
 | R8 two-pass FASHN→klein | — | 1,2,3 | — | máscara derivada de O′_FASHN só para gerar |
 
+Klein: `cw = 16 floor(W/16)`, `ch = 16 floor(H/16)`, offset `((W−cw)//2, (H−ch)//2)`. O workflow G0 substituirá `ImageScaleToTotalPixels` (92:111 do workflow medido) por `ImageCrop` diretamente em A; nenhum nó de escala no caminho de A, caminho de B declarado, VAE 92:110 inalterado, grafo importado e pinado. **Smoke de memória n=3 cold somente se algum crop exceder 1 MP**, antes de G0, via `measure_run.py`, exit 0, `oom:false`, `deadline_hit:false`, evidência em `benchmark/measurements/`; esta preparação não executa smoke.
+
+QIE: G0 usa **544×960**, distinto da Parte 2 desta A (**688×1504**, produzida por `FluxKontextImageScale`). A tabela pinada de `FluxKontextImageScale` não contém 544×960; o workflow local 0,5 MP declara `ImageScale` Lanczos/center para essa grade. Registrar executor/grafo efetivo, sem apresentar 544×960 como entrada literal da tabela de 1 MP. R1-EI mantém caixa/validade por caso (sem substituir por insertion mask na estatística); FASHN registra a saída efetiva do unpad (407×864 nesta A). Nulas só valem para suas tuplas exatas.
+
 ## 4. Distribuição nula (antes de qualquer veredito)
-- `O_null1` = VAE encode/decode de cada A (denoise 0, mesma resolução interna e reprojeção) por rota.
-- `O_null2` = pipeline completo em `same_garment_noop`.
-- Registrar |O_null − A| por zona (pele, fundo, oclusores): **τ_null = p99,5**; `min_*_identity = (1 − fração acima de τ_null na nula) − margem`; ΔE mínimo em BAND_MIN = p95 do no-op. Publicar em `runs/proto0/null/`.
+
+- **O_null1 Parte 2:** piso sem edição na grade interna contra `A_fwd` do mesmo executor pinado, sem `reproject()`. Métrica normativa `max_RGB(abs(uint8 O_null1 − uint8 A_fwd))`, p99,5 somente em suporte ∩ zona, `tol = max(1, ceil(p99,5))`. Suporte exclui pixels copiados de A; validade de caixas fora do canvas levada por nearest, sem erosão normativa. Zonas da A do lote 2 vêm do parser pinado (skin, background, hair_face, occluders; clothing informativa), levadas por nearest. Os pisos com inverso da Parte 1 permanecem preservados; não se muda sua métrica/reprojeção nem se reclassifica Klein 21 ou FASHN 15.
+- **Schema 2:** `grid` (rota, largura/altura, forward_policy, scale_linear, raios internos), hashes de A original / `A_fwd` / O_null1 / suporte / zonas, `counts.canvas` interno, contagens por zona, support_fraction, p50/p95/p99/p99,5/max, `frac_above_tol` por suporte e zona, `kind: O_null1`, versões Pillow/ComfyUI em route_config. Publicar `counts.by_zone.<zona>.support` e cauda `0,005 × n` junto à tolerância; cauda < 100 px → tolerância da zona apenas informativa, aplica-se o escalar. Teto 12 para escalar e cada zona de O_null1 permanece; não forçar R1-EI ≤ 12.
+- **Parte 2 da A pinada:** Klein720×1536 vs saída LoadImage→ImageCrop(2,0)→SaveImage do executor CPU pinado (D-059a, PyAV não reimplementada); QIE688×1504 vs resample-only (referência uint8 do forward float, diferença de quantização ≤ 0,5 nível registrada); R1-EI1024² vs A_crop_1024 (erosões4/8 apenas colunas informativas); fallback Klein1MP704×1488 vs resample-only. FASHN407×864 é `identity_no_reconstruction`, tol1, `provisional_until_O_null2:true`, **não medida**. Klein: predição ≤8/7/7/9/10; excesso sobre esses limites ou sobre Pillow em qualquer zona interrompe. Estatística contra Pillow e diferença entre decodificadores, p99,5/máximo, são informativas no mesmo JSON; registrar versões PyAV/Pillow. Histórico não reescrito. Demais predições de `03` §7b inalteradas; não escolher erosão/teto alternativo. A do Proto0 em PNG; JPEG restrito à A pinada.
+- **O_null2** = pipeline completo `same_garment_noop`, futuramente, com máscaras humanas congeladas do Proto0. Aplicabilidade do teto a O_null2 é decisão D-060; sem decisão explícita, ela é informativa.
+- **Frações ainda não decididas:** `min_*_identity = (1 − frac_above_tol na nula) − margem`, a derivar em **D-060**, sem assumir 1,0/0,98 para engine. ΔE mínimo em BAND_MIN = p95 do no-op. PROTECTED1,0 fica apenas no composed. Publicar em `runs/proto0/null/` e congelar cada nula por SHA de A e tupla no FREEZE; v7 rejeitará schema1 em todos os perfis.
 
 ## 5. Limiares (valores exatos usados, com origem)
 | Métrica | Limiar | Origem |
@@ -87,18 +97,22 @@ Braço que não cria a peça em EASY é rotulado **replace-only** e sai sem disc
 | hand_keypoint_shift | ≤ … | calibrado no controle negativo |
 | unchanged_in_band_without_garment / uncovered_coverable_identity | ≥ … | derivado da nula |
 | excess_forbidden_frac | ≤ 0,02 | provisório |
-| **franja C3** (`contact_fringe_px` ao redor de G) | \|ΔL\| ≤ 12 **e** Δchroma ≤ 6 por pixel; ≤ 5 % dos pixels da franja violando; correlação de estrutura de gradiente (A vs O′ na franja) ≥ 0,6 | provisório — recalibrar com a nula; muda só em PREREG v2 |
+| **franja C3** (`contact_fringe_px` ao redor de G) | \|ΔL\| ≤ 12 **e** Δchroma ≤ 6 por pixel; ≤ 5 % dos pixels da franja violando; correlação de estrutura de gradiente (`A_fwd` vs O′ na franja interna) ≥ 0,6 | provisório — recalibrar com a nula; muda só em PREREG v2 |
 | **split_by_garment_edge** (por elemento) | cobertura de `split_must_cover_mask` por G ≥ 0,90; tecido sobre `split_must_stay_visible_mask` ≤ 0,02; identidade de `split_must_stay_visible_mask` ≥ limiar derivado da nula; **zona de fronteira** (elemento ∩ UNCERTAIN): cada pixel é G **ou** idêntico a A (dentro de τ_null) — nada intermediário | provisório (cobertura/tecido); nula (identidade) |
 | **fidelidade à peça** (`tools/garment_fidelity_audit.py`) | adjudicação **cega** dos atributos congelados em `expected.garment_attributes` (humano, saídas por hash): **categoria eliminatória**; distância entre centróides de croma Lab (a*,b*) de G em O′ e de `expected.b_garment_mask` em B ≤ 12 (`--max-chroma-distance`) **e** interseção dos histogramas de matiz (36 bins, croma > 5) ≥ 0,40 (`--min-hue-intersection`); L* só reportado (iluminação A ≠ B); ambos provisórios, calibrar no `same_garment_noop`; DINOv2 cos-sim (G em O′ vs peça em B) **acima da baseline de peça aleatória** — só reporte, não decide | provisório / baseline medida no próprio run |
-| **tol_engine** (identidade de pixel em O′) | p99,5 de \|A_ref − A\| por zona (`--a-ref`, O_null1) | nula |
+| **tol_engine** (identidade de pixel em O′ interno) | `tol_p995_support` e tolerâncias por zona do `--null-stats` schema2 normativo; cauda de zona <100px → escalar; `--a-ref` é somente cross-check contra `A_fwd` | O_null1 interna, D-059; frações/margens pendentes D-060 |
 | franja: `--g-boundary-err-px` | ≤ 2 px (erro de borda calibrado do segmentador G; anel interno da franja não julgado) | calibração de G (00 §4.4) |
 | franja: `--max-fringe-excluded-frac` | ≤ 0,25 da banda excluída pela franja; acima → INCONCLUSIVO | fixo (anti-diluição) |
-| nula: `--max-tol-engine` | p99,5 da nula ≤ 12; acima → nula não aceita → INCONCLUSIVO | fixo (credibilidade) |
+| nula: `--max-tol-engine` | tol ≤ 12 no escalar e em cada zona de O_null1 na grade interna; acima → nula não aceita → INCONCLUSIVO; O_null2 depende de D-060 | fixo (credibilidade), D-059 |
 | fidelidade: `--min-chroma-inlier-fraction` | ≥ 0,60 dos pixels de G a ≤ 12 do centróide (a*,b*) de B | provisório |
 | fidelidade: `--max-achromatic-delta-l` | peças acromáticas: |ΔL*| médio ≤ 30 (branco vs preto não é iluminação) | provisório |
 | adjudicação cega | `blind`, `catch_trials_passed`, `evaluator_id`, `date`, `case_id`, `output_sha256` (= sha de O′) obrigatórios | fixo |
 | O composto no gate | quando fornecido, FAIL/INCONCLUSIVO do alvo composto vincula o caso (entrega) | fixo |
 | **tol_composed** (identidade de pixel em O) | **0** — contrato exato em PROTECTED (`frozen_annotation.protected_mask` = `<case>_PR.png`, resolvido do manifesto) e núcleo dos oclusores | contrato (`docs/00` §4) |
+
+`thresholds` conserva valores em px de A, incluindo `contact_fringe_px` congelado e `g_boundary_err_px` inalterado (CLI ≤2). Só o raio de contato interno é `max(1, floor(v × s + 0,5))`, em `grid.contact_fringe_px_internal`, fora de `thresholds`; `s` é a escala linear efetiva após crop. Keypoints pela afim, pontos fora descartados/contados e `--person-scale-px` escalado. O′/máscaras incompatíveis com grid → `INCONCLUSIVO:grid_mismatch`; BAND_MIN fora do domínio → `INCONCLUSIVO:engine_domain_excludes_band`. O auditor confere SHA de `A_fwd` e não reimplementa geometria. G interno tem o mesmo SHA nos dois auditores; composed exige `Gc = nearest(G_int)` e `--garment-mask-composed` se grid ≠ A, colagem ⊆ Gc ∪ franja(8) de A, seam apenas contra O′ reprojetada por política registrada ou removida.
+
+Diagnóstico FASHN futuro, não normativo: mesmos O′/G e SHAs auditados também com `--profile minimal --tol-engine 8` e `12`, `gate_eligible=false`, fora do índice do gate, ao lado de tol1; limiares da franja escalam com a tolerância. Não antecipa aprovação/reprovação G0. [Contrato v7 proposto](../../docs/AUDITOR_V7_CONTRACT.md): implementação e fixtures só após D-060; nenhum diagnóstico ou G0 executado nesta preparação.
 
 ## 6. Regra de agregação
 - Por caso: **mediana sobre seeds** decide; reportar também a **pior seed**.

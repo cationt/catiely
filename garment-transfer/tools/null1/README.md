@@ -1,6 +1,39 @@
 # O_null1 — distribuição nula e controles diagnósticos (D-057/D-058)
 
-**Controles D-058 PREPARADOS, NÃO MEDIDOS.** Nenhum `Generate` ou GPU foi executado neste patch. A Klein normativa já foi medida pelo operador no lote `20261010T162735Z_1b40ed495243` e permanece `INCONCLUSIVE:null_distribution_not_credible`: suporte21, skin18, background22, hair_face19, occluders23. Os35 arquivos desse lote são preservados; hashes do batch/sidecar/estatísticas estão registrados no manifesto. D-057 permanece histórico; teto12, métrica, VAE e reprojeção normativa permanecem inalterados. Parada no commit para revisão do Claude. O_null2, Proto0/G0, E1/E2 e tuning permanecem fora desta etapa.
+**Parte 2 D-059/D-059a PREPARADA, NÃO DERIVADA.** O lote 2 medido pelo operador (`20261010T170913Z_63cfc8e35a3c`) está pinado integralmente: 183 arquivos com SHA256 exato em `manifest.json → part2.source_lot.files`, incluindo native, crops, supports, zonas e logs. Conferido contra o CSV do operador e um snapshot independente, antes e depois da preparação. Nenhum `Derive` real, `Generate`, GPU ou G0 foi executado neste patch. Parada no commit para revisão do Claude; nenhuma decisão D-060.
+
+## Parte 2 — execução futura em CPU
+
+`run_null1.ps1 -Mode Derive` usa a lista `PART2`, separada da ordem de geração D-058. Cria um novo diretório `<UTC>_part2_<UUID>` em `runs/proto0/null/`, recusa destinos dentro do lote de origem, exige árvore limpa e confere o conjunto completo de arquivos e seus hashes antes/depois. Não instala ou baixa dependências. Usa Python3.13.12, NumPy2.5.2, Pillow12.3.0, PyAV18.1.0 e o ComfyUI0.38.2/commit `daeb5e53…`, com fontes e demais versões pinadas. O executor da referência Klein usa processo próprio `--cpu`, CUDA oculta, nenhum modelo carregado, guard offline, log DEBUG, sidecar, history com cache vazio e SHA do PNG.
+
+| Entrada PART2 | Comparação interna, sem `reproject()` |
+|---|---|
+| `klein_g0` | `klein_vae_native/native.png` contra **saída do `klein_crop_api.json`**: LoadImage → ImageCrop720×1536 offset(2,0) → SaveImage. Não reimplementa PyAV. |
+| `qie_g0` | `qie/native.png` contra `qie_resample_only/native.png`,688×1504. Caveat D-059: referência uint8 do forward float, ≤0,5 nível. |
+| `r1ei_g0` | `r1ei/native.png` contra `r1ei/A_crop_1024.png`,1024². Suporte=validade nearest, sem erosão normativa; erosões4/8 internas só informativas. |
+| `klein_1mp_fallback` | `klein/native.png` contra `klein_resample_only/native.png`,704×1488, sem predição. |
+| `fashn_g0` | Identidade por definição407×864, `identity_no_reconstruction`, tol1, `measured:false`, `provisional_until_O_null2:true`. |
+
+Cada entrada publica `A_forward.png`, `O_null1.png` (cópia do artefato preservado), `support.png`, cinco zonas internas, `null_stats.json` schema2 e sidecar. FASHN copia a mesma imagem para os dois lados e declara a definição; não apresenta isso como medição de reconstrução. Klein também publica a referência do executor com workflow/history/log/sidecar e `A_Pillow_crop.png`, usado **somente** nas colunas informativas. Nenhum JSON histórico é reescrito.
+
+Schema2 conserva métrica maxRGB/8bits e percentis linear/p99,5, com hashes de A original, A_forward, O_null1, suporte e zonas; `grid`, tupla e versões em `route_config`; contagens internas, cauda `0,005*n`, support_fraction e `frac_above_tol`. `tol_p995_by_zone` registra o valor observado inclusive em zonas pequenas; `zone_tolerance_normative` marca se a cauda tem ≥100px; `tol_applied_by_zone` usa o escalar quando informativa/ausente. `frac_above_tol` é fração estritamente acima da tolerância **aplicada**, não da tolerância informativa. Teto12 no escalar e nas zonas normativas; nenhuma fração mínima/margem é escolhida. `contact_fringe_px_internal` fica `null` nesta calibração sem caso congelado; o módulo calcula o raio quando recebe o limiar congelado do caso, sem inventar default.
+
+**D-059a:** no mesmo JSON Klein, `informative.pillow_reference` reporta o erro contra Pillow e `informative.executor_minus_pillow` reporta |A_PyAV−A_Pillow|, ambos com p99,5/máximo por suporte/zona. A estatística normativa usa exclusivamente A_forward. Se seu p99,5 exceder **8/7/7/9/10** (suporte/skin/background/hair_face/occluders) **ou** o p99,5 contra Pillow em qualquer dessas zonas, inclusive uma zona informativa, preservar JSON/sidecars e **interromper** com INCONCLUSIVE/exit3; não há margem+1 nesse caso. Outras rotas mantêm D-059: teto excedido ou predição divergente → INCONCLUSIVE, lote continua; erro operacional/deadline/pin/verdict inválido → interrupção/exit1. Sem inconclusão, exit0 significa derivação concluída para revisão, não aprovação de G0.
+
+`tools/null_geometry.py` fornece grades variáveis, máscaras nearest, suporte e keypoints afins; participa dos pins e de `code_identity()`. O workflow medido Klein foi importado em `klein_benchmark_source_api.json`, com conteúdo pinado em LF conforme `.gitattributes` e SHA original preservado no manifesto; `klein_g0_crop_api.json` altera só92:111 para crop, mantém VAE92:110 e escala de B92:85. É uma preparação para a A pinada, sem runner G0 habilitado. Cada futuro caso exige sua tupla/nula própria. Um MP segue o nó oficial:1024² pixels; smoke de memória apenas para crop>1MP, nunca executado aqui.
+
+Comando **somente após revisão do Claude**, na raiz do checkout (PowerShell5.1):
+
+```powershell
+Set-Location 'C:\Users\henri\OneDrive\Documentos\W3_REBUILD\catiely'
+powershell -NoProfile -ExecutionPolicy Bypass -File .\garment-transfer\tools\null1\run_null1.ps1 -Mode Derive
+```
+
+Fechar servidores ComfyUI antes desse comando: o executor CPU usa processo próprio e porta8197. Não executar `Generate` nem setup GPU para a Parte 2. Após os números: D-060 → implementação do auditor v7 → FREEZE por caso → G0. [Proposta v7](../../docs/AUDITOR_V7_CONTRACT.md); o executável permanece v6, sem aceitar os novos artefatos como calibração G0.
+
+## Registro histórico da Parte 1 e D-058
+
+O restante deste documento registra a preparação anterior e seus comandos históricos. A Klein do lote `20261010T162735Z_1b40ed495243` permanece INCONCLUSIVE:21/18/22/19/23; seus35 arquivos foram preservados. Os nove runs do lote2 foram medidos pelo operador e lidos na D-059. Teto, métrica, VAE, inversos e JSONs históricos permanecem inalterados.
 
 ## Contrato congelado
 

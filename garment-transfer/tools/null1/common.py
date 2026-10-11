@@ -2,12 +2,15 @@
 import hashlib
 import json
 import math
+import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))
+from null_geometry import forward_grid
 ZONES = {"skin": [12, 14, 16, 15], "background": [0], "hair_face": [1, 2],
          "occluders": [13], "clothing": [3, 4, 5, 6, 7, 10]}
 NORMATIVE_ZONES = ("skin", "background", "hair_face", "occluders")
@@ -70,22 +73,32 @@ def zones_from_labels(labels):
     return {name: np.isin(labels, ids) for name, ids in ZONES.items()}
 
 
-def geometry(route, size=(725, 1536)):
+def geometry(route, size=(725, 1536), parameters=None):
     """Pixel-edge coordinates; support membership uses original pixel centers."""
-    require(tuple(size) == (725, 1536), "only the pinned A geometry is prepared")
+    require(len(size) == 2 and all(type(v) is int and v > 0 for v in size), "invalid A geometry")
     w, h = size
     if route in ("klein_resample_only", "qie_resample_only"):
-        return geometry(route.removesuffix("_resample_only"), size)
+        return geometry(route.removesuffix("_resample_only"), size, parameters)
     if route in ("klein_vae_native", "qie_vae_native"):
         # Same integer center convention as pinned VAE cropping: (725-720)//2.
-        x = (w - 720) // 2
-        return {"scaled": [720, h], "internal": [720, h], "box_on_A": [x, 0, x+720, h],
-                "inverse": "paste exact 720x1536 crop; no resize"}
+        multiple = 16 if route == "klein_vae_native" else 8
+        cw,ch = w//multiple*multiple,h//multiple*multiple
+        require(cw > 0 and ch > 0, "A smaller than VAE multiple")
+        x,y = (w-cw)//2,(h-ch)//2
+        return {"scaled": [cw, ch], "internal": [cw, ch], "box_on_A": [x, y, x+cw, y+ch],
+                "inverse": f"paste exact {cw}x{ch} crop; no resize"}
     if route == "r1ei_resample_only":
-        return {"scaled": [1024, 1024], "internal": [1024, 1024], "native": [996, 996],
-                "box_on_A": [-136, 193, 860, 1189],
-                "inverse": "Pillow LANCZOS 1024->996 in worker; paste whole box; no insertion mask"}
+        geo = geometry("r1ei", size, parameters)
+        side = geo["box_on_A"][2]-geo["box_on_A"][0]
+        return {"scaled": [1024, 1024], "internal": [1024, 1024], "native": [side, side],
+                "box_on_A": geo["box_on_A"],
+                "inverse": f"Pillow LANCZOS 1024->{side} in worker; paste whole box; no insertion mask"}
     if route == "klein":
+        grid = forward_grid("klein", size, parameters or {"policy":"1mp"})
+        if grid["scale_linear"] == 1 and "no resize" in grid["forward_policy"]:
+            cw,ch = grid["width"],grid["height"]
+            return {"scaled":[cw,ch], "internal":[cw,ch], "box_on_A":grid["box_on_A"],
+                    "inverse":f"paste exact {cw}x{ch} crop; no resize"}
         scale = math.sqrt(1024 * 1024 / (w * h))
         sw, sh = round(w * scale), round(h * scale)
         # sd.VAE.vae_encode_crop_pixels: spatial compression=16 for Flux2 BN VAE.
@@ -95,16 +108,21 @@ def geometry(route, size=(725, 1536)):
                 "box_on_A": [x*w/sw, y*h/sh, (x+cw)*w/sw, (y+ch)*h/sh],
                 "inverse": "Pillow affine BICUBIC, pixel-edge map; support by pixel centers"}
     if route == "qie":
-        sw, sh = 688, 1504  # pinned FluxKontextImageScale table choice for A
-        x = round((w - h * sw / sh) / 2)
-        return {"scaled": [sw, sh], "internal": [sw, sh], "box_on_A": [x, 0, w-x, h],
+        grid = forward_grid("qie", size, parameters or {"policy":"kontext_table"})
+        sw,sh = grid["width"],grid["height"]
+        return {"scaled": [sw, sh], "internal": [sw, sh], "box_on_A": grid["box_on_A"],
                 "inverse": "Pillow LANCZOS to exact integer source crop, paste whole box"}
     if route == "r1ei":
+        if parameters is None:
+            require(tuple(size) == (725,1536), "R1-EI case requires explicit frozen crop parameters")
+            parameters = {"crop_box":[-136,193,860,1189]}
+        grid = forward_grid("r1ei", size, parameters)
         return {"scaled": [1024, 1024], "internal": [1024, 1024],
-                "box_on_A": [-136, 193, 860, 1189],
-                "inverse": "Pillow LANCZOS to 996x996, paste whole box; no insertion mask"}
+                "box_on_A": grid["box_on_A"],
+                "inverse": f"Pillow LANCZOS to {grid['box_on_A'][2]-grid['box_on_A'][0]}x{grid['box_on_A'][3]-grid['box_on_A'][1]}, paste whole box; no insertion mask"}
     require(route == "fashn", "unknown route")
-    return {"scaled": [407, 864], "internal": [576, 864], "unpad": [407, 864],
+    grid = forward_grid("fashn",size,parameters)
+    return {"scaled": grid["mask_steps"][0]["resize"], "internal": [576, 864], "unpad": [grid["width"],grid["height"]],
             "box_on_A": [0, 0, w, h], "inverse": "Pillow LANCZOS to original A canvas"}
 
 

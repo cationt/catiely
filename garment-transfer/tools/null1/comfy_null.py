@@ -110,9 +110,23 @@ def execution_graph(graph):
     return {key: {k: v for k, v in node.items() if k != "is_changed"} for key, node in graph.items()}
 
 
+def workflow_entry(manifest, route):
+    return manifest["cpu_workflows"][route] if route == "klein_crop" else manifest["workflows"][route]
+
+
+def validate_cpu_graph(graph):
+    require(set(graph) == {"A","crop","save"}, "CPU reference must contain only LoadImage/ImageCrop/SaveImage")
+    require({k:v["class_type"] for k,v in graph.items()} ==
+            {"A":"LoadImage","crop":"ImageCrop","save":"SaveImage"}, "CPU reference cannot execute model nodes")
+    require(graph["crop"]["inputs"] == {"image":["A",0],"width":720,"height":1536,"x":2,"y":0}
+            and graph["save"]["inputs"]["images"] == ["crop",0], "CPU reference crop/edges changed")
+
+
 def workflow_vae(route, paths):
     manifest = frozen()
-    graph = read_json(HERE/manifest["workflows"][route]["file"])
+    graph = read_json(HERE/workflow_entry(manifest,route)["file"])
+    if route == "klein_crop":
+        validate_cpu_graph(graph)
     loaders = [node for node in graph.values() if node["class_type"] == "VAELoader"]
     if not loaders:
         require(not any(node["class_type"] in ("VAEEncode", "VAEDecode") for node in graph.values()), "VAE without loader")
@@ -139,7 +153,10 @@ def vae_evidence(session, graph):
 async def prompt(session, a_path, directory, route, deadline, evidence):
     import aiohttp
     manifest = frozen()
-    graph = read_json(HERE/manifest["workflows"][route]["file"])
+    entry = workflow_entry(manifest,route)
+    graph = read_json(HERE/entry["file"])
+    if route == "klein_crop":
+        validate_cpu_graph(graph)
     name = f"A_{session['server_id']}{Path(a_path).suffix}"
     graph["A"]["inputs"]["image"] = name
     prefix = "null1_"+session["server_id"]
@@ -156,6 +173,11 @@ async def prompt(session, a_path, directory, route, deadline, evidence):
                 bootstrap = read_json(session["bootstrap"])
                 require(bootstrap["server_id"] == session["server_id"] and bootstrap["pid"] in owned_pids(session["pid"]), "bootstrap identity mismatch")
                 require(bootstrap["loaded_models"] == 0, "cold model manager not empty")
+                if route == "klein_crop":
+                    require(bootstrap.get("device") == "cpu" and bootstrap.get("cuda_initialized") is False,
+                            "CPU crop bootstrap did not prove CPU execution")
+                    require(bootstrap.get("packages") == manifest["part2"]["runtime"]["packages"],
+                            "CPU crop runtime differs from pinned supervisor")
                 break
             except (OSError, ValueError, RuntimeError) as error:
                 last = str(error)
@@ -199,7 +221,8 @@ async def prompt(session, a_path, directory, route, deadline, evidence):
         source = directory/"server/output"/item["filename"]
         from PIL import Image
         with Image.open(source) as im:
-            require(im.mode == "RGB" and list(im.size) == geometry(route)["internal"], "native output mode/grid mismatch")
+            expected = entry["output_grid"] if route == "klein_crop" else geometry(route)["internal"]
+            require(im.mode == "RGB" and list(im.size) == expected, "native output mode/grid mismatch")
             require(execution_graph(json.loads(im.info.get("prompt", "{}"))) == graph, "PNG graph metadata mismatch")
             im.verify()
         with source.open("rb") as origin, (directory/"native.png").open("xb") as destination:
@@ -216,25 +239,31 @@ def generate(route, directory, paths, a_path, port, deadline, evidence):
     for folder in ("input", "output", "user", "temp"):
         (directory/"server"/folder).mkdir(parents=True, exist_ok=False)
     core = paths["core"]
+    cpu_only = route == "klein_crop"
     vae, compression = workflow_vae(route, paths)
     model_paths = directory/"server/model_paths.yaml"
     if vae is not None:
         write_new(model_paths, {"null1": {"is_default": True, "vae": str(vae.parent)}})
-    flags = ["--listen", "127.0.0.1", "--port", str(port), "--verbose", "DEBUG", "--log-stdout", "--bf16-vae",
+    flags = ["--listen", "127.0.0.1", "--port", str(port), "--verbose", "DEBUG", "--log-stdout",
              "--disable-auto-launch", "--disable-api-nodes", "--disable-all-custom-nodes",
              "--front-end-root", str(core/".venv/Lib/site-packages/comfyui_frontend_package/static")]
+    flags += ["--cpu"] if cpu_only else ["--bf16-vae"]
     if vae is not None:
         flags += ["--extra-model-paths-config", str(model_paths)]
     for folder in ("input", "output", "user", "temp"):
         flags += ["--"+folder+"-directory", str(directory/"server"/folder)]
-    session = {"action": "generate", "server_id": server_id, "core": str(core), "vae": str(vae) if vae else None, "flags": flags, "port": port,
+    session = {"action": "derive_reference" if cpu_only else "generate", "cpu_only":cpu_only,
+               "server_id": server_id, "core": str(core), "vae": str(vae) if vae else None, "flags": flags, "port": port,
                "bootstrap": str(directory/"server/bootstrap.json"), "vae_evidence": str(directory/"server/vae.json") if vae else None,
                "vae_spatial_compression": compression,
                "launch_path": str(directory/"server/launch.json")}
     write_new(session["launch_path"], session)
+    environment = dict(os.environ,PYTHONUTF8="1")
+    if cpu_only:
+        environment["CUDA_VISIBLE_DEVICES"] = "-1"
     with (directory/"server.log").open("xb") as log:
         process = subprocess.Popen([sys.executable, "-u", str(HERE/"launch_server.py"), session["launch_path"]],
-                                   cwd=core, stdout=log, stderr=subprocess.STDOUT, env=dict(os.environ, PYTHONUTF8="1"),
+                                   cwd=core, stdout=log, stderr=subprocess.STDOUT, env=environment,
                                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         created = psutil.Process(process.pid).create_time()
         session.update(process=process, pid=process.pid, created=created)

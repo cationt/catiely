@@ -44,8 +44,10 @@ class Geometry(unittest.TestCase):
         self.assertTrue(n.support_for_geometry(A.size, n.geometry("r1ei"))[500,0])
 
     def test_wrong_shape_fail_closed(self):
+        # D-059 geometry supports case sizes; model output mismatch still fails.
+        self.assertEqual(n.geometry("qie", (544,960), {"policy":"544x960"})["internal"],[544,960])
         with self.assertRaises(ValueError):
-            n.geometry("qie", (544,960))
+            n.geometry("r1ei", (544,960))  # a new case needs its frozen crop
         with self.assertRaises(ValueError):
             n.reproject(Image.new("RGB",(725,1536)), Image.new("RGB",(544,960)), "qie")
 
@@ -76,7 +78,7 @@ class Geometry(unittest.TestCase):
     def test_launcher_isolates_core_path_against_namespace_shadowing(self):
         saved = list(sys.path)
         try:
-            sys.path[:] = [str(launch_server.HERE), "keep-me", "/core-x"]
+            sys.path[:] = [str(launch_server.HERE), str(launch_server.HERE.parent), "keep-me", "/core-x"]
             launch_server.isolate_core_path("/core-x")
             self.assertEqual(sys.path, [str(Path("/core-x").resolve()), "keep-me"])
         finally:

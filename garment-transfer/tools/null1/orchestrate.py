@@ -1,4 +1,4 @@
-"""O_null1 preparation/verification/generation. Default Plan never opens a model."""
+"""O_null1 Plan/Verify/Generate and D-059 CPU-only Derive. Default Plan opens no model."""
 import argparse
 import json
 import os
@@ -28,6 +28,11 @@ def plan():
         result["routes"][route] = {**config, "geometry": geo, "planned_support_pixels": int(support.sum()),
                                    "planned_support_fraction": float(support.mean()),
                                    "workflow": manifest["workflows"].get(route)}
+    result["part2"] = {"status":"PREPARED_NOT_DERIVED", "cpu_only":True,
+                       "order":manifest["part2"]["order"],
+                       "configurations":manifest["part2"]["configurations"],
+                       "reference_workflow":manifest["cpu_workflows"]["klein_crop"],
+                       "source_file_count":manifest["part2"]["source_lot"]["file_count"]}
     return result
 
 
@@ -63,7 +68,8 @@ def worker(job, python, directory, deadline):
 
 
 def code_identity():
-    return {p.name: sha256(p, lf=True) for p in sorted(HERE.iterdir()) if p.suffix in (".py", ".json", ".ps1")}
+    return {**{p.name: sha256(p, lf=True) for p in sorted(HERE.iterdir()) if p.suffix in (".py", ".json", ".ps1")},
+            "../null_geometry.py":sha256(HERE.parent/"null_geometry.py",lf=True)}
 
 
 def validate_ceiling(stats):
@@ -189,7 +195,7 @@ def generate(args, paths):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--mode", choices=["Plan", "Verify", "Generate"], default="Plan")
+    ap.add_argument("--mode", choices=["Plan", "Verify", "Generate", "Derive"], default="Plan")
     ap.add_argument("--w3-root", type=Path, default=Path.home()/"OneDrive/Documentos/w3-measure")
     appdata = Path(os.environ.get("LOCALAPPDATA", str(Path.home()/"AppData/Local")))
     ap.add_argument("--core", type=Path, default=appdata/"Comfy-Desktop/ComfyUI-Installs/ComfyUI/ComfyUI")
@@ -204,6 +210,9 @@ def main(argv=None):
         print(json.dumps(plan(), indent=2, ensure_ascii=False))
         return 0
     paths = roots(args.w3_root.resolve(), args.core.resolve(), args.shared.resolve())
+    if args.mode == "Derive":
+        from derive import derive
+        return derive(args,paths)
     if args.mode == "Verify":
         provenance = verify(paths)
         verify_sources(paths["core"])
